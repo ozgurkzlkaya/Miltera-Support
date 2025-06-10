@@ -2,7 +2,7 @@
 
 **Proje Adı:** Teknik Servis Portalı (service.miltera.com.tr)
 
-**Doküman Sürümü:** 1.0
+**Doküman Sürümü:** 1.1
 
 **Tarih:** 02 Haziran 2025
 
@@ -49,7 +49,7 @@ Bu doküman, sistemin genel mimarisini, ana kapsayıcılarını (Containers), ar
 - C4 Model Resmi Websitesi: https://c4model.com/
 - Miltera Ürün Kataloğu ve Teknik Dokümanları
 - React.js Resmi Dokümantasyonu
-- Node.js ve Express.js Resmi Dokümantasyonları
+- Hono Resmi Dokümantasyonları
 - PostgreSQL Resmi Dokümantasyonu
 ## 1.5. Dokümana Genel Bakış
 Bu doküman, giriş ve mimari hedefleri belirledikten sonra C4 modeli seviyelerine göre (Bağlam, Kapsayıcılar, Bileşenler) sistem mimarisini açıklar. Ardından React tabanlı frontend ve Node.js tabanlı backend teknoloji yığını, PostgreSQL veri tasarımı, RESTful API prensipleri, güvenlik ve diğer önemli tasarım kararlarını detaylandırır. Son bölümlerde ise Docker tabanlı dağıtım stratejisi, performans ve ölçeklenebilirlik konularını ele alır.
@@ -119,11 +119,11 @@ Bu doküman, giriş ve mimari hedefleri belirledikten sonra C4 modeli seviyeleri
 ### 3.2.2. Kapsayıcı Açıklamaları
 - **Frontend (React Web Uygulaması):**
     - _Sorumluluk:_ Kullanıcı arayüzü, state yönetimi, API iletişimi
-    - _Teknoloji:_ React 18, TypeScript, Material-UI, Redux Toolkit
+    - _Teknoloji:_ Next.js (React 18), TypeScript, Material-UI, React Query
     - _Anahtar Özellikler:_ Responsive tasarım, rol bazlı UI, gerçek zamanlı güncellemeler
 - **Backend API (Node.js):**
     - _Sorumluluk:_ İş mantığı, veri işleme, kimlik doğrulama, API endpoint'leri
-    - _Teknoloji:_ Node.js, Express.js, TypeScript, JWT, Nodemailer
+    - _Teknoloji:_ Node.js, Hono, TypeScript, JWT, Nodemailer
     - _Anahtar Özellikler:_ RESTful API, middleware tabanlı güvenlik, asenkron işlemler
 - **Veritabanı (PostgreSQL):**
     - _Sorumluluk:_ Veri kalıcılığı, ilişkisel veri yapısı, transaction yönetimi
@@ -200,8 +200,7 @@ App Router → [Auth Pages] → [Dashboard Pages] → [Product Management]
 - **Guards:** Route koruma ve yetki kontrol bileşenleri
 **State Management:**
 
-- Redux Toolkit ile global state yönetimi
-- RTK Query ile API cache yönetimi
+- React Query ile global state ve API cache yönetimi
 - Local state için React hooks
 **API Service Layer:**
 
@@ -219,7 +218,7 @@ Sistem domain-driven design prensiplerine göre modüler olarak tasarlanmıştı
 - **Notification Module:** Bildirim sistemi
 # 4. Teknoloji Yığını
 ## 4.1. Frontend
-**Temel Framework:** React 18.2+ with TypeScript
+**Temel Framework:** Next.js (React) with TypeScript
 
 **Seçim Gerekçesi:**
 
@@ -231,7 +230,7 @@ Sistem domain-driven design prensiplerine göre modüler olarak tasarlanmıştı
 **Ek Kütüphaneler:**
 
 - **UI Bileşenleri:** Material-UI (MUI) v5 - Modern Material Design komponenları
-- **Durum Yönetimi:** Redux Toolkit + RTK Query - Global state ve API cache yönetimi
+- **Durum Yönetimi:** React Query - Global state ve API cache yönetimi
 - **Yönlendirme:** React Router v6 - Client-side routing ve navigation guards
 - **Form Yönetimi:** React Hook Form + Yup - Performant form handling ve validation
 - **HTTP İstekleri:** Axios - Promise-based HTTP client with interceptors
@@ -240,7 +239,7 @@ Sistem domain-driven design prensiplerine göre modüler olarak tasarlanmıştı
 - **Styling:** Styled-components + Material-UI themes - Component-level styling
 - **Testing:** Jest + React Testing Library - Unit ve integration testleri
 ## 4.2. Backend
-**Temel Framework:** Node.js 18+ with Express.js 4.18+
+**Temel Framework:** Next.js with Hono
 
 **Seçim Gerekçesi:**
 
@@ -255,14 +254,12 @@ Sistem domain-driven design prensiplerine göre modüler olarak tasarlanmıştı
     - JWT (jsonwebtoken) - Stateless authentication
     - bcrypt - Password hashing
     - helmet - HTTP headers security
-    - express-rate-limit - API rate limiting
     - cors - Cross-origin resource sharing
 - **Veritabanı Erişimi:**
     - Prisma ORM - Type-safe database client
     - PostgreSQL driver
 - **API Dokümantasyonu:**
     - Swagger/OpenAPI 3.0 - API documentation
-    - swagger-ui-express - Interactive API explorer
 - **Asenkron İşlem:**
     - Bull Queue + Redis - Background job processing
     - Node.js Worker Threads - CPU intensive tasks
@@ -270,7 +267,7 @@ Sistem domain-driven design prensiplerine göre modüler olarak tasarlanmıştı
     - Nodemailer - SMTP email sending
     - Handlebars - Email template engine
 - **Validation:**
-    - Joi - Schema validation for API requests
+    - Zod - Schema validation for API requests
 - **Logging:**
     - Winston - Structured logging
     - Morgan - HTTP request logging
@@ -307,7 +304,6 @@ Sistem domain-driven design prensiplerine göre modüler olarak tasarlanmıştı
 - Real-time features için pub/sub desteği
 **Entegrasyon Yaklaşımı:**
 
-- Express-session + connect-redis ile session management
 - API response caching için redis middleware
 - Background job queue için Bull integration
 ## 4.5. Altyapı ve Dağıtım
@@ -1072,7 +1068,7 @@ CMD ["npm", "start"]
 # 10. Tasarım Kararları ve Gerekçeleri
 ## 10.1. Teknoloji Seçimleri
 ### 10.1.1. Frontend: React + TypeScript
-**Karar:** React 18 with TypeScript and Material-UI
+**Karar:** Next.js with TypeScript and Material-UI
 
 **Gerekçe:**
 
@@ -1085,8 +1081,8 @@ CMD ["npm", "start"]
 
 - **Vue.js:** Daha kolay öğrenme eğrisi ama ekip deneyimi eksik
 - **Angular:** Enterprise-grade ama learning curve steep ve overkill
-### 10.1.2. Backend: Node.js + Express
-**Karar:** Node.js with Express.js and TypeScript
+### 10.1.2. Backend: Node.js + Hono
+**Karar:** Node.js with Hono and TypeScript
 
 **Gerekçe:**
 
@@ -1129,19 +1125,19 @@ CMD ["npm", "start"]
 - **Scaling Bottlenecks:** Horizontal scaling strategy ile mitigation
 - **Technology Lock-in:** Interface-driven design ile technology flexibility
 ### 10.2.2. JWT-based Authentication
-**Karar:** Stateless JWT authentication with refresh tokens
+**Karar:** Hybrid JWT authentication with refresh tokens
 
 **Gerekçe:**
 
-- Scalability advantages (stateless)
-- Simple implementation
+- Scalability advantages (comparing to stateful)
 - Mobile app compatibility
 - Distributed system friendly
 **Tasarım Yaklaşımı:**
 
 - Short-lived access tokens (1 hour)
 - Refresh token rotation
-- Token blacklisting for security
+- Revoke functionality for security
+
 ### 10.2.3. RESTful API Design
 **Karar:** REST API with OpenAPI documentation
 
@@ -1275,7 +1271,7 @@ CMD ["npm", "start"]
 - Code quality scores
 - Security vulnerability count
 # 12. Sonuç
-Bu tasarım dokümanı, Teknik Servis Portalı'nın mimari yapısını, teknoloji seçimlerini, veri modelini, API tasarımını, güvenlik önlemlerini ve diğer kritik bileşenlerini tanımlamaktadır. React + Node.js + PostgreSQL technology stack ile modern, scalable ve secure bir web application geliştirilecektir.
+Bu tasarım dokümanı, Teknik Servis Portalı'nın mimari yapısını, teknoloji seçimlerini, veri modelini, API tasarımını, güvenlik önlemlerini ve diğer kritik bileşenlerini tanımlamaktadır. Next.js (React) + Node.js (Hono) + PostgreSQL technology stack ile modern, scalable ve secure bir web application geliştirilecektir.
 
 Proje, Miltera'nın enerji sektörü ürünlerinin yaşam döngüsü takibini dijitalleştirerek teknik servis süreçlerinde verimlilik ve şeffaflık sağlayacaktır. Modular architecture ile gelecekteki gereksinimler karşılanabilir ve sistem sürdürülebilir şekilde geliştirilebilir.
 
@@ -1293,7 +1289,7 @@ Tüm teknik ekibin bu dokümanı incelemesi ve implementation sırasında refera
 
 ---
 
-_Son Güncelleme: 02 Haziran 2025_
+_Son Güncelleme: 10 Haziran 2025_
  _Hazırlayan: Mehmet Kurnaz - Miltera R&D_
- _Versiyon: 1.0_
+ _Versiyon: 1.1_
 
