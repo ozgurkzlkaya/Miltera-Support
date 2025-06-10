@@ -1,8 +1,5 @@
-```
-npm install
-npm run dev
-```
+# API
 
-```
-open http://localhost:3000
-```
+**IMPORTANT!!** Do not deploy standalone, for now. *web* (Next.js) depends and hosts this app.
+
+*apps/web/app/api/[[...route]]/route.ts*
