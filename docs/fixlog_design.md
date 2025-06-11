@@ -127,7 +127,7 @@ Bu doküman, giriş ve mimari hedefleri belirledikten sonra C4 modeli seviyeleri
     - _Anahtar Özellikler:_ RESTful API, middleware tabanlı güvenlik, asenkron işlemler
 - **Veritabanı (PostgreSQL):**
     - _Sorumluluk:_ Veri kalıcılığı, ilişkisel veri yapısı, transaction yönetimi
-    - _Teknoloji:_ PostgreSQL 15, Prisma ORM
+    - _Teknoloji:_ PostgreSQL 15, Drizzle ORM
     - _Anahtar Özellikler:_ ACID özellikleri, foreign key constraints, indexing
 - **E-mail Service:**
     - _Sorumluluk:_ Otomatik e-posta bildirimleri, şablon yönetimi
@@ -135,7 +135,7 @@ Bu doküman, giriş ve mimari hedefleri belirledikten sonra C4 modeli seviyeleri
     - _Anahtar Özellikler:_ HTML şablonları, asenkron gönderim, error handling
 ### 3.2.3. Etkileşimler
 - React Frontend → Node.js API: HTTPS/JSON üzerinden RESTful API çağrıları
-- Node.js API → PostgreSQL: Prisma ORM üzerinden SQL sorguları
+- Node.js API → PostgreSQL: Drizzle ORM üzerinden SQL sorguları
 - Node.js API → E-mail Service: Durum değişikliklerinde asenkron e-posta gönderimi
 - Kullanıcılar → React Frontend: Modern web tarayıcıları üzerinden HTTPS
 ## 3.3. Bileşen Diyagramları (C4 Seviye 3)
@@ -172,7 +172,7 @@ API Gateway → [Auth Controller] → [Auth Service] → [User Repository]
 
 - **EmailService:** SMTP entegrasyonu, şablon yönetimi
 - **NotificationService:** Bildirim kuyruğu yönetimi
-- **DatabaseService:** Prisma ORM konfigürasyonu
+- **DatabaseService:** Drizzle ORM konfigürasyonu
 ### 3.3.2. Frontend Bileşenleri
 #### 3.3.2.1. Frontend Bileşen Diyagramı
 ```
@@ -256,7 +256,7 @@ Sistem domain-driven design prensiplerine göre modüler olarak tasarlanmıştı
     - helmet - HTTP headers security
     - cors - Cross-origin resource sharing
 - **Veritabanı Erişimi:**
-    - Prisma ORM - Type-safe database client
+    - Drizzle ORM - Type-safe database client
     - PostgreSQL driver
 - **API Dokümantasyonu:**
     - Swagger/OpenAPI 3.0 - API documentation
@@ -321,7 +321,7 @@ Sistem domain-driven design prensiplerine göre modüler olarak tasarlanmıştı
 - Staging: Cloud VM'ler üzerinde containerized deployment
 - Production: Multi-node setup ile high availability
 ## 4.6. Diğer Araçlar/Kütüphaneler
-- **ORM:** Prisma - Type-safe database access
+- **ORM:** Drizzle - Type-safe database access
 - **Mesajlaşma Kuyruğu:** Bull + Redis - Background job processing
 - **Test Kütüphaneleri:**
     - Jest (Unit testing)
@@ -461,7 +461,7 @@ Shipments (Sevkiyatlar)
     - Foreign keys için indexes
     - Search fields (serialNumber, issueNumber) için indexes
     - Composite indexes for frequent queries
-- **Transaction Management:** Prisma transaction API ile ACID garantisi
+- **Transaction Management:** Drizzle transaction API ile ACID garantisi
 - **Query Optimization:**
     - N+1 query problemini önlemek için eager loading
     - Pagination için cursor-based approach
@@ -903,7 +903,7 @@ POST /products/search
 ### 8.1.2. Veritabanı Performans Optimizasyonu
 - **İndeksleme Stratejisi:**-- Primary indexesCREATE INDEX idx_products_serial ON products(serial_number);CREATE INDEX idx_issues_number ON issues(issue_number);-- Composite indexes for common queriesCREATE INDEX idx_products_status_date ON products(current_status, created_at);CREATE INDEX idx_issues_customer_status ON issues(customer_id, status);-- Partial indexes for performanceCREATE INDEX idx_active_users ON users(email) WHERE is_active = true;
 - **Query Optimization:**
-    - Prisma query optimization with select/include
+    - Drizzle query optimization with select/include
     - Eager loading for related data
     - Database query analysis and optimization
 - **Connection Pooling:**
@@ -1096,7 +1096,7 @@ CMD ["npm", "start"]
 - **Python/Django:** Robust ama team JavaScript expertise'i
 - **Java/Spring:** Enterprise-grade ama complexity ve development speed
 ### 10.1.3. Database: PostgreSQL
-**Karar:** PostgreSQL 15 with Prisma ORM
+**Karar:** PostgreSQL 15 with Drizzle ORM
 
 **Gerekçe:**
 
