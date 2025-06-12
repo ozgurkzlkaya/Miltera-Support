@@ -1,14 +1,17 @@
+import { createHonoApp } from "./lib/hono";
+import type { HonoEnv } from "./config/env";
 import init from "./config/initializers/main";
-import { OpenAPIHono } from "@hono/zod-openapi";
 import { swaggerUI } from "@hono/swagger-ui";
 
 await init();
 
 import users from "./routes/user.routes";
+import products from "./routes/product.routes";
 
-const app = new OpenAPIHono()
+const app = createHonoApp<HonoEnv>()
   .basePath("/api")
-  .route("/users", users);
+  .route("/users", users)
+  .route("/products", products);
 
 app.get(
   "/docs",

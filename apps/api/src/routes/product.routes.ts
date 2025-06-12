@@ -1,7 +1,7 @@
 import { createRoute } from "@hono/zod-openapi";
 import { createRouter } from "../lib/hono";
 import type { HonoEnv } from "../config/env";
-import UserController from "../controllers/user.controller";
+import ProductController from "../controllers/product.controller";
 
 const list = createRoute({
   method: "get",
@@ -39,10 +39,10 @@ const destroy = createRoute({
 });
 
 const router = createRouter<HonoEnv>()
-  .openapi(list, UserController.list)
-  .openapi(show, UserController.show)
-  .openapi(create, UserController.create)
-  .openapi(update, UserController.update)
-  .openapi(destroy, UserController.destroy);
+  .openapi(list, ProductController.list)
+  .openapi(show, ProductController.show)
+  .openapi(create, ProductController.create)
+  .openapi(update, ProductController.update)
+  .openapi(destroy, ProductController.destroy);
 
 export default router;

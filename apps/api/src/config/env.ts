@@ -3,15 +3,10 @@ import url from "url";
 import dotenv from "dotenv";
 
 import { z } from "../lib/zod";
+import type { Env } from "hono";
 
 const __dirname = url.fileURLToPath(import.meta.url);
-const envLocalPath = path.resolve(
-  __dirname,
-  "..",
-  "..",
-  "..",
-  ".env.local"
-);
+const envLocalPath = path.resolve(__dirname, "..", "..", "..", ".env.local");
 
 // TODO: temporary
 dotenv.config({
@@ -26,4 +21,10 @@ const envSchema = z.object({
 
 const env = envSchema.parse(process.env);
 
+type HonoEnv = Env & {
+  Bindings: {};
+  Variables: {};
+};
+
 export default env;
+export type { HonoEnv };
