@@ -15,6 +15,8 @@
     "@miltera/ui": "workspace:*",
     "@tanstack/react-query": "^5.80.6",
     "@mui/material-nextjs": "7.1.1",
+    "@mui/icons-material": "7.1.1",
+    "@mui/material": "7.1.1",
     "hono": "^4.7.11",
     "next": "^15.3.0",
     "react": "18.3.1",
