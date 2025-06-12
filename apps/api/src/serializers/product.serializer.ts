@@ -1,20 +1,11 @@
-import type { Product } from '../schemas/product.schema';
+import type { ProductRaw, ProductSerialized } from "../schemas/product.schema";
 
-export function serializeProduct(product: Product) {
+export function serializeProduct(product: ProductRaw): ProductSerialized {
   return {
-    id: product.id,
-    manufacturerId: product.manufacturerId,
-    productTypeId: product.productTypeId,
-    productModelId: product.productModelId,
-    serialNumber: product.serialNumber,
-    productionDate: product.productionDate,
-    currentStatus: product.currentStatus,
-    warrantyStartDate: product.warrantyStartDate,
-    warrantyPeriodMonths: product.warrantyPeriodMonths,
-    companyId: product.companyId,
-    createdById: product.createdById,
-    lastUpdatedById: product.lastUpdatedById,
-    createdAt: product.createdAt,
-    updatedAt: product.updatedAt,
+    ...product,
+    updatedAt: product.updatedAt.toISOString(),
+    createdAt: product.createdAt.toISOString(),
+    productionDate: product.productionDate.toISOString(),
+    warrantyStartDate: product.warrantyStartDate?.toISOString() ?? null,
   };
-} 
+}

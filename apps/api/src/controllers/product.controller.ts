@@ -49,7 +49,7 @@ const update = createControllerAction("/:id", async (c) => {
   return c.responseJSON(response);
 });
 
-const destroy = createControllerAction(async (c) => {
+const destroy = createControllerAction("/:id", async (c) => {
   const id = c.req.param("id");
 
   const response = await productService.deleteProduct(id);

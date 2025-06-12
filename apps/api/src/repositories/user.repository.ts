@@ -3,7 +3,11 @@ import { eq } from "drizzle-orm";
 import { users } from "../db/schema";
 import type { Schema } from "../db";
 import { BaseRepositoryImpl, type BaseRepository } from "./base.repository";
-import type { User, UserInsert } from "../schemas/user.schema";
+import type {
+  User,
+  UserCreateParams,
+  UserUpdateParams,
+} from "../schemas/user.schema";
 import { encrypt } from "../lib/encryption";
 
 export class UserRepository
@@ -17,7 +21,7 @@ export class UserRepository
     super(db);
   }
 
-  async create(data: UserInsert): Promise<User> {
+  async create(data: UserCreateParams): Promise<User> {
     const password = encrypt(data.password);
 
     return super.create({
@@ -26,7 +30,7 @@ export class UserRepository
     });
   }
 
-  async update(id: string, data: Partial<User>): Promise<User | null> {
+  async update(id: string, data: UserUpdateParams): Promise<User | null> {
     const password = data.password ? encrypt(data.password) : undefined;
 
     return super.update(id, {

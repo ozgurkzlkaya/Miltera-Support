@@ -1,19 +1,38 @@
-import {
-  createSelectSchema,
-  createInsertSchema,
-  createUpdateSchema,
-} from "drizzle-zod";
+import { createSchemaFactory } from "drizzle-zod";
 import { users } from "../db/schema";
+import type { InferSelectModel } from "drizzle-orm";
 import { z } from "../lib/zod";
-import type { InferSelectModel, InferInsertModel } from "drizzle-orm";
 
-const UserSchema = createSelectSchema(users);
-const UserInsertSchema = createInsertSchema(users);
-const UserUpdateSchema = createUpdateSchema(users);
+const { createSelectSchema, createInsertSchema, createUpdateSchema } =
+  createSchemaFactory({ zodInstance: z });
 
-type User = InferSelectModel<typeof users>;
-type UserInsert = InferInsertModel<typeof users>;
-type UserUpdate = Partial<UserInsert>;
+const UserRawSchema = createSelectSchema(users);
+const UserSchema = UserRawSchema;
+const UserSerializedSchema = UserSchema.extend({
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
 
-export { UserSchema, UserInsertSchema, UserUpdateSchema };
-export type { User, UserInsert, UserUpdate };
+const UserCreateParamsRawSchema = createInsertSchema(users);
+const UserCreateParamsSchema = UserCreateParamsRawSchema;
+
+const UserUpdateParamsRawSchema = createUpdateSchema(users);
+const UserUpdateParamsSchema = UserUpdateParamsRawSchema;
+
+type UserRaw = InferSelectModel<typeof users>;
+type User = z.infer<typeof UserSchema>;
+type UserSerialized = z.infer<typeof UserSerializedSchema>;
+
+type UserCreateParams = z.infer<typeof UserCreateParamsRawSchema>;
+type UserUpdateParams = z.infer<typeof UserUpdateParamsRawSchema>;
+
+export { UserRawSchema, UserCreateParamsRawSchema, UserUpdateParamsRawSchema };
+export { UserSchema, UserCreateParamsSchema, UserUpdateParamsSchema };
+
+export type {
+  UserRaw,
+  User,
+  UserSerialized,
+  UserCreateParams,
+  UserUpdateParams,
+};

@@ -4,10 +4,10 @@ import { ResponseHandler } from "../helpers/response.helpers";
 import { ProductRepository } from "../repositories/product.repository";
 import { serializeProduct } from "../serializers/product.serializer";
 import {
-  ProductInsertSchema,
-  ProductUpdateSchema,
-  type ProductInsert,
-  type ProductUpdate,
+  ProductCreateParamsSchema,
+  ProductUpdateParamsSchema,
+  type ProductCreateParams,
+  type ProductUpdateParams,
 } from "../schemas/product.schema";
 
 export class ProductService {
@@ -26,6 +26,7 @@ export class ProductService {
       const products = (await this.repository.findAll(options)).map((product) =>
         serializeProduct(product)
       );
+
       return ResponseHandler.success(products);
     } catch (error) {
       return ResponseHandler.internalError("Failed to fetch products");
@@ -44,24 +45,12 @@ export class ProductService {
     }
   }
 
-  async createProduct(data: ProductInsert) {
+  async createProduct(data: ProductCreateParams) {
     const { data: productData, error: validationError } =
-      await ProductInsertSchema.safeParseAsync(data);
+      await ProductCreateParamsSchema.safeParseAsync(data);
 
     if (validationError) {
       return ResponseHandler.validationError(validationError.message);
-    }
-
-    // Check if product with serial number already exists
-    if (productData.serialNumber) {
-      const existingProduct = await this.repository.findBySerialNumber(
-        productData.serialNumber
-      );
-      if (existingProduct) {
-        return ResponseHandler.validationError(
-          "Product with this serial number already exists"
-        );
-      }
     }
 
     try {
@@ -72,23 +61,12 @@ export class ProductService {
     }
   }
 
-  async updateProduct(id: string, data: ProductUpdate) {
+  async updateProduct(id: string, data: ProductUpdateParams) {
     const { data: productData, error: validationError } =
-      await ProductUpdateSchema.safeParseAsync(data);
+      await ProductUpdateParamsSchema.safeParseAsync(data);
 
     if (validationError) {
       return ResponseHandler.validationError(validationError.message);
-    }
-
-    if (productData.serialNumber) {
-      const existingProduct = await this.repository.findBySerialNumber(
-        productData.serialNumber
-      );
-      if (existingProduct && existingProduct.id !== id) {
-        return ResponseHandler.validationError(
-          "Serial number is already in use"
-        );
-      }
     }
 
     try {
@@ -112,46 +90,6 @@ export class ProductService {
       return ResponseHandler.status(204);
     } catch (error) {
       return ResponseHandler.internalError("Failed to delete product");
-    }
-  }
-
-  async getProductsByType(productTypeId: string) {
-    try {
-      const products = (
-        await this.repository.findByProductType(productTypeId)
-      ).map((product) => serializeProduct(product));
-      return ResponseHandler.success(products);
-    } catch (error) {
-      return ResponseHandler.internalError("Failed to fetch products by type");
-    }
-  }
-
-  async getProductsByModel(productModelId: string) {
-    try {
-      const products = (
-        await this.repository.findByProductModel(productModelId)
-      ).map((product) => serializeProduct(product));
-      return ResponseHandler.success(products);
-    } catch (error) {
-      return ResponseHandler.internalError("Failed to fetch products by model");
-    }
-  }
-
-  async getProductTypes() {
-    try {
-      const types = await this.repository.getProductTypes();
-      return ResponseHandler.success(types);
-    } catch (error) {
-      return ResponseHandler.internalError("Failed to fetch product types");
-    }
-  }
-
-  async getProductModels(productTypeId?: string) {
-    try {
-      const models = await this.repository.getProductModels(productTypeId);
-      return ResponseHandler.success(models);
-    } catch (error) {
-      return ResponseHandler.internalError("Failed to fetch product models");
     }
   }
 }

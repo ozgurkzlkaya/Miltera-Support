@@ -1,14 +1,13 @@
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import type { Schema } from "../db";
-import { encrypt } from "../lib/encryption";
 import { ResponseHandler } from "../helpers/response.helpers";
 import { UserRepository } from "../repositories/user.repository";
 import { serializeUser } from "../serializers/user.serializer";
 import {
-  UserInsertSchema,
-  UserUpdateSchema,
-  type UserInsert,
-  type UserUpdate,
+  UserCreateParamsSchema,
+  UserUpdateParamsSchema,
+  type UserCreateParams,
+  type UserUpdateParams,
 } from "../schemas/user.schema";
 
 export class UserService {
@@ -39,15 +38,15 @@ export class UserService {
       if (!user) {
         return ResponseHandler.notFound("User not found");
       }
-      return ResponseHandler.success(user);
+      return ResponseHandler.success(serializeUser(user));
     } catch (error) {
       return ResponseHandler.internalError("Failed to fetch user");
     }
   }
 
-  async createUser(data: UserInsert) {
+  async createUser(data: UserCreateParams) {
     const { data: userData, error: validationError } =
-      await UserInsertSchema.safeParseAsync(data);
+      await UserCreateParamsSchema.safeParseAsync(data);
 
     if (validationError) {
       return ResponseHandler.validationError(validationError.message);
@@ -71,9 +70,9 @@ export class UserService {
     }
   }
 
-  async updateUser(id: string, data: UserUpdate) {
+  async updateUser(id: string, data: UserUpdateParams) {
     const { data: userData, error: validationError } =
-      await UserUpdateSchema.safeParseAsync(data);
+      await UserUpdateParamsSchema.safeParseAsync(data);
 
     if (validationError) {
       return ResponseHandler.validationError(validationError.message);

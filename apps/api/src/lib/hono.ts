@@ -13,14 +13,4 @@ const createHonoApp = <
   return new OpenAPIHono<E, S, BasePath>(init).use(responderMiddleware) as any; // this is fine, ignore type issues
 };
 
-const createRouter = <
-  E extends Env,
-  S extends Schema = {},
-  BasePath extends string = "/",
->(
-  init?: HonoOptions<Env> & OpenAPIHonoOptions<E>
-): OpenAPIHono<E, S, BasePath> => {
-  return createHonoApp<E, S, BasePath>(init);
-};
-
-export { createHonoApp, createRouter };
+export { createHonoApp, createHonoApp as createRouter };

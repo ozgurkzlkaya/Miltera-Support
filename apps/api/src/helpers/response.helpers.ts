@@ -1,20 +1,35 @@
+import { z } from "../lib/zod";
 import type { ContentfulStatusCode, StatusCode } from "hono/utils/http-status";
 
-type ApiResponse<T> = {
+type ApiSuccessResponse<
+  T,
+  U extends ContentfulStatusCode = ContentfulStatusCode,
+> = {
   json: {
-    success: boolean;
-    data?: T;
-    error?: {
+    success: true;
+    data: T;
+    meta?: Record<string, any>;
+  };
+  statusCode: U;
+};
+
+type ApiErrorResponse<U extends ContentfulStatusCode = ContentfulStatusCode> = {
+  json: {
+    success: false;
+    error: {
       code: string;
       message: string;
     };
     meta?: Record<string, any>;
   };
-  statusCode: ContentfulStatusCode;
+  statusCode: U;
 };
 
 const ResponseHandler = {
-  success<T>(data: T, meta?: ApiResponse<T>["json"]["meta"]): ApiResponse<T> {
+  success<T>(
+    data: T,
+    meta?: ApiSuccessResponse<T>["json"]["meta"]
+  ): ApiSuccessResponse<T, 200> {
     return {
       json: {
         success: true,
@@ -25,11 +40,11 @@ const ResponseHandler = {
     };
   },
 
-  error(
+  error<S extends ContentfulStatusCode>(
     code: string,
     message: string,
-    statusCode: ContentfulStatusCode
-  ): ApiResponse<never> {
+    statusCode: S
+  ): ApiErrorResponse<S> {
     return {
       json: {
         success: false,
@@ -42,36 +57,59 @@ const ResponseHandler = {
     };
   },
 
-  status(statusCode: StatusCode) {
+  status<U extends StatusCode>(statusCode: U) {
     return {
       statusCode,
-    };
+    } as const;
   },
 
-  validationError(message: string): ApiResponse<never> {
+  validationError(message: string) {
     return this.error("VALIDATION_ERROR", message, 422);
   },
 
-  notFound(resource: string): ApiResponse<never> {
+  notFound(resource: string) {
     return this.error("NOT_FOUND", `${resource} not found`, 404);
   },
 
-  unauthorized(message: string = "Unauthorized"): ApiResponse<never> {
+  unauthorized(message = "Unauthorized") {
     return this.error("UNAUTHORIZED", message, 401);
   },
 
-  badRequest(message: string): ApiResponse<never> {
+  badRequest(message: string) {
     return this.error("BAD_REQUEST", message, 400);
   },
 
-  internalError(message: string = "Internal server error"): ApiResponse<never> {
-    return this.error("INTERNAL_ERROR", message, 500);
+  internalError(message = "Internal server error") {
+    return this.error("INTERNAL_SERVER_ERROR", message, 500);
   },
 
-  forbidden(message: string = "Forbidden"): ApiResponse<never> {
+  forbidden(message = "Forbidden") {
     return this.error("FORBIDDEN", message, 403);
   },
 };
 
+const buildResponseSuccessSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
+  z.object({
+    success: z.literal(true),
+    data: dataSchema,
+    meta: z.record(z.string(), z.any()).optional(),
+  });
+
+const buildResponseErrorSchema = <
+  T extends z.ZodString | z.ZodLiteral<string>,
+  U extends z.ZodString | z.ZodLiteral<string>,
+>(
+  code: T,
+  message: U
+) =>
+  z.object({
+    success: z.literal(false),
+    error: z.object({
+      code: code,
+      message: message,
+    }),
+  });
+
 export { ResponseHandler };
-export type { ApiResponse };
+export { buildResponseSuccessSchema, buildResponseErrorSchema };
+export type { ApiSuccessResponse, ApiErrorResponse };

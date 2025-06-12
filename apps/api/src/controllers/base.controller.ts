@@ -7,7 +7,11 @@ import type {
   Next,
   TypedResponse,
 } from "hono/types";
-import type { ApiResponse } from "../helpers/response.helpers";
+import type { ContentfulStatusCode, StatusCode } from "hono/utils/http-status";
+import type {
+  ApiSuccessResponse,
+  ApiErrorResponse,
+} from "../helpers/response.helpers";
 import type { HonoEnv } from "../config/env";
 
 type Context<
@@ -15,23 +19,32 @@ type Context<
   P extends string = any,
   I extends Input = {},
 > = HonoContext<E, P, I> & {
-  responseJSON: <R extends ApiResponse<any>>(
+  responseJSON: <
+    T extends any,
+    U extends ContentfulStatusCode,
+    R extends ApiSuccessResponse<T, U> | ApiErrorResponse<U>,
+  >(
     response: R
-  ) => Response &
-    TypedResponse<NonNullable<R["json"]>, R["statusCode"], "json">;
+  ) => Promise<Response & (
+    R extends ApiSuccessResponse<T, infer S> 
+      ? TypedResponse<R["json"], S, "json">
+      : R extends ApiErrorResponse<infer E>
+        ? TypedResponse<R["json"], E, "json">
+        : never
+  )>;
   responseStatus: (statusCode: number) => Response;
 };
 
 type ControllerAction<
   E extends Env = HonoEnv,
-  P extends string = any,
+  P extends string = "/",
   I extends Input = BlankInput,
   R extends HandlerResponse<any> = any,
 > = (c: Context<E, P, I>, next: Next) => R;
 
 function createControllerAction<
   E extends Env = HonoEnv,
-  P extends string = any,
+  P extends string = "/",
   I extends Input = BlankInput,
   R extends HandlerResponse<any> = any,
 >(action: ControllerAction<E, P, I, R>): Handler<E, P, I, R>;
@@ -62,7 +75,7 @@ type InferHandler<T> =
 
 const buildJSONResponder =
   (c: Context) =>
-  <T extends any>(response: ApiResponse<T>) => {
+  <T extends any>(response: ApiSuccessResponse<T> | ApiErrorResponse) => {
     return c.json(response.json, response.statusCode);
   };
 

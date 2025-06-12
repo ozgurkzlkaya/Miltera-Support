@@ -1,15 +1,10 @@
-import type { User } from "../schemas/user.schema";
+import type { User, UserSerialized } from "../schemas/user.schema";
 
-const serializeUser = (user: User) => {
+const serializeUser = (user: User): UserSerialized => {
   return {
-    id: user.id,
-    email: user.email,
-    firstName: user.firstName,
-    lastName: user.lastName,
-    role: user.role,
-    isActive: user.isActive,
-    createdAt: user.createdAt,
-    updatedAt: user.updatedAt,
+    ...user,
+    createdAt: user.createdAt.toISOString(),
+    updatedAt: user.updatedAt.toISOString(),
   };
 };
 
