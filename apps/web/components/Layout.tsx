@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Box,
   CssBaseline,
@@ -21,8 +23,12 @@ import {
   Assignment as AssignmentIcon,
   People as PeopleIcon,
   Assessment as AssessmentIcon,
+  Home as HomeIcon,
+  Person as CustomerIcon,
+  Engineering as ServiceIcon,
 } from "@mui/icons-material";
 import { ReactNode, useState } from "react";
+import { useRouter } from "next/navigation";
 
 interface LayoutProps {
   title: string;
@@ -31,54 +37,64 @@ interface LayoutProps {
 
 const drawerWidth = 240;
 
-const menuItems = [
-  {
-    icon: <DashboardIcon />,
-    text: "Dashboard",
-    onClick: () => console.log("Dashboard clicked"),
-  },
-  {
-    icon: <BuildIcon />,
-    text: "Products",
-    onClick: () => console.log("Products clicked"),
-  },
-  {
-    icon: <AssignmentIcon />,
-    text: "Issues",
-    onClick: () => console.log("Issues clicked"),
-  },
-  {
-    icon: <ShippingIcon />,
-    text: "Shipments",
-    onClick: () => console.log("Shipments clicked"),
-  },
-  {
-    icon: <PeopleIcon />,
-    text: "Customers",
-    onClick: () => console.log("Customers clicked"),
-  },
-  {
-    icon: <AssessmentIcon />,
-    text: "Reports",
-    onClick: () => console.log("Reports clicked"),
-  },
-  {
-    icon: <SettingsIcon />,
-    text: "Settings",
-    onClick: () => console.log("Settings clicked"),
-  },
-  {
-    icon: <NotificationsIcon />,
-    text: "Notifications",
-    onClick: () => console.log("Notifications clicked"),
-  },
-];
-
 export const Layout = ({ title, children }: LayoutProps) => {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const router = useRouter();
+
+  const menuItems = [
+    {
+      icon: <HomeIcon />,
+      text: "Home",
+      path: "/",
+    },
+    {
+      icon: <DashboardIcon />,
+      text: "Dashboard",
+      path: "/dashboard",
+    },
+    {
+      icon: <BuildIcon />,
+      text: "Products",
+      path: "/dashboard/products",
+    },
+    {
+      icon: <AssignmentIcon />,
+      text: "Issues",
+      path: "/dashboard/issues",
+    },
+    {
+      icon: <ServiceIcon />,
+      text: "Service Operations",
+      path: "/dashboard/service-operations",
+    },
+    {
+      icon: <ShippingIcon />,
+      text: "Shipments",
+      path: "/dashboard/shipments",
+    },
+    {
+      icon: <PeopleIcon />,
+      text: "Customers",
+      path: "/dashboard/customers",
+    },
+    {
+      icon: <AssessmentIcon />,
+      text: "Reports",
+      path: "/dashboard/reports",
+    },
+    {
+      icon: <CustomerIcon />,
+      text: "Customer Portal",
+      path: "/customer-portal",
+    },
+  ];
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
+  };
+
+  const handleNavigation = (path: string) => {
+    router.push(path);
   };
 
   const drawer = (
@@ -88,7 +104,7 @@ export const Layout = ({ title, children }: LayoutProps) => {
         {menuItems.map((item, index) => (
           <ListItem
             key={index}
-            onClick={item.onClick}
+            onClick={() => handleNavigation(item.path)}
             sx={{ cursor: "pointer" }}
           >
             <ListItemIcon>{item.icon}</ListItemIcon>
