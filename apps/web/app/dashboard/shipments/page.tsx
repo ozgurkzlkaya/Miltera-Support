@@ -1,15 +1,17 @@
 "use client";
 
-import { Box, Chip, Avatar, Typography, Card, CardContent, Stack } from "@mui/material";
+import { Box, Chip, Avatar, Typography, Card, CardContent, Stack, Button } from "@mui/material";
 import { Layout } from "../../../components/Layout";
 import { DataTable, TableColumn, FormField, BulkAction } from "../../../components/DataTable";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
 import { useState } from "react";
+import Link from "next/link";
 import { 
   Delete as DeleteIcon,
   LocalShipping as ShippingIcon,
   Business as BusinessIcon,
   Inventory as InventoryIcon,
+  LocationOn as LocationIcon,
 } from "@mui/icons-material";
 
 const initialShipments = [
@@ -113,6 +115,13 @@ const productOptions = [
   { value: 2, label: "EA-100-005 (SN654321)" },
   { value: 3, label: "VR-500-012 (SN987654)" },
   { value: 4, label: "SM-300-003 (SN456789)" },
+];
+
+const shippingOriginOptions = [
+  { value: 1, label: "Istanbul Warehouse (LOC-001)" },
+  { value: 2, label: "Ankara Service Center (LOC-002)" },
+  { value: 3, label: "Izmir Office (LOC-003)" },
+  { value: 4, label: "Bursa Warehouse (LOC-004)" },
 ];
 
 const getStatusColor = (status: string) => {
@@ -284,13 +293,23 @@ const formFields: FormField[] = [
     layout: { row: 1, column: 0 }, // Second row, first column
   },
   { 
+    id: "shippingOriginId", 
+    label: "Shipping Origin", 
+    type: "autocomplete", 
+    required: true, 
+    options: shippingOriginOptions,
+    searchable: true,
+    helperText: "Select the shipping origin",
+    layout: { row: 1, column: 1 }, // Second row, second column
+  },
+  { 
     id: "carrier", 
     label: "Carrier", 
     type: "autocomplete", 
     required: true, 
     options: carrierOptions,
     searchable: true,
-    layout: { row: 1, column: 1 }, // Second row, second column
+    layout: { row: 1, column: 2 }, // Second row, third column
   },
   { 
     id: "trackingNumber", 
@@ -299,7 +318,7 @@ const formFields: FormField[] = [
     required: false,
     placeholder: "e.g., TRK123456789",
     helperText: "Leave empty if not yet assigned",
-    layout: { row: 1, column: 2 }, // Second row, third column
+    layout: { row: 2, column: 1 }, // Third row, second column
   },
   { 
     id: "productIds", 
@@ -308,14 +327,14 @@ const formFields: FormField[] = [
     required: true, 
     options: productOptions,
     helperText: "Select one or more products for this shipment",
-    layout: { row: 2, column: 0 }, // Third row, full width
+    layout: { row: 3, column: 0 }, // Fourth row, full width
   },
   { 
     id: "estimatedDelivery", 
     label: "Estimated Delivery", 
     type: "date", 
     required: true,
-    layout: { row: 3, column: 0 }, // Fourth row, first column
+    layout: { row: 4, column: 0 }, // Fifth row, first column
   },
   { 
     id: "actualDelivery", 
@@ -323,7 +342,7 @@ const formFields: FormField[] = [
     type: "date", 
     required: false,
     helperText: "Fill when shipment is delivered",
-    layout: { row: 3, column: 1 }, // Fourth row, second column
+    layout: { row: 4, column: 1 }, // Fifth row, second column
   },
   { 
     id: "notes", 
@@ -331,7 +350,7 @@ const formFields: FormField[] = [
     type: "text", 
     required: false,
     placeholder: "Additional notes about the shipment",
-    layout: { row: 4, column: 0 }, // Fifth row, full width
+    layout: { row: 5, column: 0 }, // Sixth row, full width
   },
 ];
 
@@ -353,6 +372,7 @@ export default function ShipmentsPage() {
 
   const handleAdd = (data: any) => {
     const company = companyOptions.find(c => c.value === parseInt(data.companyId));
+    const shippingOrigin = shippingOriginOptions.find(l => l.value === parseInt(data.shippingOriginId));
     const { productCount } = calculateShipmentTotals(data.productIds || []);
     
     // Create mock shipment items
@@ -370,6 +390,8 @@ export default function ShipmentsPage() {
       id: Math.max(...shipments.map(s => s.id)) + 1,
       companyId: parseInt(data.companyId),
       companyName: company?.label || "Unknown",
+      shippingOriginId: parseInt(data.shippingOriginId),
+      shippingOriginName: shippingOrigin?.label || "Unknown",
       productCount,
       shipmentItems,
       actualDelivery: data.actualDelivery || null,
@@ -385,6 +407,7 @@ export default function ShipmentsPage() {
 
   const handleEdit = (id: string | number, data: any) => {
     const company = companyOptions.find(c => c.value === parseInt(data.companyId));
+    const shippingOrigin = shippingOriginOptions.find(l => l.value === parseInt(data.shippingOriginId));
     const { productCount } = calculateShipmentTotals(data.productIds || []);
     
     // Create mock shipment items
@@ -404,6 +427,8 @@ export default function ShipmentsPage() {
             ...data, 
             companyId: parseInt(data.companyId),
             companyName: company?.label || "Unknown",
+            shippingOriginId: parseInt(data.shippingOriginId),
+            shippingOriginName: shippingOrigin?.label || "Unknown",
             productCount,
             shipmentItems,
             actualDelivery: data.actualDelivery || null,
@@ -542,7 +567,17 @@ export default function ShipmentsPage() {
                 </Typography>
               </CardContent>
             </Card>
-
+          </Stack>
+          <Stack spacing={1} sx={{ minWidth: 200 }}>
+            <Link href="/dashboard/locations" passHref>
+              <Button
+                variant="outlined"
+                startIcon={<LocationIcon />}
+                fullWidth
+              >
+                Manage Locations
+              </Button>
+            </Link>
           </Stack>
         </Box>
 

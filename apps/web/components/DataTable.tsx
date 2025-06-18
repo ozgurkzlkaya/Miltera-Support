@@ -112,6 +112,9 @@ export interface FormField {
   disabled?: boolean | ((isEdit: boolean, formData: any) => boolean); // Can be static or dynamic
   showInCreateMode?: boolean; // Whether to show in create mode (default: true)
   showInEditMode?: boolean; // Whether to show in edit mode (default: true)
+  // Custom properties
+  isProductSelector?: boolean; // Custom flag for product selector field
+  onProductSelectorClick?: (currentValue: any, onSelectionChange: (value: any) => void) => void;
 }
 
 export interface BulkAction {
@@ -542,6 +545,32 @@ export const DataTable = ({
         );
 
       default:
+        // Handle product selector field
+        if (field.isProductSelector) {
+          const displayValue = Array.isArray(value) && value.length > 0 
+            ? `${value.length} product${value.length > 1 ? 's' : ''} selected`
+            : field.placeholder || "Click to select products...";
+            
+          return (
+            <TextField
+              key={field.id}
+              {...commonProps}
+              value={displayValue}
+              onClick={() => {
+                if (!isDisabled && field.onProductSelectorClick) {
+                  field.onProductSelectorClick(value, (newValue) => {
+                    handleInputChange(field.id, newValue);
+                  });
+                }
+              }}
+              InputProps={{
+                readOnly: true,
+                sx: { cursor: 'pointer' }
+              }}
+            />
+          );
+        }
+        
         return (
           <TextField
             key={field.id}

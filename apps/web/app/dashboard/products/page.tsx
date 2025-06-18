@@ -4,12 +4,14 @@ import { Box, Chip, Avatar, Typography, Card, CardContent, Button, Stack } from 
 import { Layout } from "../../../components/Layout";
 import { DataTable, TableColumn, FormField, BulkAction } from "../../../components/DataTable";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
+import { BulkProductCreator } from "../../../components/BulkProductCreator";
 import { useState } from "react";
 import { 
   Delete as DeleteIcon, 
   Category as CategoryIcon,
   ModelTraining as ModelIcon,
   Add as AddIcon,
+  PostAdd as BulkAddIcon,
 } from "@mui/icons-material";
 import Link from "next/link";
 
@@ -29,7 +31,8 @@ const initialProducts = [
     productionDate: "2024-01-10",
     companyId: 1,
     companyName: "ABC Enerji",
-    location: "İstanbul Depo",
+    stockLocationId: 1,
+    stockLocationName: "Ana Depo",
     createdAt: "2024-01-15T10:30:00Z",
   },
   {
@@ -47,7 +50,8 @@ const initialProducts = [
     productionDate: "2024-01-25",
     companyId: 2,
     companyName: "XYZ Elektrik",
-    location: "Ankara Sahası",
+    stockLocationId: null, // Customer-owned product
+    stockLocationName: null,
     createdAt: "2024-02-01T14:20:00Z",
   },
   {
@@ -65,7 +69,8 @@ const initialProducts = [
     productionDate: "2024-02-10",
     companyId: 3,
     companyName: "DEF Teknoloji",
-    location: "İzmir Depo",
+    stockLocationId: 6,
+    stockLocationName: "İkincil Depo",
     createdAt: "2024-02-15T09:15:00Z",
   },
   {
@@ -83,7 +88,8 @@ const initialProducts = [
     productionDate: "2023-11-20",
     companyId: 1,
     companyName: "ABC Enerji",
-    location: "Servis Merkezi",
+    stockLocationId: 4,
+    stockLocationName: "Servis Merkezi",
     createdAt: "2023-12-01T16:45:00Z",
   },
 ];
@@ -114,6 +120,15 @@ const manufacturerOptions = [
   { value: "Miltera", label: "Miltera" },
   { value: "Partner Corp", label: "Partner Corporation" },
   { value: "Tech Solutions", label: "Tech Solutions Ltd." },
+];
+
+const stockLocationOptions = [
+  { value: 1, label: "Ana Depo" },
+  { value: 2, label: "Raf A-1" },
+  { value: 3, label: "Raf A-2" },
+  { value: 4, label: "Servis Merkezi" },
+  { value: 5, label: "Onarım Masası 1" },
+  { value: 6, label: "İkincil Depo" },
 ];
 
 const statusOptions = [
@@ -205,11 +220,23 @@ const columns: TableColumn[] = [
     ),
   },
   { 
-    id: "location", 
-    label: "Location", 
-    width: 120, 
+    id: "stockLocationName", 
+    label: "Stock Location", 
+    width: 140, 
     sortable: true, 
     filterable: true,
+    render: (value, row) => value ? (
+      <Chip
+        label={value}
+        color="info"
+        size="small"
+        variant="outlined"
+      />
+    ) : (
+      <Typography variant="caption" color="text.secondary" fontStyle="italic">
+        Customer-owned
+      </Typography>
+    ),
   },
 
   { 
@@ -273,11 +300,13 @@ const formFields: FormField[] = [
     layout: { row: 2, column: 0 }, // Third row, first column
   },
   { 
-    id: "location", 
-    label: "Location", 
-    type: "text", 
-    required: true,
-    placeholder: "e.g., İstanbul Depo",
+    id: "stockLocationId", 
+    label: "Stock Location", 
+    type: "autocomplete", 
+    required: false,
+    options: stockLocationOptions,
+    searchable: true,
+    helperText: "Required for stock items (leave empty for customer-owned products)",
     layout: { row: 2, column: 1 }, // Third row, second column
   },
   { 
@@ -319,11 +348,13 @@ export default function ProductsPage() {
     id: number | null;
     name: string;
   }>({ open: false, id: null, name: "" });
+  const [bulkCreateOpen, setBulkCreateOpen] = useState(false);
 
   const handleAdd = (data: any) => {
     // Find related names for display
     const productModel = productModelOptions.find(pm => pm.value === parseInt(data.productModelId));
     const company = companyOptions.find(c => c.value === parseInt(data.companyId));
+    const stockLocation = stockLocationOptions.find(sl => sl.value === parseInt(data.stockLocationId));
     
     // Automatically determine product type and manufacturer based on model
     // This mapping should ideally come from your backend/database
@@ -355,6 +386,8 @@ export default function ProductsPage() {
       manufacturer: manufacturer || "Miltera",
       companyId: data.companyId ? parseInt(data.companyId) : null,
       companyName: company?.label || null,
+      stockLocationId: data.stockLocationId ? parseInt(data.stockLocationId) : null,
+      stockLocationName: stockLocation?.label || null,
       warrantyPeriodMonths: parseInt(data.warrantyPeriodMonths),
       createdAt: new Date().toISOString(),
     };
@@ -365,6 +398,7 @@ export default function ProductsPage() {
     // Find related names for display
     const productModel = productModelOptions.find(pm => pm.value === parseInt(data.productModelId));
     const company = companyOptions.find(c => c.value === parseInt(data.companyId));
+    const stockLocation = stockLocationOptions.find(sl => sl.value === parseInt(data.stockLocationId));
     
     // Automatically determine product type and manufacturer based on model
     const modelToTypeMapping: Record<number, { id: number, name: string }> = {
@@ -397,6 +431,8 @@ export default function ProductsPage() {
             manufacturer: manufacturer || "Miltera",
             companyId: data.companyId ? parseInt(data.companyId) : null,
             companyName: company?.label || null,
+            stockLocationId: data.stockLocationId ? parseInt(data.stockLocationId) : null,
+            stockLocationName: stockLocation?.label || null,
             warrantyPeriodMonths: parseInt(data.warrantyPeriodMonths),
           }
         : product
@@ -419,6 +455,49 @@ export default function ProductsPage() {
 
   const handleDeleteCancel = () => {
     setDeleteDialog({ open: false, id: null, name: "" });
+  };
+
+  const handleBulkCreate = (bulkProducts: any[]) => {
+    const modelToTypeMapping: Record<number, { id: number, name: string }> = {
+      1: { id: 1, name: "Gateway" },
+      2: { id: 2, name: "Energy Analyzer" },
+      3: { id: 3, name: "VPN Router" },
+      4: { id: 4, name: "Smart Meter" },
+    };
+    
+    const modelToManufacturerMapping: Record<number, string> = {
+      1: "Miltera", 2: "Miltera", 3: "Miltera", 4: "Miltera",
+    };
+
+    const newProducts = bulkProducts.map((product, index) => {
+      const productModel = productModelOptions.find(pm => pm.value === product.productModelId);
+      const company = companyOptions.find(c => c.value === product.companyId);
+      const stockLocation = stockLocationOptions.find(sl => sl.value === product.stockLocationId);
+      const productType = modelToTypeMapping[product.productModelId];
+      const manufacturer = modelToManufacturerMapping[product.productModelId];
+
+      return {
+        id: Math.max(...products.map(p => p.id)) + index + 1,
+        name: product.name,
+        serial: product.serial,
+        productTypeId: productType?.id || 1,
+        productTypeName: productType?.name || "Unknown",
+        productModelId: product.productModelId,
+        productModelName: productModel?.label || "Unknown",
+        manufacturer: manufacturer || "Miltera",
+        currentStatus: product.currentStatus,
+        warrantyStartDate: product.warrantyStartDate,
+        warrantyPeriodMonths: product.warrantyPeriodMonths,
+        productionDate: product.productionDate,
+        companyId: product.companyId,
+        companyName: company?.label || null,
+        stockLocationId: product.stockLocationId,
+        stockLocationName: stockLocation?.label || null,
+        createdAt: new Date().toISOString(),
+      };
+    });
+
+    setProducts([...products, ...newProducts]);
   };
 
   const handleBulkDelete = (ids: (string | number)[]) => {
@@ -559,6 +638,17 @@ export default function ProductsPage() {
         </Box>
 
         {/* Products DataTable */}
+        <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+          <Button 
+            variant="contained"
+            color="secondary"
+            startIcon={<BulkAddIcon />}
+            onClick={() => setBulkCreateOpen(true)}
+          >
+            Bulk Add Products
+          </Button>
+        </Box>
+
         <DataTable
           title="Products"
           columns={columns}
@@ -572,6 +662,16 @@ export default function ProductsPage() {
           selectable={true}
           bulkActions={bulkActions}
           pageSize={10}
+        />
+
+        <BulkProductCreator
+          open={bulkCreateOpen}
+          onClose={() => setBulkCreateOpen(false)}
+          onSubmit={handleBulkCreate}
+          productModelOptions={productModelOptions}
+          companyOptions={companyOptions}
+          stockLocationOptions={stockLocationOptions}
+          statusOptions={statusOptions}
         />
 
         <ConfirmDialog

@@ -63,11 +63,6 @@ export const Layout = ({ title, children }: LayoutProps) => {
       path: "/dashboard/issues",
     },
     {
-      icon: <ServiceIcon />,
-      text: "Service Operations",
-      path: "/dashboard/service-operations",
-    },
-    {
       icon: <ShippingIcon />,
       text: "Shipments",
       path: "/dashboard/shipments",

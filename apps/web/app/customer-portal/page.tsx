@@ -82,7 +82,11 @@ export default function CustomerPortalPage() {
     }
 
     if (statType === "completedIssues") {
-      window.location.href = "/customer-portal/service-operations";
+      setSnackbar({
+        open: true,
+        message: "Tamamlanan arıza kayıtları görüntüleniyor...",
+        severity: "info",
+      });
       return;
     }
 
@@ -152,7 +156,11 @@ export default function CustomerPortalPage() {
       window.location.href = "/customer-portal/products";
     },
     viewServiceOperations: () => {
-      window.location.href = "/customer-portal/service-operations";
+      setSnackbar({
+        open: true,
+        message: "Servis işlemleri arıza kayıtları içerisinde görüntülenebilir.",
+        severity: "info",
+      });
     },
   };
 
