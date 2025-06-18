@@ -33,6 +33,7 @@ export const users = pgTable('users', {
     role: userRoleEnum('role').notNull(),
     companyId: uuid('company_id').references(() => companies.id),
     isActive: boolean('is_active').default(true).notNull(),
+    mustChangePassword: boolean('must_change_password').default(false).notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
     deletedAt: timestamp('deleted_at'),
