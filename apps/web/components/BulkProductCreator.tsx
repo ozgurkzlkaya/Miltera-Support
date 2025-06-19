@@ -88,9 +88,7 @@ export const BulkProductCreator: React.FC<BulkProductCreatorProps> = ({
   };
 
   const addSerialNumberField = () => {
-    if (serialNumbers.length < 100) {
       setSerialNumbers([...serialNumbers, '']);
-    }
   };
 
   const removeSerialNumberField = (index: number) => {
@@ -125,9 +123,6 @@ export const BulkProductCreator: React.FC<BulkProductCreatorProps> = ({
       newErrors.push(`Duplicate serial numbers found: ${duplicates.join(', ')}`);
     }
 
-    if (validSerialNumbers.length > 100) {
-      newErrors.push('Maximum 100 products can be created at once');
-    }
 
     if (!productTemplate.productModelId) {
       newErrors.push('Product model is required');
@@ -189,10 +184,7 @@ SN003,Gateway-003`;
             return parts[0]?.trim();
           })
           .filter((sn): sn is string => Boolean(sn && sn !== ''));
-        
-        if (serialNumbers.length > 0) {
-          setSerialNumbers(serialNumbers.slice(0, 100));
-        }
+      
       }
     };
     reader.readAsText(file);
@@ -203,9 +195,7 @@ SN003,Gateway-003`;
       <DialogTitle>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Typography variant="h6">Bulk Product Creation</Typography>
-          <Typography variant="caption" color="text.secondary">
-            {serialNumbers.filter(sn => sn.trim() !== '').length} / 100 products
-          </Typography>
+        
         </Box>
       </DialogTitle>
       
@@ -430,9 +420,8 @@ SN003,Gateway-003`;
                     variant="outlined"
                     startIcon={<AddIcon />}
                     onClick={addSerialNumberField}
-                    disabled={serialNumbers.length >= 100}
                   >
-                    Add Serial Number ({serialNumbers.length}/100)
+                    Add Serial Number ({serialNumbers.length})
                   </Button>
                 </Box>
               </Box>

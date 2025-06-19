@@ -70,5 +70,13 @@ type MutationConfig<MutationFnType extends (...args: any) => Promise<any>> =
     Parameters<MutationFnType>[0]
   >;
 
+declare module "@tanstack/react-query" {
+  interface Register {
+    defaultError: Response & {
+      data: Record<string, any>;
+    };
+  }
+}
+
 export { getQueryClient, queryConfig };
 export type { QueryConfig, MutationConfig };

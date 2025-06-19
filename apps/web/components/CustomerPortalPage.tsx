@@ -2,13 +2,12 @@
 
 import { Box, Grid, Snackbar, Alert } from "@mui/material";
 import { useState } from "react";
-import { Layout } from "../../components/Layout";
-import { CustomerWelcomeSection } from "../../components/customer/CustomerWelcomeSection";
-import { CustomerStatsGrid } from "../../components/customer/CustomerStatsGrid";
-import { CreateIssueModal } from "../../components/customer/CreateIssueModal";
-import { RecentIssuesList } from "../../components/customer/RecentIssuesList";
-import { QuickActionsGrid } from "../../components/customer/QuickActionsGrid";
-
+import { Layout } from "./Layout";
+import { CustomerWelcomeSection } from "./customer/CustomerWelcomeSection";
+import { CustomerStatsGrid } from "./customer/CustomerStatsGrid";
+import { CreateIssueModal } from "./customer/CreateIssueModal";
+import { RecentIssuesList } from "./customer/RecentIssuesList";
+import { QuickActionsGrid } from "./customer/QuickActionsGrid";
 
 // Mock customer data
 const customerInfo = {
@@ -51,8 +50,6 @@ const initialIssues = [
     assignedTechnician: "Fatma Özer",
   },
 ];
-
-
 
 export default function CustomerPortalPage() {
   const [createIssueOpen, setCreateIssueOpen] = useState(false);
@@ -158,7 +155,8 @@ export default function CustomerPortalPage() {
     viewServiceOperations: () => {
       setSnackbar({
         open: true,
-        message: "Servis işlemleri arıza kayıtları içerisinde görüntülenebilir.",
+        message:
+          "Servis işlemleri arıza kayıtları içerisinde görüntülenebilir.",
         severity: "info",
       });
     },
@@ -169,18 +167,17 @@ export default function CustomerPortalPage() {
   };
 
   return (
-    <Layout title="Müşteri Portalı">
-      <Box sx={{ p: 3, backgroundColor: "#f5f5f5", minHeight: "100vh" }}>
+    <Layout title="Overview">
         {/* Welcome Section */}
         <CustomerWelcomeSection customerInfo={customerInfo} />
 
         {/* Stats Grid */}
         <CustomerStatsGrid stats={stats} onStatClick={handleStatClick} />
 
-                {/* Main Content Grid */}
+        {/* Main Content Grid */}
         <Grid container spacing={3}>
           {/* Recent Issues */}
-          <Grid size={{ xs: 12, lg: 8 }}>
+          <Grid size={{ xs: 12, lg: 9 }}>
             <RecentIssuesList
               issues={issues}
               onCreateNew={handleQuickActions.createIssue}
@@ -198,17 +195,10 @@ export default function CustomerPortalPage() {
           </Grid>
 
           {/* Quick Actions */}
-          <Grid size={{ xs: 12, lg: 4 }}>
+          <Grid size={{ xs: 12, lg: 3 }}>
             <QuickActionsGrid
               onCreateIssue={handleQuickActions.createIssue}
-              onTrackShipments={handleQuickActions.trackShipments}
-              onDownloadReports={handleQuickActions.downloadReports}
-              onContactSupport={handleQuickActions.contactSupport}
-              onScheduleService={handleQuickActions.scheduleService}
-              onViewNotifications={handleQuickActions.viewNotifications}
-              onViewProducts={handleQuickActions.viewProducts}
-              onViewServiceOperations={handleQuickActions.viewServiceOperations}
-              notificationCount={3}
+              onTrackShipments={handleQuickActions.trackShipments}            
             />
           </Grid>
         </Grid>
@@ -220,24 +210,6 @@ export default function CustomerPortalPage() {
           onSubmit={handleCreateIssue}
           products={[]}
         />
-
-        {/* Snackbar for notifications */}
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={4000}
-          onClose={handleCloseSnackbar}
-          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-        >
-          <Alert
-            onClose={handleCloseSnackbar}
-            severity={snackbar.severity}
-            variant="filled"
-            sx={{ width: "100%" }}
-          >
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
-      </Box>
     </Layout>
   );
 }

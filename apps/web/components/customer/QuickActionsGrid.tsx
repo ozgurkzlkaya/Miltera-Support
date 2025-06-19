@@ -23,13 +23,6 @@ import {
 interface QuickActionsGridProps {
   onCreateIssue: () => void;
   onTrackShipments: () => void;
-  onDownloadReports: () => void;
-  onContactSupport: () => void;
-  onScheduleService?: () => void;
-  onViewNotifications?: () => void;
-  onViewProducts?: () => void;
-  onViewServiceOperations?: () => void;
-  notificationCount?: number;
 }
 
 interface ActionItem {
@@ -47,13 +40,6 @@ interface ActionItem {
 export const QuickActionsGrid = ({
   onCreateIssue,
   onTrackShipments,
-  onDownloadReports,
-  onContactSupport,
-  onScheduleService,
-  onViewNotifications,
-  onViewProducts,
-  onViewServiceOperations,
-  notificationCount = 0,
 }: QuickActionsGridProps) => {
   const actions: ActionItem[] = [
     {
@@ -75,77 +61,7 @@ export const QuickActionsGrid = ({
       variant: "outlined" as const,
       color: "#f57c00",
     },
-    {
-      key: "downloadReports",
-      title: "Raporlar",
-      description: "Servis raporlarınızı indirin",
-      icon: <DownloadIcon />,
-      onClick: onDownloadReports,
-      variant: "outlined" as const,
-      color: "#388e3c",
-    },
-    {
-      key: "contactSupport",
-      title: "Destek Talebi",
-      description: "Teknik destek alın",
-      icon: <SupportIcon />,
-      onClick: onContactSupport,
-      variant: "outlined" as const,
-      color: "#d32f2f",
-    },
   ];
-
-  // Add products action if provided
-  if (onViewProducts) {
-    actions.unshift({
-      key: "viewProducts",
-      title: "Ürünlerim",
-      description: "Tüm ürünlerinizi görüntüleyin",
-      icon: <ProductsIcon />,
-      onClick: onViewProducts,
-      variant: "contained" as const,
-      color: "#2e7d32",
-      gradient: "linear-gradient(45deg, #2e7d32 30%, #4caf50 90%)",
-    });
-  }
-
-  // Add optional actions if provided
-  if (onScheduleService) {
-    actions.push({
-      key: "scheduleService",
-      title: "Servis Planla",
-      description: "Bakım randevusu alın",
-      icon: <ScheduleIcon />,
-      onClick: onScheduleService,
-      variant: "outlined" as const,
-      color: "#7b1fa2",
-    });
-  }
-
-  if (onViewServiceOperations) {
-    actions.push({
-      key: "serviceOperations",
-      title: "Servis İşlemleri",
-      description: "Cihazlarınıza yapılan servisleri görüntüleyin",
-      icon: <ServiceIcon />,
-      onClick: onViewServiceOperations,
-      variant: "outlined" as const,
-      color: "#9c27b0",
-    });
-  }
-
-  if (onViewNotifications) {
-    actions.push({
-      key: "notifications",
-      title: "Bildirimler",
-      description: `${notificationCount} yeni bildirim`,
-      icon: <NotificationIcon />,
-      onClick: onViewNotifications,
-      variant: "outlined" as const,
-      color: "#1976d2",
-      badge: notificationCount,
-    });
-  }
 
   return (
     <Card>

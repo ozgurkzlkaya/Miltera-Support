@@ -29,6 +29,8 @@ import {
 } from "@mui/icons-material";
 import { ReactNode, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuthenticatedAuth } from "../features/auth/useAuth";
+import Image from "next/image";
 
 interface LayoutProps {
   title: string;
@@ -40,16 +42,12 @@ const drawerWidth = 240;
 export const Layout = ({ title, children }: LayoutProps) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const router = useRouter();
+  const auth = useAuthenticatedAuth();
 
   const menuItems = [
     {
-      icon: <HomeIcon />,
-      text: "Home",
-      path: "/",
-    },
-    {
       icon: <DashboardIcon />,
-      text: "Dashboard",
+      text: "Overview",
       path: "/dashboard",
     },
     {
@@ -67,22 +65,21 @@ export const Layout = ({ title, children }: LayoutProps) => {
       text: "Shipments",
       path: "/dashboard/shipments",
     },
-    {
+
+    // {
+    //   icon: <AssessmentIcon />,
+    //   text: "Reports",
+    //   path: "/dashboard/reports",
+    // },
+  ];
+
+  if (auth.role !== "customer") {
+    menuItems.push({
       icon: <PeopleIcon />,
       text: "Customers",
       path: "/dashboard/customers",
-    },
-    {
-      icon: <AssessmentIcon />,
-      text: "Reports",
-      path: "/dashboard/reports",
-    },
-    {
-      icon: <CustomerIcon />,
-      text: "Customer Portal",
-      path: "/customer-portal",
-    },
-  ];
+    });
+  }
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -94,9 +91,29 @@ export const Layout = ({ title, children }: LayoutProps) => {
 
   const drawer = (
     <div>
-      <Toolbar />
+      <Toolbar
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          borderBottom: "1px solid",
+          borderColor: "divider",
+        }}
+      >
+        <Image
+          src="/miltera-logo.png"
+          alt="Miltera Logo"
+          width={80}
+          height={26}
+          style={{
+            maxWidth: "100%",
+            height: "auto",
+          }}
+          priority
+        />
+      </Toolbar>
       <List>
-        {menuItems.map((item, index) => (
+        {menuItems.filter(Boolean).map((item, index) => (
           <ListItem
             key={index}
             onClick={() => handleNavigation(item.path)}
@@ -113,28 +130,32 @@ export const Layout = ({ title, children }: LayoutProps) => {
   return (
     <Box sx={{ display: "flex" }}>
       <CssBaseline />
-      <AppBar
-        position="fixed"
-        sx={{
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          ml: { sm: `${drawerWidth}px` },
-        }}
-      >
-        <Toolbar>
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
-            onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { sm: "none" } }}
-          >
-            <MenuIcon />
-          </IconButton>
-          <Typography variant="h6" noWrap component="div">
-            {title}
-          </Typography>
-        </Toolbar>
-      </AppBar>
+      {
+        <AppBar
+          position="fixed"
+          sx={{
+            width: { sm: `calc(100% - ${drawerWidth}px)` },
+            ml: { sm: `${drawerWidth}px` },
+          }}
+        >
+          <Toolbar>
+            <IconButton
+              color="inherit"
+              aria-label="open drawer"
+              edge="start"
+              onClick={handleDrawerToggle}
+              sx={{ mr: 2, display: { sm: "none" } }}
+            >
+              <MenuIcon />
+            </IconButton>
+            <Box sx={{ display: "flex", alignItems: "center", flexGrow: 1 }}>
+              <Typography variant="h6" noWrap component="div">
+                {title}
+              </Typography>
+            </Box>
+          </Toolbar>
+        </AppBar>
+      }
       <Box
         component="nav"
         sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
@@ -174,8 +195,10 @@ export const Layout = ({ title, children }: LayoutProps) => {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
           width: { sm: `calc(100% - ${drawerWidth}px)` },
+          p: 3,
+          backgroundColor: "#f5f5f5",
+          minHeight: "100vh",
         }}
       >
         <Toolbar />

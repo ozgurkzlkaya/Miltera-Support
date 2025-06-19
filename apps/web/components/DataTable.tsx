@@ -46,6 +46,7 @@ import {
   Refresh as RefreshIcon,
   SelectAll as SelectAllIcon,
   Clear as ClearIcon,
+  Visibility as ViewIcon,
 } from "@mui/icons-material";
 import { useState, useMemo, useCallback } from "react";
 import {
@@ -114,7 +115,10 @@ export interface FormField {
   showInEditMode?: boolean; // Whether to show in edit mode (default: true)
   // Custom properties
   isProductSelector?: boolean; // Custom flag for product selector field
-  onProductSelectorClick?: (currentValue: any, onSelectionChange: (value: any) => void) => void;
+  onProductSelectorClick?: (
+    currentValue: any,
+    onSelectionChange: (value: any) => void
+  ) => void;
 }
 
 export interface BulkAction {
@@ -126,6 +130,23 @@ export interface BulkAction {
   confirmMessage?: string;
 }
 
+export interface ToolbarButton {
+  id: string;
+  label: string;
+  icon?: React.ReactNode;
+  variant?: "text" | "outlined" | "contained";
+  color?:
+    | "inherit"
+    | "primary"
+    | "secondary"
+    | "success"
+    | "error"
+    | "info"
+    | "warning";
+  onClick: () => void;
+  disabled?: boolean;
+}
+
 interface DataTableProps {
   title: string;
   columns: TableColumn[];
@@ -133,6 +154,7 @@ interface DataTableProps {
   formFields: FormField[];
   onAdd?: (data: any) => void;
   onEdit?: (id: string | number, data: any) => void;
+  onView?: (id: string | number, data: any) => void;
   onDelete?: (id: string | number) => void;
   onBulkDelete?: (ids: (string | number)[]) => void;
   onRefresh?: () => void;
@@ -150,6 +172,8 @@ interface DataTableProps {
   onPaginationChange?: (pagination: PaginationState) => void;
   onSortingChange?: (sorting: SortingState) => void;
   onFilterChange?: (filters: ColumnFiltersState) => void;
+  customToolbarButtons?: ToolbarButton[];
+  toolbarButtonsLayout?: "horizontal" | "vertical";
 }
 
 export const DataTable = ({
@@ -159,6 +183,7 @@ export const DataTable = ({
   formFields,
   onAdd,
   onEdit,
+  onView,
   onDelete,
   onBulkDelete,
   onRefresh,
@@ -176,6 +201,8 @@ export const DataTable = ({
   onPaginationChange,
   onSortingChange,
   onFilterChange,
+  customToolbarButtons = [],
+  toolbarButtonsLayout = "horizontal",
 }: DataTableProps) => {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -285,14 +312,24 @@ export const DataTable = ({
     );
 
     // Add actions column if needed
-    if (onEdit || onDelete) {
+    if (onEdit || onView || onDelete) {
       cols.push({
         id: "actions",
         accessorKey: "actions",
         header: "Actions",
-        size: 120,
+        size: 160,
         cell: ({ row }: any) => (
           <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
+            {onView && (
+              <Tooltip title="View">
+                <IconButton
+                  size="small"
+                  onClick={() => onView(row.original[idField], row.original)}
+                >
+                  <ViewIcon />
+                </IconButton>
+              </Tooltip>
+            )}
             {onEdit && (
               <Tooltip title="Edit">
                 <IconButton
@@ -322,7 +359,7 @@ export const DataTable = ({
     }
 
     return cols;
-  }, [columns, onEdit, onDelete, idField, selectable]);
+  }, [columns, onEdit, onView, onDelete, idField, selectable]);
 
   // Initialize TanStack Table
   const table = useReactTable({
@@ -433,19 +470,20 @@ export const DataTable = ({
     const value = formData[field.id];
     const error = formErrors[field.id];
     const isEdit = !!editingItem;
-    
+
     // Check visibility conditions
     const showInCreateMode = field.showInCreateMode !== false;
     const showInEditMode = field.showInEditMode !== false;
-    
+
     if (!isEdit && !showInCreateMode) return null;
     if (isEdit && !showInEditMode) return null;
-    
+
     // Calculate disabled state
-    const isDisabled = typeof field.disabled === 'function' 
-      ? field.disabled(isEdit, formData)
-      : field.disabled || false;
-    
+    const isDisabled =
+      typeof field.disabled === "function"
+        ? field.disabled(isEdit, formData)
+        : field.disabled || false;
+
     const commonProps = {
       fullWidth: true,
       margin: "normal" as const,
@@ -502,7 +540,9 @@ export const DataTable = ({
             <InputLabel>{field.label}</InputLabel>
             <Select
               value={value}
-              onChange={(e) => !isDisabled && handleInputChange(field.id, e.target.value)}
+              onChange={(e) =>
+                !isDisabled && handleInputChange(field.id, e.target.value)
+              }
               label={field.label}
               disabled={isDisabled}
             >
@@ -526,7 +566,9 @@ export const DataTable = ({
             {...commonProps}
             type="number"
             value={value}
-            onChange={(e) => !isDisabled && handleInputChange(field.id, e.target.value)}
+            onChange={(e) =>
+              !isDisabled && handleInputChange(field.id, e.target.value)
+            }
             placeholder={field.placeholder}
           />
         );
@@ -539,7 +581,9 @@ export const DataTable = ({
             {...commonProps}
             type={field.type}
             value={value}
-            onChange={(e) => !isDisabled && handleInputChange(field.id, e.target.value)}
+            onChange={(e) =>
+              !isDisabled && handleInputChange(field.id, e.target.value)
+            }
             InputLabelProps={{ shrink: true }}
           />
         );
@@ -547,10 +591,11 @@ export const DataTable = ({
       default:
         // Handle product selector field
         if (field.isProductSelector) {
-          const displayValue = Array.isArray(value) && value.length > 0 
-            ? `${value.length} product${value.length > 1 ? 's' : ''} selected`
-            : field.placeholder || "Click to select products...";
-            
+          const displayValue =
+            Array.isArray(value) && value.length > 0
+              ? `${value.length} product${value.length > 1 ? "s" : ""} selected`
+              : field.placeholder || "Click to select products...";
+
           return (
             <TextField
               key={field.id}
@@ -565,19 +610,21 @@ export const DataTable = ({
               }}
               InputProps={{
                 readOnly: true,
-                sx: { cursor: 'pointer' }
+                sx: { cursor: "pointer" },
               }}
             />
           );
         }
-        
+
         return (
           <TextField
             key={field.id}
             {...commonProps}
             type={field.type}
             value={value}
-            onChange={(e) => !isDisabled && handleInputChange(field.id, e.target.value)}
+            onChange={(e) =>
+              !isDisabled && handleInputChange(field.id, e.target.value)
+            }
             placeholder={field.placeholder}
           />
         );
@@ -587,21 +634,21 @@ export const DataTable = ({
   // Render form fields with layout support
   const renderFormLayout = () => {
     const isEdit = !!editingItem;
-    
+
     // Filter fields based on visibility conditions
-    const visibleFields = formFields.filter(field => {
+    const visibleFields = formFields.filter((field) => {
       const showInCreateMode = field.showInCreateMode !== false;
       const showInEditMode = field.showInEditMode !== false;
-      
+
       if (!isEdit && !showInCreateMode) return false;
       if (isEdit && !showInEditMode) return false;
-      
+
       return true;
     });
-    
+
     // Group fields by row or render as single column if no layout is specified
-    const hasLayout = visibleFields.some(field => field.layout);
-    
+    const hasLayout = visibleFields.some((field) => field.layout);
+
     if (!hasLayout) {
       // Fallback to original single-column layout
       return visibleFields.map(renderFormField);
@@ -609,7 +656,7 @@ export const DataTable = ({
 
     // Group visible fields by row
     const rowGroups: { [key: number]: FormField[] } = {};
-    visibleFields.forEach(field => {
+    visibleFields.forEach((field) => {
       const row = field.layout?.row ?? 0;
       if (!rowGroups[row]) {
         rowGroups[row] = [];
@@ -618,46 +665,48 @@ export const DataTable = ({
     });
 
     // Sort fields within each row by column
-    Object.keys(rowGroups).forEach(rowKey => {
+    Object.keys(rowGroups).forEach((rowKey) => {
       const row = parseInt(rowKey);
       const fieldsInRow = rowGroups[row];
       if (fieldsInRow) {
-        fieldsInRow.sort((a, b) => (a.layout?.column ?? 0) - (b.layout?.column ?? 0));
+        fieldsInRow.sort(
+          (a, b) => (a.layout?.column ?? 0) - (b.layout?.column ?? 0)
+        );
       }
     });
 
     // Render each row
     return Object.keys(rowGroups)
       .sort((a, b) => parseInt(a) - parseInt(b))
-      .map(rowKey => {
+      .map((rowKey) => {
         const row = parseInt(rowKey);
         const fieldsInRow = rowGroups[row];
-        
+
         if (!fieldsInRow || fieldsInRow.length === 0) {
           return null;
         }
-        
+
         // Calculate grid sizes
         const totalFields = fieldsInRow.length;
-        const hasCustomWidths = fieldsInRow.some(field => field.layout?.width);
-        
+        const hasCustomWidths = fieldsInRow.some(
+          (field) => field.layout?.width
+        );
+
         return (
-          <Box 
-            key={`row-${row}`} 
-            sx={{ 
-              display: 'grid', 
+          <Box
+            key={`row-${row}`}
+            sx={{
+              display: "grid",
               gridTemplateColumns: `repeat(${totalFields}, 1fr)`,
               gap: 2,
               mb: 2,
-              '@media (max-width: 600px)': {
-                gridTemplateColumns: '1fr',
-              }
+              "@media (max-width: 600px)": {
+                gridTemplateColumns: "1fr",
+              },
             }}
           >
-            {fieldsInRow.map(field => (
-              <Box key={field.id}>
-                {renderFormField(field)}
-              </Box>
+            {fieldsInRow.map((field) => (
+              <Box key={field.id}>{renderFormField(field)}</Box>
             ))}
           </Box>
         );
@@ -697,7 +746,14 @@ export const DataTable = ({
           )}
         </Typography>
 
-        <Stack direction="row" spacing={1}>
+        <Stack
+          sx={{
+            p: 1,
+            alignItems: "center",
+          }}
+          direction="row"
+          spacing={1}
+        >
           {/* Global Search */}
           {searchable && (
             <TextField
@@ -705,10 +761,12 @@ export const DataTable = ({
               placeholder="Search..."
               value={globalFilter}
               onChange={(e) => setGlobalFilter(String(e.target.value))}
-              InputProps={{
-                startAdornment: (
-                  <SearchIcon sx={{ mr: 1, color: "text.secondary" }} />
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <SearchIcon sx={{ mr: 1, color: "text.secondary" }} />
+                  ),
+                },
               }}
               sx={{ minWidth: 200 }}
             />
@@ -765,15 +823,87 @@ export const DataTable = ({
             </IconButton>
           </Tooltip>
 
-          {onAdd && (
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={handleAdd}
-              disabled={loading}
-            >
-              {addButtonText}
-            </Button>
+          {/* Custom Toolbar Buttons + Add Button */}
+          {toolbarButtonsLayout === "vertical" ? (
+            // Vertical layout: Stack buttons vertically
+            customToolbarButtons.length > 0 || onAdd ? (
+              <Stack
+                direction="column"
+                spacing={1}
+                alignItems="flex-end"
+                sx={{
+                  pt: 2,
+                  pl: 2,
+                }}
+              >
+                {/* Custom Toolbar Buttons */}
+                {customToolbarButtons.map((button) => (
+                  <Button
+                    key={button.id}
+                    variant={button.variant || "outlined"}
+                    color={button.color || "primary"}
+                    startIcon={button.icon}
+                    onClick={button.onClick}
+                    disabled={button.disabled || loading}
+                    sx={{
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {button.label}
+                  </Button>
+                ))}
+
+                {/* Add Button */}
+                {onAdd && (
+                  <Button
+                    variant="contained"
+                    sx={{
+                      whiteSpace: "nowrap",
+                    }}
+                    startIcon={<AddIcon />}
+                    onClick={handleAdd}
+                    disabled={loading}
+                  >
+                    {addButtonText}
+                  </Button>
+                )}
+              </Stack>
+            ) : null
+          ) : (
+            // Horizontal layout: Display buttons side by side
+            <>
+              {/* Custom Toolbar Buttons */}
+              {customToolbarButtons.map((button) => (
+                <Button
+                  key={button.id}
+                  variant={button.variant || "outlined"}
+                  color={button.color || "primary"}
+                  startIcon={button.icon}
+                  onClick={button.onClick}
+                  disabled={button.disabled || loading}
+                  sx={{
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {button.label}
+                </Button>
+              ))}
+
+              {/* Add Button */}
+              {onAdd && (
+                <Button
+                  variant="contained"
+                  sx={{
+                    whiteSpace: "nowrap",
+                  }}
+                  startIcon={<AddIcon />}
+                  onClick={handleAdd}
+                  disabled={loading}
+                >
+                  {addButtonText}
+                </Button>
+              )}
+            </>
           )}
         </Stack>
       </Toolbar>
@@ -801,23 +931,22 @@ export const DataTable = ({
                     {header.isPlaceholder ? null : (
                       <Box sx={{ display: "flex", alignItems: "center" }}>
                         {header.column.getCanSort() ? (
-                          // TODO
-                          <></>
-                          // <TableSortLabel
-                          //   active={header.column.getIsSorted() !== false}
-                          //   direction={
-                          //     header.column.getIsSorted() as
-                          //       | "asc"
-                          //       | "desc"
-                          //       | undefined
-                          //   }
-                          //   onClick={header.column.getToggleSortingHandler()}
-                          // >
-                          //   {flexRender(
-                          //     header.column.columnDef.header,
-                          //     header.getContext()
-                          //   )}
-                          // </TableSortLabel>
+                          <TableSortLabel
+                            active={header.column.getIsSorted() !== false}
+                            direction={
+                              header.column.getIsSorted() === false
+                                ? undefined
+                                : (header.column.getIsSorted() as
+                                    | "asc"
+                                    | "desc")
+                            }
+                            onClick={header.column.getToggleSortingHandler()}
+                          >
+                            {flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                          </TableSortLabel>
                         ) : (
                           flexRender(
                             header.column.columnDef.header,
@@ -922,37 +1051,103 @@ export const DataTable = ({
         open={Boolean(filterMenuAnchor)}
         onClose={() => setFilterMenuAnchor(null)}
       >
-        <Box sx={{ p: 2, minWidth: 200 }}>
+        <Box sx={{ p: 2, minWidth: 200, maxWidth: 400 }}>
           <Typography variant="subtitle2" gutterBottom>
             Column Filters
           </Typography>
           <Divider sx={{ mb: 1 }} />
           {columns
             .filter((col) => col.filterable !== false)
-            .map((column) => (
-              <TextField
-                key={column.id}
-                size="small"
-                fullWidth
-                label={column.label}
-                margin="dense"
-                value={
-                  columnFilters.find((f) => f.id === column.id)?.value as string
+            .map((column) => {
+              const currentFilter = columnFilters.find(
+                (f) => f.id === column.id
+              );
+              const filterValue = currentFilter?.value || "";
+
+              const handleFilterChange = (value: any) => {
+                const newFilters = columnFilters.filter(
+                  (f) => f.id !== column.id
+                );
+                if (value && value !== "") {
+                  newFilters.push({
+                    id: column.id,
+                    value: String(value),
+                  });
                 }
-                onChange={(e) => {
-                  const newFilters = columnFilters.filter(
-                    (f) => f.id !== column.id
+                setColumnFilters(newFilters);
+              };
+
+              // Render based on column filterType
+              switch (column.filterType) {
+                case "select":
+                  return (
+                    <FormControl
+                      key={column.id}
+                      size="small"
+                      fullWidth
+                      margin="dense"
+                    >
+                      <InputLabel>{column.label}</InputLabel>
+                      <Select
+                        value={filterValue}
+                        onChange={(e) => handleFilterChange(e.target.value)}
+                        label={column.label}
+                      >
+                        <MenuItem value="">
+                          <em>All</em>
+                        </MenuItem>
+                        {column.filterOptions?.map((option) => (
+                          <MenuItem key={option.value} value={option.value}>
+                            {option.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
                   );
-                  if (e.target.value) {
-                    newFilters.push({
-                      id: column.id,
-                      value: String(e.target.value),
-                    });
-                  }
-                  setColumnFilters(newFilters);
-                }}
-              />
-            ))}
+
+                case "number":
+                  return (
+                    <TextField
+                      key={column.id}
+                      size="small"
+                      fullWidth
+                      type="number"
+                      label={column.label}
+                      margin="dense"
+                      value={filterValue}
+                      onChange={(e) => handleFilterChange(e.target.value)}
+                    />
+                  );
+
+                case "date":
+                  return (
+                    <TextField
+                      key={column.id}
+                      size="small"
+                      fullWidth
+                      type="date"
+                      label={column.label}
+                      margin="dense"
+                      value={filterValue}
+                      onChange={(e) => handleFilterChange(e.target.value)}
+                      InputLabelProps={{ shrink: true }}
+                    />
+                  );
+
+                default: // "text" or undefined
+                  return (
+                    <TextField
+                      key={column.id}
+                      size="small"
+                      fullWidth
+                      label={column.label}
+                      margin="dense"
+                      value={filterValue}
+                      onChange={(e) => handleFilterChange(e.target.value)}
+                    />
+                  );
+              }
+            })}
           <Box sx={{ mt: 2, display: "flex", justifyContent: "space-between" }}>
             <Button
               size="small"

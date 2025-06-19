@@ -1,6 +1,6 @@
 "use client";
 
-import { Typography, Grid, Paper, Avatar } from "@mui/material";
+import { Typography, Grid, Paper, Avatar, useTheme } from "@mui/material";
 
 interface CustomerInfo {
   companyName: string;
@@ -16,8 +16,15 @@ interface CustomerWelcomeSectionProps {
 }
 
 export const CustomerWelcomeSection = ({ customerInfo }: CustomerWelcomeSectionProps) => {
+  const theme = useTheme();
+  
   return (
-    <Paper sx={{ p: 3, mb: 3, background: "linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)", color: "white" }}>
+    <Paper sx={{ 
+      p: 3, 
+      mb: 3, 
+      background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.light || '#7fa8d3'} 100%)`, 
+      color: "white" 
+    }}>
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 8 }}>
           <Typography variant="h4" gutterBottom>

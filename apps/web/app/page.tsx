@@ -1,8 +1,14 @@
-import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
-import { getQueryClient } from "../lib/react-query";
-import { getProductsQueryOptions } from "../features/products/product.service";
-import { Products } from "../components/Products";
+import { redirect } from "next/navigation";
+import { getAuth } from "../features/auth/getAuth";
 
-export default async function Home() {
-  return <></>;
-}
+const HomePage = async () => {
+  const auth = await getAuth();
+
+  if (auth.isAuthenticated) {
+    redirect("/dashboard");
+  } else {
+    redirect("/auth");
+  }
+};
+
+export default HomePage;

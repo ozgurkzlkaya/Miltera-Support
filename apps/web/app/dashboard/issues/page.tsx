@@ -8,20 +8,8 @@ import {
   Card,
   CardContent,
   Stack,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Button,
   TextField,
-  Checkbox,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  InputAdornment,
-  IconButton,
-  Divider,
   Tab,
   Tabs,
   Alert,
@@ -30,6 +18,17 @@ import {
   Select,
   MenuItem,
   Autocomplete,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
+  Divider,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  Badge,
 } from "@mui/material";
 import { Layout } from "../../../components/Layout";
 import {
@@ -40,6 +39,7 @@ import {
 } from "../../../components/DataTable";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
 import { ServiceOperationsManager } from "../../../components/ServiceOperationsManager";
+import { ProductSelectionModal } from "../../../components/ProductSelectionModal";
 import { useState } from "react";
 import {
   Delete as DeleteIcon,
@@ -50,8 +50,6 @@ import {
   Schedule as ScheduleIcon,
   Engineering as ServiceIcon,
   Visibility as ViewIcon,
-  Search as SearchIcon,
-  Close as CloseIcon,
   Add as AddIcon,
   Science as TestIcon,
   CheckCircle as QualityIcon,
@@ -62,8 +60,15 @@ import {
   ExpandLess as ExpandLessIcon,
   Category as CategoryIcon,
   Settings as SettingsIcon,
+  Close as CloseIcon,
+  LocationOn as LocationIcon,
+  CalendarToday as CalendarIcon,
+  PriorityHigh as PriorityIcon,
+  Description as DescriptionIcon,
+  AttachFile as AttachIcon,
 } from "@mui/icons-material";
 import Link from "next/link";
+import { useAuthenticatedAuth } from "../../../features/auth/useAuth";
 
 const initialIssues = [
   {
@@ -234,23 +239,97 @@ const initialIssues = [
 
 // Mock data for category mapping
 const externalCategories = [
-  { id: 1, name: "Connection Issues", description: "Network and connectivity problems" },
-  { id: 2, name: "Calibration", description: "Device calibration requirements" },
-  { id: 3, name: "Software Update", description: "Firmware and software updates" },
-  { id: 4, name: "Hardware Malfunction", description: "Physical hardware problems" },
-  { id: 5, name: "Data Synchronization", description: "Data sync and reporting issues" },
+  {
+    id: 1,
+    name: "Connection Issues",
+    description: "Network and connectivity problems",
+  },
+  {
+    id: 2,
+    name: "Calibration",
+    description: "Device calibration requirements",
+  },
+  {
+    id: 3,
+    name: "Software Update",
+    description: "Firmware and software updates",
+  },
+  {
+    id: 4,
+    name: "Hardware Malfunction",
+    description: "Physical hardware problems",
+  },
+  {
+    id: 5,
+    name: "Data Synchronization",
+    description: "Data sync and reporting issues",
+  },
 ];
 
 const internalCategories = [
-  { id: 1, code: "NET_CONN", name: "Network Connection", defaultPriority: "HIGH", slaMinutes: 240 },
-  { id: 2, code: "NET_CONFIG", name: "Network Configuration", defaultPriority: "MEDIUM", slaMinutes: 480 },
-  { id: 3, code: "CAL_SENSOR", name: "Sensor Calibration", defaultPriority: "MEDIUM", slaMinutes: 720 },
-  { id: 4, code: "CAL_METER", name: "Meter Calibration", defaultPriority: "HIGH", slaMinutes: 480 },
-  { id: 5, code: "SW_UPDATE", name: "Software Update", defaultPriority: "LOW", slaMinutes: 1440 },
-  { id: 6, code: "SW_CONFIG", name: "Software Configuration", defaultPriority: "MEDIUM", slaMinutes: 360 },
-  { id: 7, code: "HW_REPLACE", name: "Hardware Replacement", defaultPriority: "CRITICAL", slaMinutes: 120 },
-  { id: 8, code: "HW_REPAIR", name: "Hardware Repair", defaultPriority: "HIGH", slaMinutes: 360 },
-  { id: 9, code: "DATA_SYNC", name: "Data Synchronization", defaultPriority: "MEDIUM", slaMinutes: 480 },
+  {
+    id: 1,
+    code: "NET_CONN",
+    name: "Network Connection",
+    defaultPriority: "HIGH",
+    slaMinutes: 240,
+  },
+  {
+    id: 2,
+    code: "NET_CONFIG",
+    name: "Network Configuration",
+    defaultPriority: "MEDIUM",
+    slaMinutes: 480,
+  },
+  {
+    id: 3,
+    code: "CAL_SENSOR",
+    name: "Sensor Calibration",
+    defaultPriority: "MEDIUM",
+    slaMinutes: 720,
+  },
+  {
+    id: 4,
+    code: "CAL_METER",
+    name: "Meter Calibration",
+    defaultPriority: "HIGH",
+    slaMinutes: 480,
+  },
+  {
+    id: 5,
+    code: "SW_UPDATE",
+    name: "Software Update",
+    defaultPriority: "LOW",
+    slaMinutes: 1440,
+  },
+  {
+    id: 6,
+    code: "SW_CONFIG",
+    name: "Software Configuration",
+    defaultPriority: "MEDIUM",
+    slaMinutes: 360,
+  },
+  {
+    id: 7,
+    code: "HW_REPLACE",
+    name: "Hardware Replacement",
+    defaultPriority: "CRITICAL",
+    slaMinutes: 120,
+  },
+  {
+    id: 8,
+    code: "HW_REPAIR",
+    name: "Hardware Repair",
+    defaultPriority: "HIGH",
+    slaMinutes: 360,
+  },
+  {
+    id: 9,
+    code: "DATA_SYNC",
+    name: "Data Synchronization",
+    defaultPriority: "MEDIUM",
+    slaMinutes: 480,
+  },
 ];
 
 const initialCategoryMappings = [
@@ -302,10 +381,24 @@ const priorityOptions = [
 
 // Issue type options now derived from internal categories
 const getIssueTypeOptions = (internalCategories: any[]) => {
-  return internalCategories.map(cat => ({
+  return internalCategories.map((cat) => ({
     value: cat.id,
     label: `${cat.code}: ${cat.name}`,
   }));
+};
+
+// Create issue type filter options from category mappings
+const getIssueTypeFilterOptions = () => {
+  const options: Array<{ value: string; label: string }> = [];
+  initialCategoryMappings.forEach((mapping) => {
+    mapping.internalCategories.forEach((cat) => {
+      options.push({
+        value: `${cat.code}: ${cat.name}`,
+        label: `${cat.code}: ${cat.name}`,
+      });
+    });
+  });
+  return options;
 };
 
 const productOptions = [
@@ -364,7 +457,6 @@ const getPriorityColor = (priority: string) => {
   }
 };
 
-
 const formatSLA = (minutes: number) => {
   if (minutes < 60) return `${minutes}m`;
   const hours = Math.floor(minutes / 60);
@@ -391,12 +483,9 @@ const columns = (setServiceOperationsDialog: any): TableColumn[] => [
         >
           <IssueIcon fontSize="small" />
         </Avatar>
-        <Box>
+        <Box sx={{ whiteSpace: "nowrap" }}>
           <Typography variant="body2" fontWeight="bold">
             {value}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {row.title}
           </Typography>
         </Box>
       </Box>
@@ -438,6 +527,11 @@ const columns = (setServiceOperationsDialog: any): TableColumn[] => [
     width: 140,
     sortable: true,
     filterable: true,
+    filterType: "select",
+    filterOptions: companyOptions.map((opt) => ({
+      value: opt.label,
+      label: opt.label,
+    })),
     render: (value, row) => (
       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
         <BusinessIcon fontSize="small" color="action" />
@@ -453,15 +547,17 @@ const columns = (setServiceOperationsDialog: any): TableColumn[] => [
     width: 160,
     sortable: true,
     filterable: true,
+    filterType: "select",
+    filterOptions: getIssueTypeFilterOptions(),
     render: (value) => (
       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
         <SettingsIcon fontSize="small" color="action" />
         <Box>
           <Typography variant="body2" fontWeight="bold">
-            {value ? value.split(': ')[0] : 'Unknown'}
+            {value ? value.split(": ")[0] : "Unknown"}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            {value ? value.split(': ')[1] : ''}
+            {value ? value.split(": ")[1] : ""}
           </Typography>
         </Box>
       </Box>
@@ -473,6 +569,11 @@ const columns = (setServiceOperationsDialog: any): TableColumn[] => [
     width: 120,
     sortable: true,
     filterable: true,
+    filterType: "select",
+    filterOptions: [
+      { value: "", label: "Unassigned" },
+      ...tspOptions.map((opt) => ({ value: opt.label, label: opt.label })),
+    ],
     render: (value) =>
       value ? (
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -491,6 +592,11 @@ const columns = (setServiceOperationsDialog: any): TableColumn[] => [
     width: 120,
     sortable: true,
     filterable: true,
+    filterType: "select",
+    filterOptions: statusOptions.map((opt) => ({
+      value: opt.value,
+      label: opt.label,
+    })),
     render: (value) => (
       <Chip
         label={value ? value.replace("_", " ") : "Unknown"}
@@ -505,6 +611,11 @@ const columns = (setServiceOperationsDialog: any): TableColumn[] => [
     width: 100,
     sortable: true,
     filterable: true,
+    filterType: "select",
+    filterOptions: priorityOptions.map((opt) => ({
+      value: opt.value,
+      label: opt.label,
+    })),
     render: (value) => (
       <Chip
         label={value}
@@ -518,9 +629,19 @@ const columns = (setServiceOperationsDialog: any): TableColumn[] => [
     label: "Operations",
     width: 120,
     render: (value, row) => (
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <ServiceIcon fontSize="small" color="action" />
-        <Typography variant="body2">{value?.length || 0} ops</Typography>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+        <Badge
+          badgeContent={value?.length || 0}
+          color="primary"
+          sx={{
+            "& .MuiBadge-badge": {
+              right: -8,
+              top: -3,
+            },
+          }}
+        >
+          <ServiceIcon fontSize="small" color="action" />
+        </Badge>
         <Button
           size="small"
           variant="outlined"
@@ -531,7 +652,7 @@ const columns = (setServiceOperationsDialog: any): TableColumn[] => [
               tabValue: 0,
             });
           }}
-          sx={{ minWidth: 'auto', px: 1 }}
+          sx={{ minWidth: "auto", px: 1, ml: 2 }}
         >
           Manage
         </Button>
@@ -545,151 +666,14 @@ const columns = (setServiceOperationsDialog: any): TableColumn[] => [
     width: 120,
     sortable: true,
     filterable: true,
+    filterType: "date",
     format: (value) => new Date(value).toLocaleDateString(),
   },
 ];
 
-// Product Selection Modal Component
-interface ProductSelectionModalProps {
-  open: boolean;
-  onClose: () => void;
-  selectedProductIds: number[];
-  onSelectionChange: (productIds: number[]) => void;
-  products: Array<{ value: number; label: string }>;
-}
-
-const ProductSelectionModal = ({
-  open,
-  onClose,
-  selectedProductIds,
-  onSelectionChange,
-  products,
-}: ProductSelectionModalProps) => {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [tempSelectedIds, setTempSelectedIds] =
-    useState<number[]>(selectedProductIds);
-
-  const filteredProducts = products.filter((product) =>
-    product.label.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const handleToggleProduct = (productId: number) => {
-    setTempSelectedIds((prev) =>
-      prev.includes(productId)
-        ? prev.filter((id) => id !== productId)
-        : [...prev, productId]
-    );
-  };
-
-  const handleSelectAll = () => {
-    setTempSelectedIds(filteredProducts.map((p) => p.value));
-  };
-
-  const handleDeselectAll = () => {
-    setTempSelectedIds([]);
-  };
-
-  const handleSave = () => {
-    onSelectionChange(tempSelectedIds);
-    onClose();
-  };
-
-  const handleCancel = () => {
-    setTempSelectedIds(selectedProductIds);
-    onClose();
-  };
-
-  return (
-    <Dialog open={open} onClose={handleCancel} maxWidth="md" fullWidth>
-      <DialogTitle>
-        <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Typography variant="h6">Select Products</Typography>
-          <IconButton onClick={handleCancel}>
-            <CloseIcon />
-          </IconButton>
-        </Box>
-      </DialogTitle>
-      <DialogContent>
-        <Box mb={2}>
-          <TextField
-            fullWidth
-            placeholder="Search products..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-          />
-        </Box>
-
-        <Box
-          display="flex"
-          justifyContent="space-between"
-          alignItems="center"
-          mb={2}
-        >
-          <Typography variant="body2" color="textSecondary">
-            {tempSelectedIds.length} of {filteredProducts.length} products
-            selected
-          </Typography>
-          <Box>
-            <Button size="small" onClick={handleSelectAll} sx={{ mr: 1 }}>
-              Select All ({filteredProducts.length})
-            </Button>
-            <Button size="small" onClick={handleDeselectAll}>
-              Deselect All
-            </Button>
-          </Box>
-        </Box>
-
-        <Divider />
-
-        <List sx={{ maxHeight: 400, overflow: "auto" }}>
-          {filteredProducts.map((product) => (
-            <ListItem
-              key={product.value}
-              onClick={() => handleToggleProduct(product.value)}
-              sx={{ cursor: "pointer" }}
-              dense
-            >
-              <ListItemIcon>
-                <Checkbox
-                  checked={tempSelectedIds.includes(product.value)}
-                  tabIndex={-1}
-                  disableRipple
-                />
-              </ListItemIcon>
-              <ListItemText
-                primary={product.label}
-                secondary={`ID: ${product.value}`}
-              />
-            </ListItem>
-          ))}
-        </List>
-
-        {filteredProducts.length === 0 && (
-          <Box textAlign="center" py={4}>
-            <Typography color="textSecondary">
-              No products found matching "{searchQuery}"
-            </Typography>
-          </Box>
-        )}
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={handleCancel}>Cancel</Button>
-        <Button onClick={handleSave} variant="contained">
-          Save Selection ({tempSelectedIds.length})
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-};
-
 export default function IssuesPage() {
+  const auth = useAuthenticatedAuth();
+
   const [issues, setIssues] = useState(initialIssues);
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean;
@@ -721,9 +705,18 @@ export default function IssuesPage() {
     tabValue: number;
   }>({ open: false, tabValue: 0 });
 
-  const [categoryMappings, setCategoryMappings] = useState(initialCategoryMappings);
-  const [externalCategoriesState, setExternalCategoriesState] = useState(externalCategories);
-  const [internalCategoriesState, setInternalCategoriesState] = useState(internalCategories);
+  const [viewDialog, setViewDialog] = useState<{
+    open: boolean;
+    issue: any | null;
+  }>({ open: false, issue: null });
+
+  const [categoryMappings, setCategoryMappings] = useState(
+    initialCategoryMappings
+  );
+  const [externalCategoriesState, setExternalCategoriesState] =
+    useState(externalCategories);
+  const [internalCategoriesState, setInternalCategoriesState] =
+    useState(internalCategories);
 
   // Helper function to generate issue number
   const generateIssueNumber = () => {
@@ -785,7 +778,9 @@ export default function IssuesPage() {
       companyId: parseInt(data.companyId),
       companyName: company?.label || "Unknown",
       issueTypeId: parseInt(data.issueTypeId),
-      issueTypeName: issueType ? `${issueType.code}: ${issueType.name}` : "Unknown",
+      issueTypeName: issueType
+        ? `${issueType.code}: ${issueType.name}`
+        : "Unknown",
       assignedTspId: data.assignedTspId ? parseInt(data.assignedTspId) : null,
       assignedTspName: tsp?.label || null,
       actualResolutionDate: null,
@@ -839,7 +834,9 @@ export default function IssuesPage() {
               companyId: parseInt(data.companyId),
               companyName: company?.label || "Unknown",
               issueTypeId: parseInt(data.issueTypeId),
-              issueTypeName: issueType ? `${issueType.code}: ${issueType.name}` : "Unknown",
+              issueTypeName: issueType
+                ? `${issueType.code}: ${issueType.name}`
+                : "Unknown",
               assignedTspId: data.assignedTspId
                 ? parseInt(data.assignedTspId)
                 : null,
@@ -872,6 +869,13 @@ export default function IssuesPage() {
 
   const handleDeleteCancel = () => {
     setDeleteDialog({ open: false, id: null, number: "" });
+  };
+
+  const handleView = (id: string | number) => {
+    const issue = issues.find((i) => i.id === Number(id));
+    if (issue) {
+      setViewDialog({ open: true, issue });
+    }
   };
 
   const handleBulkDelete = (ids: (string | number)[]) => {
@@ -1156,16 +1160,20 @@ export default function IssuesPage() {
               </CardContent>
             </Card>
           </Stack>
-          <Stack spacing={1} sx={{ minWidth: 200 }}>
-            <Button
-              variant="outlined"
-              startIcon={<CategoryIcon />}
-              fullWidth
-              onClick={() => setCategoryMappingDialog({ open: true, tabValue: 0 })}
-            >
-              Manage Categories
-            </Button>
-          </Stack>
+          {auth.role !== "customer" ? (
+            <Stack spacing={1} sx={{ minWidth: 200 }}>
+              <Button
+                variant="outlined"
+                startIcon={<CategoryIcon />}
+                fullWidth
+                onClick={() =>
+                  setCategoryMappingDialog({ open: true, tabValue: 0 })
+                }
+              >
+                Manage Categories
+              </Button>
+            </Stack>
+          ) : null}
         </Box>
 
         {/* Issues DataTable */}
@@ -1176,6 +1184,7 @@ export default function IssuesPage() {
           formFields={formFields}
           onAdd={handleAdd}
           onEdit={handleEdit}
+          onView={handleView}
           onDelete={handleDeleteRequest}
           onExport={handleExport}
           addButtonText="Create Issue"
@@ -1199,7 +1208,7 @@ export default function IssuesPage() {
           onClose={closeProductSelectionModal}
           selectedProductIds={productSelectionModal.selectedIds}
           onSelectionChange={productSelectionModal.onSelectionChange}
-          products={productOptions}
+          title="Select Products for Issue"
         />
 
         {/* Service Operations Management Dialog */}
@@ -1210,9 +1219,16 @@ export default function IssuesPage() {
           fullWidth
         >
           <DialogTitle>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
               <Typography variant="h6">
-                Service Operations - {serviceOperationsDialog.issue?.issueNumber}
+                Service Operations -{" "}
+                {serviceOperationsDialog.issue?.issueNumber}
               </Typography>
               <IconButton onClick={closeServiceOperationsDialog}>
                 <CloseIcon />
@@ -1225,28 +1241,52 @@ export default function IssuesPage() {
                 {/* Info Card */}
                 <Card variant="outlined" sx={{ mb: 3 }}>
                   <CardContent>
-                    <Typography variant="h6" gutterBottom>Issue Information</Typography>
-                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                    <Typography variant="h6" gutterBottom>
+                      Issue Information
+                    </Typography>
+                    <Box
+                      sx={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr",
+                        gap: 2,
+                      }}
+                    >
                       <Box>
-                        <Typography variant="body2" color="text.secondary">Issue Number</Typography>
-                        <Typography variant="body1">{serviceOperationsDialog.issue.issueNumber}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Issue Number
+                        </Typography>
+                        <Typography variant="body1">
+                          {serviceOperationsDialog.issue.issueNumber}
+                        </Typography>
                       </Box>
                       <Box>
-                        <Typography variant="body2" color="text.secondary">Customer</Typography>
-                        <Typography variant="body1">{serviceOperationsDialog.issue.customerName}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Customer
+                        </Typography>
+                        <Typography variant="body1">
+                          {serviceOperationsDialog.issue.customerName}
+                        </Typography>
                       </Box>
                       <Box>
-                        <Typography variant="body2" color="text.secondary">Status</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Status
+                        </Typography>
                         <Chip
                           label={serviceOperationsDialog.issue.status}
-                          color={getStatusColor(serviceOperationsDialog.issue.status)}
+                          color={getStatusColor(
+                            serviceOperationsDialog.issue.status
+                          )}
                           size="small"
                         />
                       </Box>
                       <Box>
-                        <Typography variant="body2" color="text.secondary">Products</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Products
+                        </Typography>
                         <Typography variant="body1">
-                          {serviceOperationsDialog.issue.products.map((p: any) => p.name).join(', ')}
+                          {serviceOperationsDialog.issue.products
+                            .map((p: any) => p.name)
+                            .join(", ")}
                         </Typography>
                       </Box>
                     </Box>
@@ -1257,7 +1297,12 @@ export default function IssuesPage() {
                 <Box sx={{ mb: 2 }}>
                   <Tabs
                     value={serviceOperationsDialog.tabValue}
-                    onChange={(e, newValue) => setServiceOperationsDialog(prev => ({ ...prev, tabValue: newValue }))}
+                    onChange={(e, newValue) =>
+                      setServiceOperationsDialog((prev) => ({
+                        ...prev,
+                        tabValue: newValue,
+                      }))
+                    }
                   >
                     <Tab label="All Operations" />
                     <Tab label="Initial Tests" />
@@ -1270,18 +1315,24 @@ export default function IssuesPage() {
                 {/* Operations List and Form */}
                 <ServiceOperationsManager
                   issue={serviceOperationsDialog.issue}
-                  operations={serviceOperationsDialog.issue.serviceOperations || []}
+                  operations={
+                    serviceOperationsDialog.issue.serviceOperations || []
+                  }
                   onOperationsChange={(updatedOps) => {
                     // Update the issue with new operations
-                    setIssues(prev => prev.map(issue => 
-                      issue.id === serviceOperationsDialog.issue?.id 
-                        ? { ...issue, serviceOperations: updatedOps }
-                        : issue
-                    ));
+                    setIssues((prev) =>
+                      prev.map((issue) =>
+                        issue.id === serviceOperationsDialog.issue?.id
+                          ? { ...issue, serviceOperations: updatedOps }
+                          : issue
+                      )
+                    );
                     // Update the dialog state
-                    setServiceOperationsDialog(prev => ({
+                    setServiceOperationsDialog((prev) => ({
                       ...prev,
-                      issue: prev.issue ? { ...prev.issue, serviceOperations: updatedOps } : null
+                      issue: prev.issue
+                        ? { ...prev.issue, serviceOperations: updatedOps }
+                        : null,
                     }));
                   }}
                   tabValue={serviceOperationsDialog.tabValue}
@@ -1299,9 +1350,19 @@ export default function IssuesPage() {
           fullWidth
         >
           <DialogTitle>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
               <Typography variant="h6">Issue Category Mapping</Typography>
-              <IconButton onClick={() => setCategoryMappingDialog({ open: false, tabValue: 0 })}>
+              <IconButton
+                onClick={() =>
+                  setCategoryMappingDialog({ open: false, tabValue: 0 })
+                }
+              >
                 <CloseIcon />
               </IconButton>
             </Box>
@@ -1310,7 +1371,12 @@ export default function IssuesPage() {
             <Box sx={{ mt: 2 }}>
               <Tabs
                 value={categoryMappingDialog.tabValue}
-                onChange={(e, newValue) => setCategoryMappingDialog(prev => ({ ...prev, tabValue: newValue }))}
+                onChange={(e, newValue) =>
+                  setCategoryMappingDialog((prev) => ({
+                    ...prev,
+                    tabValue: newValue,
+                  }))
+                }
                 sx={{ mb: 3 }}
               >
                 <Tab label="External Categories" />
@@ -1322,7 +1388,8 @@ export default function IssuesPage() {
               {categoryMappingDialog.tabValue === 0 && (
                 <Box>
                   <Alert severity="info" sx={{ mb: 2 }}>
-                    External categories are shown to customers when they create issues.
+                    External categories are shown to customers when they create
+                    issues.
                   </Alert>
                   <DataTable
                     title="External Categories"
@@ -1334,9 +1401,17 @@ export default function IssuesPage() {
                         sortable: true,
                         filterable: true,
                         render: (value) => (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1,
+                            }}
+                          >
                             <CategoryIcon color="primary" />
-                            <Typography variant="body2" fontWeight="bold">{value}</Typography>
+                            <Typography variant="body2" fontWeight="bold">
+                              {value}
+                            </Typography>
                           </Box>
                         ),
                       },
@@ -1364,21 +1439,43 @@ export default function IssuesPage() {
                     ]}
                     onAdd={(data) => {
                       const newCategory = {
-                        id: Math.max(...externalCategoriesState.map(c => c.id)) + 1,
+                        id:
+                          Math.max(
+                            ...externalCategoriesState.map((c) => c.id)
+                          ) + 1,
                         name: data.name,
                         description: data.description || "",
                       };
-                      setExternalCategoriesState([...externalCategoriesState, newCategory]);
+                      setExternalCategoriesState([
+                        ...externalCategoriesState,
+                        newCategory,
+                      ]);
                     }}
                     onEdit={(id, data) => {
-                      setExternalCategoriesState(externalCategoriesState.map(cat =>
-                        cat.id === Number(id) ? { ...cat, name: data.name, description: data.description || "" } : cat
-                      ));
+                      setExternalCategoriesState(
+                        externalCategoriesState.map((cat) =>
+                          cat.id === Number(id)
+                            ? {
+                                ...cat,
+                                name: data.name,
+                                description: data.description || "",
+                              }
+                            : cat
+                        )
+                      );
                     }}
                     onDelete={(id) => {
-                      setExternalCategoriesState(externalCategoriesState.filter(cat => cat.id !== Number(id)));
+                      setExternalCategoriesState(
+                        externalCategoriesState.filter(
+                          (cat) => cat.id !== Number(id)
+                        )
+                      );
                       // Also remove any mappings that reference this external category
-                      setCategoryMappings(categoryMappings.filter(m => m.externalCategoryId !== Number(id)));
+                      setCategoryMappings(
+                        categoryMappings.filter(
+                          (m) => m.externalCategoryId !== Number(id)
+                        )
+                      );
                     }}
                     addButtonText="Add External Category"
                     selectable={false}
@@ -1391,7 +1488,8 @@ export default function IssuesPage() {
               {categoryMappingDialog.tabValue === 1 && (
                 <Box>
                   <Alert severity="info" sx={{ mb: 2 }}>
-                    Internal categories are used by technicians to classify and prioritize work.
+                    Internal categories are used by technicians to classify and
+                    prioritize work.
                   </Alert>
                   <DataTable
                     title="Internal Categories"
@@ -1413,9 +1511,17 @@ export default function IssuesPage() {
                         sortable: true,
                         filterable: true,
                         render: (value) => (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1,
+                            }}
+                          >
                             <SettingsIcon color="action" />
-                            <Typography variant="body2" fontWeight="bold">{value}</Typography>
+                            <Typography variant="body2" fontWeight="bold">
+                              {value}
+                            </Typography>
                           </Box>
                         ),
                       },
@@ -1434,43 +1540,74 @@ export default function IssuesPage() {
                         type: "text",
                         required: true,
                       },
-                  
                     ]}
                     onAdd={(data) => {
                       const newCategory = {
-                        id: Math.max(...internalCategoriesState.map(c => c.id)) + 1,
+                        id:
+                          Math.max(
+                            ...internalCategoriesState.map((c) => c.id)
+                          ) + 1,
                         code: data.code,
                         name: data.name,
                         defaultPriority: data.defaultPriority,
                         slaMinutes: Number(data.slaMinutes),
                       };
-                      setInternalCategoriesState([...internalCategoriesState, newCategory]);
+                      setInternalCategoriesState([
+                        ...internalCategoriesState,
+                        newCategory,
+                      ]);
                     }}
                     onEdit={(id, data) => {
-                      setInternalCategoriesState(internalCategoriesState.map(cat =>
-                        cat.id === Number(id) ? {
-                          ...cat,
-                          code: data.code,
-                          name: data.name,
-                          defaultPriority: data.defaultPriority,
-                          slaMinutes: Number(data.slaMinutes),
-                        } : cat
-                      ));
-                      // Update any mappings that reference this internal category
-                      setCategoryMappings(categoryMappings.map(mapping => ({
-                        ...mapping,
-                        internalCategories: mapping.internalCategories.map(intCat =>
-                          intCat.id === Number(id) ? { ...intCat, code: data.code, name: data.name } : intCat
+                      setInternalCategoriesState(
+                        internalCategoriesState.map((cat) =>
+                          cat.id === Number(id)
+                            ? {
+                                ...cat,
+                                code: data.code,
+                                name: data.name,
+                                defaultPriority: data.defaultPriority,
+                                slaMinutes: Number(data.slaMinutes),
+                              }
+                            : cat
                         )
-                      })));
+                      );
+                      // Update any mappings that reference this internal category
+                      setCategoryMappings(
+                        categoryMappings.map((mapping) => ({
+                          ...mapping,
+                          internalCategories: mapping.internalCategories.map(
+                            (intCat) =>
+                              intCat.id === Number(id)
+                                ? {
+                                    ...intCat,
+                                    code: data.code,
+                                    name: data.name,
+                                  }
+                                : intCat
+                          ),
+                        }))
+                      );
                     }}
                     onDelete={(id) => {
-                      setInternalCategoriesState(internalCategoriesState.filter(cat => cat.id !== Number(id)));
+                      setInternalCategoriesState(
+                        internalCategoriesState.filter(
+                          (cat) => cat.id !== Number(id)
+                        )
+                      );
                       // Remove this internal category from any mappings
-                      setCategoryMappings(categoryMappings.map(mapping => ({
-                        ...mapping,
-                        internalCategories: mapping.internalCategories.filter(intCat => intCat.id !== Number(id))
-                      })).filter(mapping => mapping.internalCategories.length > 0));
+                      setCategoryMappings(
+                        categoryMappings
+                          .map((mapping) => ({
+                            ...mapping,
+                            internalCategories:
+                              mapping.internalCategories.filter(
+                                (intCat) => intCat.id !== Number(id)
+                              ),
+                          }))
+                          .filter(
+                            (mapping) => mapping.internalCategories.length > 0
+                          )
+                      );
                     }}
                     addButtonText="Add Internal Category"
                     selectable={false}
@@ -1483,128 +1620,643 @@ export default function IssuesPage() {
               {categoryMappingDialog.tabValue === 2 && (
                 <Box>
                   <Alert severity="info" sx={{ mb: 2 }}>
-                    Map customer-facing categories to internal technician categories.
+                    Map customer-facing categories to internal technician
+                    categories.
                   </Alert>
                   <DataTable
-                title="Category Mappings"
-                columns={[
-                  {
-                    id: "externalCategoryName",
-                    label: "External Category",
-                    width: 200,
-                    sortable: true,
-                    filterable: true,
-                    render: (value) => (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <CategoryIcon color="primary" />
-                        <Typography variant="body2" fontWeight="bold">{value}</Typography>
-                      </Box>
-                    ),
-                  },
-                  {
-                    id: "internalCategories",
-                    label: "Internal Categories",
-                    width: 400,
-                    render: (value: any[]) => (
-                      <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
-                        {value.map((cat) => (
-                          <Chip
-                            key={cat.id}
-                            label={`${cat.code}: ${cat.name}`}
-                            color="secondary"
-                            size="small"
-                            icon={<SettingsIcon />}
-                          />
-                        ))}
-                      </Stack>
-                    ),
-                  },
-                  {
-                    id: "mappingCount",
-                    label: "Count",
-                    width: 100,
-                    sortable: true,
-                    render: (value, row) => (
-                      <Typography variant="body2" color="text.secondary">
-                        {row.internalCategories.length} mapped
-                      </Typography>
-                    ),
-                  },
-                ]}
-                data={categoryMappings}
-                formFields={[
-                  {
-                    id: "externalCategoryId",
-                    label: "External Category",
-                    type: "select",
-                    options: externalCategoriesState
-                      .filter(cat => 
-                        !categoryMappings.some(m => m.externalCategoryId === cat.id)
-                      )
-                      .map(cat => ({ value: cat.id, label: cat.name })),
-                    required: true,
-                  },
-                  {
-                    id: "internalCategoryIds",
-                    label: "Internal Categories",
-                    type: "multiselect",
-                    options: internalCategoriesState.map(cat => ({ 
-                      value: cat.id, 
-                      label: `${cat.code}: ${cat.name} (${cat.defaultPriority} - ${formatSLA(cat.slaMinutes)})` 
-                    })),
-                    required: true,
-                  },
-                ]}
-                onAdd={(data) => {
-                  const externalCategory = externalCategoriesState.find(cat => cat.id === data.externalCategoryId);
-                  const mappedInternals = internalCategoriesState.filter(cat => 
-                    data.internalCategoryIds.includes(cat.id)
-                  );
+                    title="Category Mappings"
+                    columns={[
+                      {
+                        id: "externalCategoryName",
+                        label: "External Category",
+                        width: 200,
+                        sortable: true,
+                        filterable: true,
+                        render: (value) => (
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1,
+                            }}
+                          >
+                            <CategoryIcon color="primary" />
+                            <Typography variant="body2" fontWeight="bold">
+                              {value}
+                            </Typography>
+                          </Box>
+                        ),
+                      },
+                      {
+                        id: "internalCategories",
+                        label: "Internal Categories",
+                        width: 400,
+                        render: (value: any[]) => (
+                          <Stack
+                            direction="row"
+                            spacing={1}
+                            flexWrap="wrap"
+                            gap={1}
+                          >
+                            {value.map((cat) => (
+                              <Chip
+                                key={cat.id}
+                                label={`${cat.code}: ${cat.name}`}
+                                color="secondary"
+                                size="small"
+                                icon={<SettingsIcon />}
+                              />
+                            ))}
+                          </Stack>
+                        ),
+                      },
+                      {
+                        id: "mappingCount",
+                        label: "Count",
+                        width: 100,
+                        sortable: true,
+                        render: (value, row) => (
+                          <Typography variant="body2" color="text.secondary">
+                            {row.internalCategories.length} mapped
+                          </Typography>
+                        ),
+                      },
+                    ]}
+                    data={categoryMappings}
+                    formFields={[
+                      {
+                        id: "externalCategoryId",
+                        label: "External Category",
+                        type: "select",
+                        options: externalCategoriesState
+                          .filter(
+                            (cat) =>
+                              !categoryMappings.some(
+                                (m) => m.externalCategoryId === cat.id
+                              )
+                          )
+                          .map((cat) => ({ value: cat.id, label: cat.name })),
+                        required: true,
+                      },
+                      {
+                        id: "internalCategoryIds",
+                        label: "Internal Categories",
+                        type: "multiselect",
+                        options: internalCategoriesState.map((cat) => ({
+                          value: cat.id,
+                          label: `${cat.code}: ${cat.name} (${cat.defaultPriority} - ${formatSLA(cat.slaMinutes)})`,
+                        })),
+                        required: true,
+                      },
+                    ]}
+                    onAdd={(data) => {
+                      const externalCategory = externalCategoriesState.find(
+                        (cat) => cat.id === data.externalCategoryId
+                      );
+                      const mappedInternals = internalCategoriesState.filter(
+                        (cat) => data.internalCategoryIds.includes(cat.id)
+                      );
 
-                  const newMapping = {
-                    id: Math.max(...categoryMappings.map(m => m.id)) + 1,
-                    externalCategoryId: data.externalCategoryId,
-                    externalCategoryName: externalCategory?.name || "",
-                    internalCategories: mappedInternals.map(cat => ({
-                      id: cat.id,
-                      code: cat.code,
-                      name: cat.name,
-                    })),
-                  };
+                      const newMapping = {
+                        id: Math.max(...categoryMappings.map((m) => m.id)) + 1,
+                        externalCategoryId: data.externalCategoryId,
+                        externalCategoryName: externalCategory?.name || "",
+                        internalCategories: mappedInternals.map((cat) => ({
+                          id: cat.id,
+                          code: cat.code,
+                          name: cat.name,
+                        })),
+                      };
 
-                  setCategoryMappings([...categoryMappings, newMapping]);
-                }}
-                onEdit={(id, data) => {
-                  const mappedInternals = internalCategoriesState.filter(cat => 
-                    data.internalCategoryIds.includes(cat.id)
-                  );
+                      setCategoryMappings([...categoryMappings, newMapping]);
+                    }}
+                    onEdit={(id, data) => {
+                      const mappedInternals = internalCategoriesState.filter(
+                        (cat) => data.internalCategoryIds.includes(cat.id)
+                      );
 
-                  const existingMapping = categoryMappings.find(m => m.id === Number(id));
-                  if (existingMapping) {
-                    const updatedMapping = {
-                      ...existingMapping,
-                      internalCategories: mappedInternals.map(cat => ({
-                        id: cat.id,
-                        code: cat.code,
-                        name: cat.name,
-                      })),
-                    };
+                      const existingMapping = categoryMappings.find(
+                        (m) => m.id === Number(id)
+                      );
+                      if (existingMapping) {
+                        const updatedMapping = {
+                          ...existingMapping,
+                          internalCategories: mappedInternals.map((cat) => ({
+                            id: cat.id,
+                            code: cat.code,
+                            name: cat.name,
+                          })),
+                        };
 
-                    setCategoryMappings(categoryMappings.map(m => 
-                      m.id === Number(id) ? updatedMapping : m
-                    ));
-                  }
-                }}
-                onDelete={(id) => {
-                  setCategoryMappings(categoryMappings.filter(m => m.id !== Number(id)));
-                }}
-                addButtonText="Add Mapping"
-                selectable={false}
-                pageSize={10}
-              />
+                        setCategoryMappings(
+                          categoryMappings.map((m) =>
+                            m.id === Number(id) ? updatedMapping : m
+                          )
+                        );
+                      }
+                    }}
+                    onDelete={(id) => {
+                      setCategoryMappings(
+                        categoryMappings.filter((m) => m.id !== Number(id))
+                      );
+                    }}
+                    addButtonText="Add Mapping"
+                    selectable={false}
+                    pageSize={10}
+                  />
                 </Box>
               )}
             </Box>
+          </DialogContent>
+        </Dialog>
+
+        {/* View Issue Dialog */}
+        <Dialog
+          open={viewDialog.open}
+          onClose={() => setViewDialog({ open: false, issue: null })}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>
+            <Stack
+              direction="row"
+              justifyContent="space-between"
+              alignItems="center"
+            >
+              <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                <Avatar sx={{ bgcolor: "primary.main" }}>
+                  <IssueIcon />
+                </Avatar>
+                <Box>
+                  <Typography variant="h6">Issue Details</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {viewDialog.issue?.issueNumber}
+                  </Typography>
+                </Box>
+              </Box>
+              <IconButton
+                onClick={() => setViewDialog({ open: false, issue: null })}
+                size="small"
+              >
+                <CloseIcon />
+              </IconButton>
+            </Stack>
+          </DialogTitle>
+          <DialogContent>
+            {viewDialog.issue && (
+              <Box sx={{ pt: 1 }}>
+                {/* Basic Information */}
+                <Typography variant="h6" gutterBottom>
+                  Basic Information
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 3, mb: 3 }}>
+                  <Box sx={{ minWidth: 200 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mb: 2,
+                      }}
+                    >
+                      <IssueIcon color="action" />
+                      <Box>
+                        <Typography variant="body2" color="text.secondary">
+                          Issue Number
+                        </Typography>
+                        <Typography variant="body1" fontWeight="medium">
+                          {viewDialog.issue.issueNumber}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ minWidth: 200 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mb: 2,
+                      }}
+                    >
+                      <Box>
+                        <Typography variant="body2" color="text.secondary">
+                          Title
+                        </Typography>
+                        <Typography variant="body1" fontWeight="medium">
+                          {viewDialog.issue.title}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ minWidth: 150 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mb: 2,
+                      }}
+                    >
+                      <Box>
+                        <Typography variant="body2" color="text.secondary">
+                          Status
+                        </Typography>
+                        <Chip
+                          label={viewDialog.issue.status.replace("_", " ")}
+                          color={getStatusColor(viewDialog.issue.status) as any}
+                          size="small"
+                        />
+                      </Box>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ minWidth: 150 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mb: 2,
+                      }}
+                    >
+                      <Box>
+                        <Typography variant="body2" color="text.secondary">
+                          Priority
+                        </Typography>
+                        <Chip
+                          label={viewDialog.issue.priority}
+                          color={
+                            getPriorityColor(viewDialog.issue.priority) as any
+                          }
+                          size="small"
+                        />
+                      </Box>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ minWidth: 200 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mb: 2,
+                      }}
+                    >
+                      <BusinessIcon color="action" />
+                      <Box>
+                        <Typography variant="body2" color="text.secondary">
+                          Company
+                        </Typography>
+                        <Typography variant="body1" fontWeight="medium">
+                          {viewDialog.issue.companyName}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ minWidth: 200 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mb: 2,
+                      }}
+                    >
+                      <CategoryIcon color="action" />
+                      <Box>
+                        <Typography variant="body2" color="text.secondary">
+                          Issue Type
+                        </Typography>
+                        <Typography variant="body1" fontWeight="medium">
+                          {viewDialog.issue.issueTypeName}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+                </Box>
+
+                {/* Description */}
+                {viewDialog.issue.description && (
+                  <>
+                    <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                      Description
+                    </Typography>
+                    <Divider sx={{ mb: 2 }} />
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: 1,
+                        mb: 3,
+                      }}
+                    >
+                      <DescriptionIcon color="action" sx={{ mt: 0.5 }} />
+                      <Typography variant="body1">
+                        {viewDialog.issue.description}
+                      </Typography>
+                    </Box>
+                  </>
+                )}
+
+                {/* Assignment & Location */}
+                <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                  Assignment & Location
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 3, mb: 3 }}>
+                  <Box sx={{ minWidth: 200 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mb: 2,
+                      }}
+                    >
+                      <PersonIcon color="action" />
+                      <Box>
+                        <Typography variant="body2" color="text.secondary">
+                          Assigned To
+                        </Typography>
+                        <Typography variant="body1" fontWeight="medium">
+                          {viewDialog.issue.assignedTspName || "Unassigned"}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ minWidth: 200 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mb: 2,
+                      }}
+                    >
+                      <LocationIcon color="action" />
+                      <Box>
+                        <Typography variant="body2" color="text.secondary">
+                          Location
+                        </Typography>
+                        <Typography variant="body1" fontWeight="medium">
+                          {viewDialog.issue.location || "Not specified"}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ minWidth: 150 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mb: 2,
+                      }}
+                    >
+                      <Box>
+                        <Typography variant="body2" color="text.secondary">
+                          Urgency Level
+                        </Typography>
+                        <Typography variant="body1" fontWeight="medium">
+                          {viewDialog.issue.urgencyLevel || "Not specified"}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ minWidth: 150 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mb: 2,
+                      }}
+                    >
+                      <Box>
+                        <Typography variant="body2" color="text.secondary">
+                          Customer Impact
+                        </Typography>
+                        <Typography variant="body1" fontWeight="medium">
+                          {viewDialog.issue.customerImpact || "Not specified"}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+                </Box>
+
+                {/* Products */}
+                <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                  Products ({viewDialog.issue.products?.length || 0})
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                {viewDialog.issue.products &&
+                viewDialog.issue.products.length > 0 ? (
+                  <List sx={{ py: 0 }}>
+                    {viewDialog.issue.products.map(
+                      (product: any, index: number) => (
+                        <ListItem key={index} sx={{ px: 0 }}>
+                          <ListItemIcon>
+                            <PartsIcon color="action" />
+                          </ListItemIcon>
+                          <ListItemText
+                            primary={product.name}
+                            secondary={`Serial: ${product.serial}`}
+                          />
+                        </ListItem>
+                      )
+                    )}
+                  </List>
+                ) : (
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mb: 3 }}
+                  >
+                    No products associated with this issue.
+                  </Typography>
+                )}
+
+                {/* Dates */}
+                <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                  Important Dates
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 3, mb: 3 }}>
+                  <Box sx={{ minWidth: 200 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mb: 2,
+                      }}
+                    >
+                      <CalendarIcon color="action" />
+                      <Box>
+                        <Typography variant="body2" color="text.secondary">
+                          Created At
+                        </Typography>
+                        <Typography variant="body1" fontWeight="medium">
+                          {new Date(
+                            viewDialog.issue.createdAt
+                          ).toLocaleString()}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ minWidth: 200 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mb: 2,
+                      }}
+                    >
+                      <CalendarIcon color="action" />
+                      <Box>
+                        <Typography variant="body2" color="text.secondary">
+                          Last Updated
+                        </Typography>
+                        <Typography variant="body1" fontWeight="medium">
+                          {new Date(
+                            viewDialog.issue.updatedAt
+                          ).toLocaleString()}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ minWidth: 200 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mb: 2,
+                      }}
+                    >
+                      <ScheduleIcon color="action" />
+                      <Box>
+                        <Typography variant="body2" color="text.secondary">
+                          Estimated Resolution
+                        </Typography>
+                        <Typography variant="body1" fontWeight="medium">
+                          {viewDialog.issue.estimatedResolutionDate
+                            ? new Date(
+                                viewDialog.issue.estimatedResolutionDate
+                              ).toLocaleDateString()
+                            : "Not specified"}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+
+                  {viewDialog.issue.actualResolutionDate && (
+                    <Box sx={{ minWidth: 200 }}>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 1,
+                          mb: 2,
+                        }}
+                      >
+                        <CheckCircle color="success" />
+                        <Box>
+                          <Typography variant="body2" color="text.secondary">
+                            Actual Resolution
+                          </Typography>
+                          <Typography variant="body1" fontWeight="medium">
+                            {new Date(
+                              viewDialog.issue.actualResolutionDate
+                            ).toLocaleDateString()}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Box>
+                  )}
+                </Box>
+
+                {/* Service Operations Summary */}
+                <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                  Service Operations
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 3, mb: 3 }}>
+                  <Box sx={{ minWidth: 150 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mb: 2,
+                      }}
+                    >
+                      <ServiceIcon color="action" />
+                      <Box>
+                        <Typography variant="body2" color="text.secondary">
+                          Total Operations
+                        </Typography>
+                        <Typography variant="body1" fontWeight="medium">
+                          {viewDialog.issue.serviceOperations?.length || 0}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ minWidth: 200 }}>
+                    <Button
+                      variant="outlined"
+                      startIcon={<ServiceIcon />}
+                      onClick={() => {
+                        setViewDialog({ open: false, issue: null });
+                        handleManageServiceOperations(viewDialog.issue);
+                      }}
+                    >
+                      Manage Operations
+                    </Button>
+                  </Box>
+                </Box>
+
+                {/* Attachments */}
+                {viewDialog.issue.attachments &&
+                  viewDialog.issue.attachments.length > 0 && (
+                    <>
+                      <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                        Attachments
+                      </Typography>
+                      <Divider sx={{ mb: 2 }} />
+                      <List sx={{ py: 0 }}>
+                        {viewDialog.issue.attachments.map(
+                          (attachment: string, index: number) => (
+                            <ListItem key={index} sx={{ px: 0 }}>
+                              <ListItemIcon>
+                                <AttachIcon color="action" />
+                              </ListItemIcon>
+                              <ListItemText primary={attachment} />
+                            </ListItem>
+                          )
+                        )}
+                      </List>
+                    </>
+                  )}
+              </Box>
+            )}
           </DialogContent>
         </Dialog>
       </Box>

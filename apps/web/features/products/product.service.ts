@@ -1,11 +1,10 @@
 import { queryOptions, useQuery } from "@tanstack/react-query";
 import type { QueryConfig } from "../../lib/react-query";
-import { client } from "../../lib/rpc";
+import { callRPC, client } from "../../lib/rpc";
 
 const getProducts = async () => {
-  const promise = await client.api.products.$get();
-
-  return await promise.json();
+  const data = await callRPC(client.api.products.$get());
+  return data;
 };
 
 const getProductsQueryOptions = () => {

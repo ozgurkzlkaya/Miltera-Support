@@ -84,20 +84,6 @@ export const RecentIssuesList = ({
           <Typography variant="h6" gutterBottom>
             Son Arıza Kayıtları
           </Typography>
-          <Button 
-            size="small" 
-            variant="contained" 
-            startIcon={<IssueIcon />}
-            onClick={onCreateNew}
-            sx={{ 
-              background: "linear-gradient(45deg, #1976d2 30%, #42a5f5 90%)",
-              "&:hover": {
-                background: "linear-gradient(45deg, #1565c0 30%, #1976d2 90%)",
-              }
-            }}
-          >
-            Yeni Arıza Kaydı
-          </Button>
         </Box>
 
         {issues.length === 0 ? (

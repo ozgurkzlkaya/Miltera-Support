@@ -1,7 +1,7 @@
-"use client";
-
 import { Typography, Grid, Paper, Box } from "@mui/material";
 import { Layout } from "../../components/Layout";
+import { getAuth } from "../../features/auth/getAuth";
+import CustomerPortalPage from "../../components/CustomerPortalPage";
 
 // Mock data for demonstration
 const mockStats = {
@@ -32,17 +32,16 @@ const mockRecentIssues = [
   },
 ];
 
-export default function DashboardPage() {
- 
+const DashboardPage = async () => {
+  const auth = await getAuth();
+
+  if (auth.role === "customer") {
+    return <CustomerPortalPage />;
+  }
 
   return (
-    <Layout title="Miltera Dashboard">
+    <Layout title="Overview">
       <Box sx={{ p: 3 }}>
-        <Typography variant="h4" gutterBottom>
-          Dashboard Overview
-        </Typography>
-
-        {/* Stats Grid */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Paper sx={{ p: 2, textAlign: "center" }}>
@@ -104,4 +103,6 @@ export default function DashboardPage() {
       </Box>
     </Layout>
   );
-}
+};
+
+export default DashboardPage;

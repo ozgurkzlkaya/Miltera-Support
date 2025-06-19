@@ -1,8 +1,10 @@
 "use client";
+
 import { QueryClientProvider } from "@tanstack/react-query";
 import { AppRouterCacheProvider } from "@mui/material-nextjs/v15-appRouter";
 import { ThemeProvider } from "@miltera/ui/ThemeProvider";
 import { getQueryClient } from "../lib/react-query";
+import { AuthProvider } from "../features/auth/useAuth";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   // NOTE: Avoid useState when initializing the query client if you don't
@@ -14,7 +16,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <AppRouterCacheProvider>
-        <ThemeProvider>{children}</ThemeProvider>
+        <AuthProvider>
+          <ThemeProvider>{children}</ThemeProvider>
+        </AuthProvider>
       </AppRouterCacheProvider>
     </QueryClientProvider>
   );
