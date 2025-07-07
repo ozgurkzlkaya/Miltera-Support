@@ -1,34 +1,35 @@
 /* eslint-disable turbo/no-undeclared-env-vars */
 
-import type { AppType } from "@miltera/api/app";
-import { hc, type ClientResponse } from "hono/client";
-import type { ResponseFormat } from "hono/types";
-import type { StatusCode } from "hono/utils/http-status";
+import hc, { type ClientResponse } from "@miltera/api/hc";
 
-let appPromise: Promise<AppType> | null;
+let appPromise: Promise<typeof import("@miltera/api/app").default> | null;
 
 if (process.env.NEXT_RUNTIME) {
   // prevent sending to client (browser)
   appPromise = import("@miltera/api/app").then((a) => a.default);
 }
 
-const client = hc<AppType>("http://localhost:3000", {
-  fetch: (async (url: string, init: RequestInit) => {
-    const request = new Request(url, init);
+const hybridFetch = (async (url, init) => {
+  const request = new Request(url, {
+    ...init,
+    credentials: "include", // Required for sending cookies cross-origin
+  });
 
-    // url always string
-    if (typeof window !== "undefined" && !process.env.NEXT_RUNTIME) {
-      // browser
+  if (typeof window !== "undefined" && !process.env.NEXT_RUNTIME) {
+    // browser
 
-      return fetch(request);
-    } else if (process.env.NEXT_RUNTIME && appPromise) {
-      // internal request (server)
+    return fetch(request);
+  } else if (process.env.NEXT_RUNTIME && appPromise) {
+    // internal request (server)
 
-      const app = await appPromise;
-      return app.fetch(request);
-    }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  }) as any,
+    const app = await appPromise;
+    return app.fetch(request);
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+}) as typeof fetch;
+
+const client = hc("http://localhost:3000", {
+  fetch: hybridFetch,
 });
 
 const callRPC = async <
@@ -36,20 +37,33 @@ const callRPC = async <
   R extends Awaited<ReturnType<Awaited<T>["json"]>>,
 >(
   rpc: T
-): Promise<R extends { data: any } ? R["data"] : never> => {
+): Promise<R extends { data: any } ? R : never> => {
   const res = await rpc;
-  const json = await res.json();
+  const contentType = res.headers.get("content-type");
 
-  if (!res.ok || !json.success) {
-    const err = Object.assign(new Error(`Error`), {
-      res: res,
-      data: json.error,
-    });
+  if (contentType?.includes("application/json")) {
+    const json = await res.json();
 
-    throw err;
+    if (!res.ok || !json.success) {
+      const err = Object.assign(
+        new Error(`API Error: ${json.error?.message || res.statusText}`),
+        {
+          res: res,
+          data: json.error,
+        }
+      );
+
+      throw err;
+    }
+
+    return json;
   }
 
-  return json.data;
+  if (!res.ok) {
+    throw new Error(`API Error: ${res.status} ${res.statusText}`);
+  }
+
+  return undefined as any;
 };
 
-export { client, callRPC };
+export { client, callRPC, hybridFetch };

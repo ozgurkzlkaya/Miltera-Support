@@ -12,8 +12,22 @@ import {
   ListItemIcon,
   ListItemText,
   IconButton,
+  Avatar,
+  Menu,
+  MenuItem,
+  Divider,
+  ListItemButton,
+  useTheme,
+  CircularProgress,
+  Container,
 } from "@mui/material";
-import { Menu as MenuIcon } from "@mui/icons-material";
+import {
+  Menu as MenuIcon,
+  AccountCircle,
+  Settings,
+  Logout,
+  CorporateFare,
+} from "@mui/icons-material";
 import {
   Dashboard as DashboardIcon,
   Settings as SettingsIcon,
@@ -26,14 +40,17 @@ import {
   Home as HomeIcon,
   Person as CustomerIcon,
   Engineering as ServiceIcon,
+  Business as BusinessIcon,
 } from "@mui/icons-material";
 import { ReactNode, useState } from "react";
-import { useRouter } from "next/navigation";
-import { useAuthenticatedAuth } from "../features/auth/useAuth";
+import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "../features/auth/useAuth";
 import Image from "next/image";
+import Link from "next/link";
+import { signOut } from "../features/auth/auth.service";
 
 interface LayoutProps {
-  title: string;
+  title?: string;
   children: ReactNode;
 }
 
@@ -41,8 +58,51 @@ const drawerWidth = 240;
 
 export const Layout = ({ title, children }: LayoutProps) => {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const router = useRouter();
-  const auth = useAuthenticatedAuth();
+  const auth = useAuth();
+
+  const pathname = usePathname();
+
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen);
+  };
+
+  const handleNavigation = (path: string) => {
+    router.push(path);
+  };
+
+  const handleAvatarClick = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleAvatarClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleLogout = () => {
+    signOut().then(() => {
+      router.push("/auth");
+    });
+    handleAvatarClose();
+  };
+
+  if (auth.isLoading || !auth.isAuthenticated) {
+    return (
+      <Container
+        maxWidth="sm"
+        sx={{
+          minHeight: "100vh",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          flexDirection: "column",
+        }}
+      >
+        <CircularProgress />
+      </Container>
+    );
+  }
 
   const menuItems = [
     {
@@ -71,26 +131,25 @@ export const Layout = ({ title, children }: LayoutProps) => {
     //   text: "Reports",
     //   path: "/dashboard/reports",
     // },
+
+    ...(auth.user.role !== "CUSTOMER"
+      ? [
+          {
+            icon: <BusinessIcon />,
+            text: "Companies",
+            path: "/dashboard/companies",
+          },
+          {
+            icon: <PeopleIcon />,
+            text: "Users",
+            path: "/dashboard/users",
+          },
+        ]
+      : []),
   ];
 
-  if (auth.role !== "customer") {
-    menuItems.push({
-      icon: <PeopleIcon />,
-      text: "Customers",
-      path: "/dashboard/customers",
-    });
-  }
-
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
-  };
-
-  const handleNavigation = (path: string) => {
-    router.push(path);
-  };
-
   const drawer = (
-    <div>
+    <>
       <Toolbar
         sx={{
           display: "flex",
@@ -100,17 +159,19 @@ export const Layout = ({ title, children }: LayoutProps) => {
           borderColor: "divider",
         }}
       >
-        <Image
-          src="/miltera-logo.png"
-          alt="Miltera Logo"
-          width={80}
-          height={26}
-          style={{
-            maxWidth: "100%",
-            height: "auto",
-          }}
-          priority
-        />
+        <Link href="/dashboard">
+          <Image
+            src="/miltera-logo.png"
+            alt="Miltera Logo"
+            width={150}
+            height={26}
+            style={{
+              maxWidth: "100%",
+              height: "auto",
+            }}
+            priority
+          />
+        </Link>
       </Toolbar>
       <List>
         {menuItems.filter(Boolean).map((item, index) => (
@@ -124,7 +185,7 @@ export const Layout = ({ title, children }: LayoutProps) => {
           </ListItem>
         ))}
       </List>
-    </div>
+    </>
   );
 
   return (
@@ -150,8 +211,79 @@ export const Layout = ({ title, children }: LayoutProps) => {
             </IconButton>
             <Box sx={{ display: "flex", alignItems: "center", flexGrow: 1 }}>
               <Typography variant="h6" noWrap component="div">
+                {pathname}
                 {title}
               </Typography>
+            </Box>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Typography
+                variant="body2"
+                sx={{ display: { xs: "none", sm: "block" } }}
+              >
+                {auth.user.name}
+              </Typography>
+              <IconButton onClick={handleAvatarClick} sx={{ p: 0 }}>
+                <Avatar
+                  alt={auth.user.name}
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    fontSize: "14px",
+                  }}
+                />
+              </IconButton>
+              <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={handleAvatarClose}
+                onClick={handleAvatarClose}
+                PaperProps={{
+                  elevation: 0,
+                  sx: {
+                    overflow: "visible",
+                    filter: "drop-shadow(0px 2px 8px rgba(0,0,0,0.32))",
+                    mt: 1.5,
+                    "& .MuiAvatar-root": {
+                      width: 24,
+                      height: 24,
+                      ml: -0.5,
+                      mr: 1,
+                    },
+                    "&:before": {
+                      content: '""',
+                      display: "block",
+                      position: "absolute",
+                      top: 0,
+                      right: 14,
+                      width: 10,
+                      height: 10,
+                      bgcolor: "background.paper",
+                      transform: "translateY(-50%) rotate(45deg)",
+                      zIndex: 0,
+                    },
+                  },
+                }}
+                transformOrigin={{ horizontal: "right", vertical: "top" }}
+                anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
+              >
+                <MenuItem onClick={handleAvatarClose}>
+                  <Box>
+                    <Typography variant="body2" fontWeight="bold">
+                      {auth.user.name || "User"}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {auth.user.email || "user@example.com"}
+                    </Typography>
+                  </Box>
+                </MenuItem>
+                <Divider />
+                <MenuItem onClick={handleLogout}>
+                  <ListItemIcon>
+                    <Logout fontSize="small" />
+                  </ListItemIcon>
+                  Logout
+                </MenuItem>
+              </Menu>
             </Box>
           </Toolbar>
         </AppBar>

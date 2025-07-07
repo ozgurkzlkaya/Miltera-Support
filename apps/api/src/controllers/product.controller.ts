@@ -1,60 +1,90 @@
 import { db } from "../db";
 import { createControllerAction } from "./base.controller";
+import { ResponseHandler } from "../helpers/response.helpers";
 import { ProductService } from "../services/product.service";
+import {
+  ProductListRequestDto,
+  ProductCreateDto,
+  ProductCreateBulkDto,
+  ProductUpdateDto,
+} from "../dtos/product.dto";
+import type { User } from "better-auth";
 
 const productService = new ProductService(db);
 
 const list = createControllerAction(async (c) => {
-  const query = c.req.query();
-  const { name, category, isActive, page, limit, sort } = query;
+  const query = await c.validateRequest("rawQuery", (v) => v);
+  const productListRequestDto = ProductListRequestDto.create(query);
 
-  const filters = {
-    ...(name && { name }),
-    ...(category && { category }),
-    ...(isActive && { isActive: isActive === "true" }),
-  };
+  const productListDto = await productService.getAllProductsWithRelations(
+    productListRequestDto
+  );
 
-  const response = await productService.getAllProducts({
-    filters,
-    pagination:
-      page && limit ? { page: Number(page), limit: Number(limit) } : undefined,
-    sort: sort ? { field: sort, direction: "asc" } : undefined,
-  });
+  const productList = productListDto.toJSON();
 
-  return c.responseJSON(response);
+  return c.responseJSON(
+    ResponseHandler.success(productList.data, productList.meta)
+  );
 });
 
 const show = createControllerAction("/:id", async (c) => {
   const id = c.req.param("id");
 
-  const response = await productService.getProductById(id);
+  const productDto = await productService.getProduct(id);
+  const product = productDto.toJSON();
 
-  return c.responseJSON(response);
+  return c.responseJSON(ResponseHandler.success(product));
 });
 
 const create = createControllerAction(async (c) => {
   const body = await c.req.json();
+  const productCreateDto = ProductCreateDto.create(body);
 
-  const response = await productService.createProduct(body);
+  //@ts-ignore
+  const user = c.get("user") as User | null;
+  const productDto = await productService.createProduct(productCreateDto, user);
+  const product = productDto.toJSON();
 
-  return c.responseJSON(response);
+  return c.responseJSON(ResponseHandler.success(product));
+});
+
+const createBulk = createControllerAction(async (c) => {
+  const body = await c.req.json();
+  const productCreateBulkDto = ProductCreateBulkDto.create(body);
+
+  //@ts-ignore
+  const user = c.get("user") as User | null;
+  const productListDto = await productService.createBulkProduct(
+    productCreateBulkDto,
+    user
+  );
+
+  const productList = productListDto.toJSON();
+
+  return c.responseJSON(
+    ResponseHandler.success(productList.data, productList.meta)
+  );
 });
 
 const update = createControllerAction("/:id", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json();
+  const productUpdateDto = ProductUpdateDto.create(body);
 
-  const response = await productService.updateProduct(id, body);
+  const productDto = await productService.updateProduct(id, productUpdateDto);
+  const product = productDto.toJSON();
 
-  return c.responseJSON(response);
+  return c.responseJSON(ResponseHandler.success(product));
 });
 
 const destroy = createControllerAction("/:id", async (c) => {
   const id = c.req.param("id");
 
-  const response = await productService.deleteProduct(id);
+  await productService.deleteProduct(id);
 
-  return c.responseStatus(response.statusCode);
+  return c.responseStatus(204);
 });
 
-export default { list, show, create, update, destroy };
+const ProductController = { list, show, create, createBulk, update, destroy };
+
+export default ProductController;

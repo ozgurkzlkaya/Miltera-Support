@@ -1,5 +1,5 @@
 {
-  "name": "a",
+  "name": "miltera",
   "private": true,
   "scripts": {
     "build": "turbo run build",

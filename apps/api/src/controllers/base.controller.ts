@@ -1,11 +1,13 @@
 import type { Context as HonoContext, Env, Input } from "hono";
 import { createMiddleware } from "hono/factory";
+import { validator } from "hono/validator";
 import type {
   BlankInput,
   Handler,
   HandlerResponse,
   Next,
   TypedResponse,
+  ValidationTargets,
 } from "hono/types";
 import type { ContentfulStatusCode, StatusCode } from "hono/utils/http-status";
 import type {
@@ -25,14 +27,33 @@ type Context<
     R extends ApiSuccessResponse<T, U> | ApiErrorResponse<U>,
   >(
     response: R
-  ) => Promise<Response & (
-    R extends ApiSuccessResponse<T, infer S> 
-      ? TypedResponse<R["json"], S, "json">
-      : R extends ApiErrorResponse<infer E>
-        ? TypedResponse<R["json"], E, "json">
-        : never
-  )>;
-  responseStatus: (statusCode: number) => Response;
+  ) => Promise<
+    Response &
+      (R extends ApiSuccessResponse<T, infer S>
+        ? TypedResponse<R["json"], S, "json">
+        : R extends ApiErrorResponse<infer E>
+          ? TypedResponse<R["json"], E, "json">
+          : never)
+  >;
+  responseStatus: (
+    statusCode: StatusCode
+  ) => Response & TypedResponse<null, StatusCode, "body">;
+  validateRequest: <
+    InputType,
+    OutputType,
+    TargetType extends keyof ValidationTargets | "rawQuery",
+  >(
+    target: TargetType,
+    validatorFn: (
+      value: unknown extends InputType
+        ? "rawQuery" extends TargetType
+          ? string
+          : // @ts-ignore
+            ValidationTargets[TargetType]
+        : InputType,
+      c: HonoContext
+    ) => OutputType | Promise<OutputType>
+  ) => Promise<OutputType>;
 };
 
 type ControllerAction<
@@ -84,8 +105,19 @@ const responderMiddleware = createMiddleware(
   //@ts-ignore
   async (c: Context, next) => {
     c.responseJSON = buildJSONResponder(c) as any;
-    c.responseStatus = (statusCode: number) => {
-      return new Response(null, { status: statusCode });
+    c.responseStatus = (statusCode: StatusCode) => {
+      c.status(statusCode);
+      return c.body(null);
+    };
+
+    c.validateRequest = async (target, validatorFn) => {
+      if (target === "rawQuery") {
+        const value = c.req.raw.url.split("?")?.[1] ?? "";
+        return await validatorFn(value as any, c);
+      } else {
+        await validator(target, validatorFn)(c, async () => {});
+        return c.req.valid(target as never);
+      }
     };
 
     await next();

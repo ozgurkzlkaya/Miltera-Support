@@ -313,11 +313,12 @@ const getFormFields = (openProductSelectionModal: any): FormField[] => [
     required: true,
     placeholder: "e.g., SHP-2024-001",
     layout: { row: 0, column: 0 }, // First row, first column
-    validation: (value) => {
-      if (value && !/^SHP-\d{4}-\d{3}$/.test(value)) {
-        return "Shipment number format should be SHP-YYYY-XXX";
-      }
-      return null;
+    validation: {
+      required: "Shipment number is required",
+      pattern: {
+        value: /^SHP-\d{4}-\d{3}$/,
+        message: "Shipment number format should be SHP-YYYY-XXX",
+      },
     },
   },
   {
@@ -376,13 +377,23 @@ const getFormFields = (openProductSelectionModal: any): FormField[] => [
   {
     id: "productIds",
     label: "Products",
-    type: "text",
+    type: "custom",
     required: true,
     placeholder: "Click to select products...",
     helperText: "Select one or more products for this shipment",
     layout: { row: 3, column: 0 }, // Fourth row, full width
-    isProductSelector: true,
-    onProductSelectorClick: openProductSelectionModal,
+    customDisplayValue: (value: any) => {
+      if (Array.isArray(value) && value.length > 0) {
+        return `${value.length} product${value.length > 1 ? "s" : ""} selected`;
+      }
+      return "Click to select products...";
+    },
+    onCustomClick: (
+      currentValue: any,
+      onSelectionChange: (value: any) => void
+    ) => {
+      openProductSelectionModal(currentValue || [], onSelectionChange);
+    },
   },
   {
     id: "estimatedDelivery",
@@ -660,430 +671,424 @@ export default function ShipmentsPage() {
   const statusCounts = getStatusCounts();
 
   return (
-    <Layout title="Shipments">
-      <Box sx={{ p: 3 }}>
-        {/* Quick Stats */}
-        <Box sx={{ mb: 3, display: "flex", gap: 2, flexWrap: "wrap" }}>
-          <Stack direction="row" spacing={2} sx={{ flex: 1, minWidth: 0 }}>
-            <Card sx={{ minWidth: 200 }}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Total Shipments
-                </Typography>
-                <Typography variant="h4" color="primary">
-                  {shipments.length}
-                </Typography>
-              </CardContent>
-            </Card>
-            <Card sx={{ minWidth: 200 }}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Delivered
-                </Typography>
-                <Typography variant="h4" color="success.main">
-                  {statusCounts.DELIVERED || 0}
-                </Typography>
-              </CardContent>
-            </Card>
-            <Card sx={{ minWidth: 200 }}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  In Transit
-                </Typography>
-                <Typography variant="h4" color="info.main">
-                  {(statusCounts.SHIPPED || 0) + (statusCounts.IN_TRANSIT || 0)}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Stack>
-          {auth.role !== "customer" ? (
-            <Stack spacing={1} sx={{ minWidth: 200 }}>
-              <Link href="/dashboard/locations" passHref>
-                <Button
-                  variant="outlined"
-                  startIcon={<LocationIcon />}
-                  fullWidth
-                >
-                  Manage Locations
-                </Button>
-              </Link>
-            </Stack>
-          ) : null}
-        </Box>
-
-        {/* Shipments DataTable */}
-        <DataTable
-          title="Shipments"
-          columns={columns}
-          data={shipments}
-          formFields={getFormFields(openProductSelectionModal)}
-          {...(auth.role !== "customer"
-            ? {
-                onAdd: handleAdd,
-                onEdit: handleEdit,
-                onDelete: handleDeleteRequest,
-              }
-            : {})}
-          onView={handleView}
-          onExport={handleExport}
-          addButtonText="Create Shipment"
-          selectable={true}
-          bulkActions={bulkActions}
-          pageSize={10}
-        />
-
-        {/* Product Selection Modal */}
-        <ProductSelectionModal
-          open={productSelectionModal.open}
-          onClose={closeProductSelectionModal}
-          selectedProductIds={productSelectionModal.selectedProductIds}
-          onSelectionChange={productSelectionModal.onSelectionChange}
-          title="Select Products for Shipment"
-        />
-
-        <ConfirmDialog
-          open={deleteDialog.open}
-          title="Delete Shipment"
-          message={`Are you sure you want to delete shipment "${deleteDialog.number}"? This action cannot be undone and may affect tracking records.`}
-          onConfirm={handleDeleteConfirm}
-          onCancel={handleDeleteCancel}
-          confirmText="Delete"
-        />
-
-        {/* View Shipment Dialog */}
-        <Dialog
-          open={viewDialog.open}
-          onClose={handleViewClose}
-          maxWidth="md"
-          fullWidth
-        >
-          <DialogTitle>
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 2,
-                justifyContent: "space-between",
-              }}
-            >
-              <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                <Avatar sx={{ bgcolor: "primary.main" }}>
-                  <ShippingIcon />
-                </Avatar>
-                <Box>
-                  <Typography variant="h6">Shipment Details</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {viewDialog.shipment?.shipmentNumber}
-                  </Typography>
-                </Box>
-              </Box>
-              <Button
-                onClick={handleViewClose}
-                sx={{ minWidth: "auto", p: 1, borderRadius: "50%" }}
-                color="inherit"
-              >
-                <CloseIcon />
+    <Box sx={{ p: 3 }}>
+      {/* Quick Stats */}
+      <Box sx={{ mb: 3, display: "flex", gap: 2, flexWrap: "wrap" }}>
+        <Stack direction="row" spacing={2} sx={{ flex: 1, minWidth: 0 }}>
+          <Card sx={{ minWidth: 200 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Total Shipments
+              </Typography>
+              <Typography variant="h4" color="primary">
+                {shipments.length}
+              </Typography>
+            </CardContent>
+          </Card>
+          <Card sx={{ minWidth: 200 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Delivered
+              </Typography>
+              <Typography variant="h4" color="success.main">
+                {statusCounts.DELIVERED || 0}
+              </Typography>
+            </CardContent>
+          </Card>
+          <Card sx={{ minWidth: 200 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                In Transit
+              </Typography>
+              <Typography variant="h4" color="info.main">
+                {(statusCounts.SHIPPED || 0) + (statusCounts.IN_TRANSIT || 0)}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Stack>
+        {auth.user.role !== "customer" ? (
+          <Stack spacing={1} sx={{ minWidth: 200 }}>
+            <Link href="/dashboard/locations" passHref>
+              <Button variant="outlined" startIcon={<LocationIcon />} fullWidth>
+                Manage Locations
               </Button>
+            </Link>
+          </Stack>
+        ) : null}
+      </Box>
+
+      {/* Shipments DataTable */}
+      <DataTable
+        title="Shipments"
+        columns={columns}
+        data={shipments}
+        formFields={getFormFields(openProductSelectionModal)}
+        {...(auth.user.role !== "customer"
+          ? {
+              onAdd: handleAdd,
+              onEdit: handleEdit,
+              onDelete: handleDeleteRequest,
+            }
+          : {})}
+        onView={handleView}
+        onExport={handleExport}
+        addButtonText="Create Shipment"
+        selectable={true}
+        bulkActions={bulkActions}
+        pageSize={10}
+      />
+
+      {/* Product Selection Modal */}
+      <ProductSelectionModal
+        open={productSelectionModal.open}
+        onClose={closeProductSelectionModal}
+        selectedProductIds={productSelectionModal.selectedProductIds}
+        onSelectionChange={productSelectionModal.onSelectionChange}
+        title="Select Products for Shipment"
+      />
+
+      <ConfirmDialog
+        open={deleteDialog.open}
+        title="Delete Shipment"
+        message={`Are you sure you want to delete shipment "${deleteDialog.number}"? This action cannot be undone and may affect tracking records.`}
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+        confirmText="Delete"
+      />
+
+      {/* View Shipment Dialog */}
+      <Dialog
+        open={viewDialog.open}
+        onClose={handleViewClose}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
+              justifyContent: "space-between",
+            }}
+          >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <Avatar sx={{ bgcolor: "primary.main" }}>
+                <ShippingIcon />
+              </Avatar>
+              <Box>
+                <Typography variant="h6">Shipment Details</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {viewDialog.shipment?.shipmentNumber}
+                </Typography>
+              </Box>
             </Box>
-          </DialogTitle>
-          <DialogContent>
-            {viewDialog.shipment && (
-              <Box sx={{ pt: 1 }}>
-                {/* Basic Information */}
-                <Typography variant="h6" gutterBottom>
-                  Basic Information
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
+            <Button
+              onClick={handleViewClose}
+              sx={{ minWidth: "auto", p: 1, borderRadius: "50%" }}
+              color="inherit"
+            >
+              <CloseIcon />
+            </Button>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {viewDialog.shipment && (
+            <Box sx={{ pt: 1 }}>
+              {/* Basic Information */}
+              <Typography variant="h6" gutterBottom>
+                Basic Information
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
 
-                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 3, mb: 3 }}>
-                  <Box sx={{ minWidth: 200 }}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1,
-                        mb: 2,
-                      }}
-                    >
-                      <ShippingIcon color="action" />
-                      <Box>
-                        <Typography variant="body2" color="text.secondary">
-                          Shipment Number
-                        </Typography>
-                        <Typography variant="body1" fontWeight="medium">
-                          {viewDialog.shipment.shipmentNumber}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Box>
-
-                  <Box sx={{ minWidth: 150 }}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1,
-                        mb: 2,
-                      }}
-                    >
-                      <Box>
-                        <Typography variant="body2" color="text.secondary">
-                          Type
-                        </Typography>
-                        <Chip
-                          label={viewDialog.shipment.type.replace("_", " ")}
-                          color={getTypeColor(viewDialog.shipment.type) as any}
-                          size="small"
-                          variant="outlined"
-                        />
-                      </Box>
-                    </Box>
-                  </Box>
-
-                  <Box sx={{ minWidth: 150 }}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1,
-                        mb: 2,
-                      }}
-                    >
-                      <Box>
-                        <Typography variant="body2" color="text.secondary">
-                          Status
-                        </Typography>
-                        <Chip
-                          label={viewDialog.shipment.status.replace("_", " ")}
-                          color={
-                            getStatusColor(viewDialog.shipment.status) as any
-                          }
-                          size="small"
-                        />
-                      </Box>
-                    </Box>
-                  </Box>
-
-                  <Box sx={{ minWidth: 200 }}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1,
-                        mb: 2,
-                      }}
-                    >
-                      <BusinessIcon color="action" />
-                      <Box>
-                        <Typography variant="body2" color="text.secondary">
-                          Company
-                        </Typography>
-                        <Typography variant="body1" fontWeight="medium">
-                          {viewDialog.shipment.companyName}
-                        </Typography>
-                      </Box>
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 3, mb: 3 }}>
+                <Box sx={{ minWidth: 200 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      mb: 2,
+                    }}
+                  >
+                    <ShippingIcon color="action" />
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">
+                        Shipment Number
+                      </Typography>
+                      <Typography variant="body1" fontWeight="medium">
+                        {viewDialog.shipment.shipmentNumber}
+                      </Typography>
                     </Box>
                   </Box>
                 </Box>
 
-                {/* Shipping Details */}
-                <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                  Shipping Details
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-
-                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 3, mb: 3 }}>
-                  <Box sx={{ minWidth: 150 }}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1,
-                        mb: 2,
-                      }}
-                    >
-                      <ShippingIcon color="action" />
-                      <Box>
-                        <Typography variant="body2" color="text.secondary">
-                          Carrier
-                        </Typography>
-                        <Typography variant="body1" fontWeight="medium">
-                          {viewDialog.shipment.carrier}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Box>
-
-                  <Box sx={{ minWidth: 200 }}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1,
-                        mb: 2,
-                      }}
-                    >
-                      <Box>
-                        <Typography variant="body2" color="text.secondary">
-                          Tracking Number
-                        </Typography>
-                        <Typography variant="body1" fontWeight="medium">
-                          {viewDialog.shipment.trackingNumber || "Not assigned"}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Box>
-
-                  <Box sx={{ minWidth: 150 }}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1,
-                        mb: 2,
-                      }}
-                    >
-                      <CalendarIcon color="action" />
-                      <Box>
-                        <Typography variant="body2" color="text.secondary">
-                          Estimated Delivery
-                        </Typography>
-                        <Typography variant="body1" fontWeight="medium">
-                          {new Date(
-                            viewDialog.shipment.estimatedDelivery
-                          ).toLocaleDateString()}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Box>
-
-                  <Box sx={{ minWidth: 150 }}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1,
-                        mb: 2,
-                      }}
-                    >
-                      <CalendarIcon color="action" />
-                      <Box>
-                        <Typography variant="body2" color="text.secondary">
-                          Actual Delivery
-                        </Typography>
-                        <Typography variant="body1" fontWeight="medium">
-                          {viewDialog.shipment.actualDelivery
-                            ? new Date(
-                                viewDialog.shipment.actualDelivery
-                              ).toLocaleDateString()
-                            : "Not delivered yet"}
-                        </Typography>
-                      </Box>
+                <Box sx={{ minWidth: 150 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      mb: 2,
+                    }}
+                  >
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">
+                        Type
+                      </Typography>
+                      <Chip
+                        label={viewDialog.shipment.type.replace("_", " ")}
+                        color={getTypeColor(viewDialog.shipment.type) as any}
+                        size="small"
+                        variant="outlined"
+                      />
                     </Box>
                   </Box>
                 </Box>
 
-                {/* Products */}
-                <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                  Products ({viewDialog.shipment.productCount})
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                <List>
-                  {viewDialog.shipment.shipmentItems?.map(
-                    (item: any, index: number) => (
-                      <ListItem key={index} sx={{ px: 0 }}>
-                        <ListItemIcon>
-                          <InventoryIcon color="action" />
-                        </ListItemIcon>
-                        <ListItemText
-                          primary={item.productName}
-                          secondary={`Quantity: ${item.quantity}`}
-                        />
-                      </ListItem>
-                    )
-                  )}
-                </List>
-
-                {/* Notes */}
-                {viewDialog.shipment.notes && (
-                  <Box sx={{ mt: 2 }}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        gap: 1,
-                        mb: 2,
-                      }}
-                    >
-                      <NotesIcon color="action" sx={{ mt: 0.5 }} />
-                      <Box>
-                        <Typography variant="body2" color="text.secondary">
-                          Notes
-                        </Typography>
-                        <Typography variant="body1">
-                          {viewDialog.shipment.notes}
-                        </Typography>
-                      </Box>
+                <Box sx={{ minWidth: 150 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      mb: 2,
+                    }}
+                  >
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">
+                        Status
+                      </Typography>
+                      <Chip
+                        label={viewDialog.shipment.status.replace("_", " ")}
+                        color={
+                          getStatusColor(viewDialog.shipment.status) as any
+                        }
+                        size="small"
+                      />
                     </Box>
                   </Box>
-                )}
+                </Box>
 
-                {/* Metadata */}
-                <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>
-                  Metadata
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-
-                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
-                  <Box sx={{ minWidth: 200 }}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1,
-                        mb: 2,
-                      }}
-                    >
-                      <CalendarIcon color="action" />
-                      <Box>
-                        <Typography variant="body2" color="text.secondary">
-                          Created At
-                        </Typography>
-                        <Typography variant="body1" fontWeight="medium">
-                          {new Date(
-                            viewDialog.shipment.createdAt
-                          ).toLocaleString()}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Box>
-
-                  <Box sx={{ minWidth: 150 }}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1,
-                        mb: 2,
-                      }}
-                    >
-                      <PersonIcon color="action" />
-                      <Box>
-                        <Typography variant="body2" color="text.secondary">
-                          Created By
-                        </Typography>
-                        <Typography variant="body1" fontWeight="medium">
-                          {viewDialog.shipment.createdBy}
-                        </Typography>
-                      </Box>
+                <Box sx={{ minWidth: 200 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      mb: 2,
+                    }}
+                  >
+                    <BusinessIcon color="action" />
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">
+                        Company
+                      </Typography>
+                      <Typography variant="body1" fontWeight="medium">
+                        {viewDialog.shipment.companyName}
+                      </Typography>
                     </Box>
                   </Box>
                 </Box>
               </Box>
-            )}
-          </DialogContent>
-        </Dialog>
-      </Box>
-    </Layout>
+
+              {/* Shipping Details */}
+              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                Shipping Details
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 3, mb: 3 }}>
+                <Box sx={{ minWidth: 150 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      mb: 2,
+                    }}
+                  >
+                    <ShippingIcon color="action" />
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">
+                        Carrier
+                      </Typography>
+                      <Typography variant="body1" fontWeight="medium">
+                        {viewDialog.shipment.carrier}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+
+                <Box sx={{ minWidth: 200 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      mb: 2,
+                    }}
+                  >
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">
+                        Tracking Number
+                      </Typography>
+                      <Typography variant="body1" fontWeight="medium">
+                        {viewDialog.shipment.trackingNumber || "Not assigned"}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+
+                <Box sx={{ minWidth: 150 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      mb: 2,
+                    }}
+                  >
+                    <CalendarIcon color="action" />
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">
+                        Estimated Delivery
+                      </Typography>
+                      <Typography variant="body1" fontWeight="medium">
+                        {new Date(
+                          viewDialog.shipment.estimatedDelivery
+                        ).toLocaleDateString()}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+
+                <Box sx={{ minWidth: 150 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      mb: 2,
+                    }}
+                  >
+                    <CalendarIcon color="action" />
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">
+                        Actual Delivery
+                      </Typography>
+                      <Typography variant="body1" fontWeight="medium">
+                        {viewDialog.shipment.actualDelivery
+                          ? new Date(
+                              viewDialog.shipment.actualDelivery
+                            ).toLocaleDateString()
+                          : "Not delivered yet"}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              </Box>
+
+              {/* Products */}
+              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                Products ({viewDialog.shipment.productCount})
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              <List>
+                {viewDialog.shipment.shipmentItems?.map(
+                  (item: any, index: number) => (
+                    <ListItem key={index} sx={{ px: 0 }}>
+                      <ListItemIcon>
+                        <InventoryIcon color="action" />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={item.productName}
+                        secondary={`Quantity: ${item.quantity}`}
+                      />
+                    </ListItem>
+                  )
+                )}
+              </List>
+
+              {/* Notes */}
+              {viewDialog.shipment.notes && (
+                <Box sx={{ mt: 2 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 1,
+                      mb: 2,
+                    }}
+                  >
+                    <NotesIcon color="action" sx={{ mt: 0.5 }} />
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">
+                        Notes
+                      </Typography>
+                      <Typography variant="body1">
+                        {viewDialog.shipment.notes}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              )}
+
+              {/* Metadata */}
+              <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>
+                Metadata
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                <Box sx={{ minWidth: 200 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      mb: 2,
+                    }}
+                  >
+                    <CalendarIcon color="action" />
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">
+                        Created At
+                      </Typography>
+                      <Typography variant="body1" fontWeight="medium">
+                        {new Date(
+                          viewDialog.shipment.createdAt
+                        ).toLocaleString()}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+
+                <Box sx={{ minWidth: 150 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      mb: 2,
+                    }}
+                  >
+                    <PersonIcon color="action" />
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">
+                        Created By
+                      </Typography>
+                      <Typography variant="body1" fontWeight="medium">
+                        {viewDialog.shipment.createdBy}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+      </Dialog>
+    </Box>
   );
 }

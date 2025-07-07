@@ -13,15 +13,20 @@
   "dependencies": {
     "@miltera/api": "workspace:*",
     "@miltera/ui": "workspace:*",
+    "@miltera/helpers": "workspace:*",
     "@mui/icons-material": "7.1.1",
     "@mui/material": "7.1.1",
     "@mui/material-nextjs": "7.1.1",
     "@tanstack/react-query": "^5.80.6",
     "@tanstack/react-table": "^8.21.3",
-    "hono": "^4.7.11",
+    "next-intl": "^4.3.4",
+    "better-auth": "^1.2.12",
+    "react-hook-form": "^7.58.1",
+    "lodash-es": "^4.17.21",
     "next": "^15.3.0",
     "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "react-dom": "18.3.1",
+    "zod": "^3.25.67"
   },
   "devDependencies": {
     "@miltera/eslint-config": "workspace:*",
@@ -29,6 +34,7 @@
     "@types/node": "^22.15.3",
     "@types/react": "18.3.1",
     "@types/react-dom": "18.3.1",
+    "@types/lodash-es": "^4.17.12",
     "eslint": "^9.28.0",
     "typescript": "5.8.2"
   }

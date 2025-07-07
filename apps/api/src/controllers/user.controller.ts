@@ -1,66 +1,64 @@
-import { db } from "../db/client";
+import { db } from "../db";
 import { createControllerAction } from "./base.controller";
+import { ResponseHandler } from "../helpers/response.helpers";
 import { UserService } from "../services/user.service";
+import {
+  UserListRequestDto,
+  UserCreateDto,
+  UserUpdateDto,
+} from "../dtos/user.dto";
 
 const userService = new UserService(db);
 
 const list = createControllerAction(async (c) => {
-  const query = c.req.query();
-  const { role, company, isActive, page, limit, sort } = query;
+  const query = await c.validateRequest("rawQuery", (v) => v);
+  const userListRequestDto = UserListRequestDto.create(query);
 
-  const filters = {
-    ...(role && { role }),
-    ...(company && { companyId: company }),
-    ...(isActive && { isActive: isActive === "true" }),
-  };
+  const userListDto = await userService.getAllUsers(userListRequestDto);
 
-  const response = await userService.getAllUsers({
-    filters,
-    pagination:
-      page && limit ? { page: Number(page), limit: Number(limit) } : undefined,
-    sort: sort ? { field: sort, direction: "asc" } : undefined,
-  });
+  const userList = userListDto.toJSON();
 
-  return c.responseJSON(response);
+  return c.responseJSON(ResponseHandler.success(userList.data, userList.meta));
 });
 
 const show = createControllerAction("/:id", async (c) => {
   const id = c.req.param("id");
 
-  const response = await userService.getUser(id);
+  const userDto = await userService.getUser(id);
+  const user = userDto.toJSON();
 
-  return c.responseJSON(response);
+  return c.responseJSON(ResponseHandler.success(user));
 });
 
 const create = createControllerAction(async (c) => {
-  const body = await c.req.json();
+  const body = await c.validateRequest("json", (v) => v);
+  const userCreateDto = UserCreateDto.create(body);
 
-  const response = await userService.createUser(body);
+  const userDto = await userService.createUser(userCreateDto);
+  const user = userDto.toJSON();
 
-  return c.responseJSON(response);
+  return c.responseJSON(ResponseHandler.success(user));
 });
 
 const update = createControllerAction("/:id", async (c) => {
   const id = c.req.param("id");
-  const body = await c.req.json();
+  const body = await c.validateRequest("json", (v) => v);
+  const userUpdateDto = UserUpdateDto.create(body);
 
-  const response = await userService.updateUser(id, body);
+  const userDto = await userService.updateUser(id, userUpdateDto);
+  const user = userDto.toJSON();
 
-  return c.responseJSON(response);
+  return c.responseJSON(ResponseHandler.success(user));
 });
 
 const destroy = createControllerAction("/:id", async (c) => {
   const id = c.req.param("id");
 
-  const response = await userService.deleteUser(id);
+  await userService.deleteUser(id);
 
-  return c.responseStatus(response.statusCode);
+  return c.responseStatus(204);
 });
 
-export default {
-  list,
-  show,
-  create,
-  update,
-  destroy,
-};
+const UserController = { list, show, create, update, destroy };
+
+export default UserController;

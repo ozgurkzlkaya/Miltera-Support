@@ -1,13 +1,13 @@
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
+
 import * as schema from "./schema";
 import env from "../config/env";
 
-// Create postgres client
-export const client = postgres(env.DATABASE_URL);
+const client = new Pool({
+  connectionString: env.DATABASE_URL,
+});
 
-// Create drizzle instance
-export const db = drizzle(client, { schema });
+const db = drizzle({ client, schema });
 
-// Export schema for type inference
-export type Schema = typeof schema;
+export { db };

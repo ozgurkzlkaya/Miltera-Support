@@ -1,14 +1,20 @@
-import { createRoute, z } from "@hono/zod-openapi";
+import { createRoute } from "@hono/zod-openapi";
 import { createRouter } from "../lib/hono";
 import type { HonoEnv } from "../config/env";
+import { z } from "../lib/zod";
 import UserController from "../controllers/user.controller";
-import { UserSchema } from "../schemas/user.schema";
+import { buildResponseSuccessSchema } from "../helpers/response.helpers";
+import {
+  UserListSchema,
+  UserSchema,
+  UserCreateSchema,
+  UserUpdateSchema,
+} from "../dtos/user.dto";
 import {
   Error404Schema,
   Error422Schema,
   Error500Schema,
-} from "../schemas/base.schema";
-import { buildResponseSuccessSchema } from "../helpers/response.helpers";
+} from "../dtos/base.schema";
 
 const list = createRoute({
   method: "get",
@@ -18,7 +24,7 @@ const list = createRoute({
     200: {
       content: {
         "application/json": {
-          schema: buildResponseSuccessSchema(z.array(UserSchema)),
+          schema: buildResponseSuccessSchema(UserListSchema),
         },
       },
       description: "List all users",
@@ -45,39 +51,7 @@ const show = createRoute({
           schema: buildResponseSuccessSchema(UserSchema),
         },
       },
-      description: "Retrieve the user",
-    },
-    404: {
-      content: {
-        "application/json": {
-          schema: Error404Schema,
-        },
-      },
-      description: "User not found",
-    },
-    500: {
-      content: {
-        "application/json": {
-          schema: Error500Schema,
-        },
-      },
-      description: "Get a user by ID",
-    },
-  },
-});
-
-const create = createRoute({
-  method: "post",
-  path: "/",
-  request: {},
-  responses: {
-    200: {
-      content: {
-        "application/json": {
-          schema: buildResponseSuccessSchema(UserSchema),
-        },
-      },
-      description: "Create a user",
+      description: "User details",
     },
     404: {
       content: {
@@ -95,6 +69,30 @@ const create = createRoute({
       },
       description: "Internal server error",
     },
+  },
+});
+
+const create = createRoute({
+  method: "post",
+  path: "/",
+  request: {
+    body: {
+      content: {
+        "application/json": {
+          schema: UserCreateSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        "application/json": {
+          schema: buildResponseSuccessSchema(UserSchema),
+        },
+      },
+      description: "User created successfully",
+    },
     422: {
       content: {
         "application/json": {
@@ -103,13 +101,32 @@ const create = createRoute({
       },
       description: "Unprocessable entity",
     },
+    500: {
+      content: {
+        "application/json": {
+          schema: Error500Schema,
+        },
+      },
+      description: "Internal server error",
+    },
   },
 });
 
 const update = createRoute({
   method: "put",
   path: "/:id",
-  request: {},
+  request: {
+    params: z.object({
+      id: z.string(),
+    }),
+    body: {
+      content: {
+        "application/json": {
+          schema: UserUpdateSchema,
+        },
+      },
+    },
+  },
   responses: {
     200: {
       content: {
@@ -117,7 +134,7 @@ const update = createRoute({
           schema: buildResponseSuccessSchema(UserSchema),
         },
       },
-      description: "Update a user",
+      description: "User updated successfully",
     },
     404: {
       content: {
@@ -149,10 +166,14 @@ const update = createRoute({
 const destroy = createRoute({
   method: "delete",
   path: "/:id",
-  request: {},
+  request: {
+    params: z.object({
+      id: z.string(),
+    }),
+  },
   responses: {
     204: {
-      description: "Delete a user",
+      description: "User deleted successfully",
     },
     404: {
       content: {
@@ -170,22 +191,14 @@ const destroy = createRoute({
       },
       description: "Internal server error",
     },
-    422: {
-      content: {
-        "application/json": {
-          schema: Error422Schema,
-        },
-      },
-      description: "Unprocessable entity",
-    },
   },
 });
 
-const router = createRouter<HonoEnv>()
+const usersRoute = createRouter<HonoEnv>()
   .openapi(list, UserController.list)
   .openapi(show, UserController.show)
   .openapi(create, UserController.create)
   .openapi(update, UserController.update)
   .openapi(destroy, UserController.destroy);
 
-export default router;
+export default usersRoute;

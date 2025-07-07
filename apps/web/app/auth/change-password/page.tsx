@@ -12,8 +12,12 @@ import {
   Alert,
   Container,
   Stack,
+  CircularProgress,
 } from "@mui/material";
 import { useMutation } from "@tanstack/react-query";
+import { useAuth } from "../../../features/auth/useAuth";
+import { useForm } from "react-hook-form";
+import { authClient } from "../../../features/auth/auth.service";
 
 interface ChangePasswordFormData {
   currentPassword: string;
@@ -22,162 +26,121 @@ interface ChangePasswordFormData {
 }
 
 export default function ChangePasswordPage() {
-  const [formData, setFormData] = useState<ChangePasswordFormData>({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
-  });
-  const [validationError, setValidationError] = useState<string>("");
   const router = useRouter();
+  const auth = useAuth();
   const searchParams = useSearchParams();
-  const email = searchParams.get("email") || "";
 
-  const changePasswordMutation = useMutation({
-    mutationFn: async (data: ChangePasswordFormData & { email: string }) => {
-      // Mock API call - in real implementation, this would call the backend
-      return new Promise((resolve, reject) => {
-        setTimeout(() => {
-          // Mock validation
-          if (data.currentPassword !== "admin123" && data.currentPassword !== "tsp123") {
-            reject(new Error("Current password is incorrect"));
-            return;
-          }
-          
-          if (data.newPassword.length < 6) {
-            reject(new Error("New password must be at least 6 characters"));
-            return;
-          }
-          
-          // Mock success response
-          resolve({
-            success: true,
-            message: "Password changed successfully",
-            token: "mock-jwt-token",
-          });
-        }, 1000);
-      });
-    },
-    onSuccess: (data: any) => {
-      // Store auth token if provided
-      if (data.token) {
-        localStorage.setItem("authToken", data.token);
-      }
-      // Redirect to dashboard after successful password change
-      router.push("/dashboard");
+  const token = searchParams.get("token");
+  const reason = searchParams.get("reason");
+
+  const { register, handleSubmit, formState, getValues } = useForm({
+    defaultValues: {
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setValidationError("");
+  const isSubmitting = formState.isSubmitting;
+  const isLoading = formState.isLoading || isSubmitting;
 
-    // Client-side validation
-    if (formData.newPassword !== formData.confirmPassword) {
-      setValidationError("New passwords do not match");
-      return;
-    }
-
-    if (formData.newPassword.length < 6) {
-      setValidationError("New password must be at least 6 characters");
-      return;
-    }
-
-    if (formData.newPassword === formData.currentPassword) {
-      setValidationError("New password must be different from current password");
-      return;
-    }
-
-    changePasswordMutation.mutate({
-      ...formData,
-      email,
+  const onSubmit = async (data: ChangePasswordFormData) => {
+    return new Promise<void>((resolve, reject) => {
+      authClient.resetPassword(
+        {
+          newPassword: data.newPassword,
+          token,
+        },
+        {
+          onSuccess: () => {
+            router.push("/auth");
+            resolve();
+          },
+          onError: (error) => {
+            reject(error);
+          },
+        }
+      );
     });
   };
 
-  const handleInputChange = (field: keyof ChangePasswordFormData) => (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: e.target.value,
-    }));
-    // Clear validation error when user starts typing
-    if (validationError) {
-      setValidationError("");
-    }
-  };
-
-  const error = changePasswordMutation.error || validationError;
-  const isLoading = changePasswordMutation.isPending;
+  const errors = formState.errors;
 
   return (
-    <Container maxWidth="sm" sx={{ minHeight: "100vh", display: "flex", alignItems: "center" }}>
-      <Card sx={{ width: "100%", maxWidth: 400, mx: "auto" }}>
-        <CardContent sx={{ p: 4 }}>
-          <Box sx={{ textAlign: "center", mb: 4 }}>
-            <Typography variant="h4" component="h1" gutterBottom>
-              Change Password
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              You must change your password before continuing
-            </Typography>
-            {email && (
+    <Card sx={{ width: "100%", maxWidth: 400, mx: "auto" }}>
+      <CardContent sx={{ p: 4 }}>
+        <Box sx={{ textAlign: "center", mb: 4 }}>
+          <Typography variant="h4" component="h1" gutterBottom>
+            Change Password
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            You must change your password before continuing
+          </Typography>
+          {/* {email && (
               <Typography variant="body2" sx={{ mt: 1, fontWeight: 500 }}>
                 {email}
               </Typography>
-            )}
-          </Box>
+            )} */}
+        </Box>
 
-          {error && (
+        {/* {error && (
             <Alert severity="error" sx={{ mb: 3 }}>
               {error instanceof Error ? error.message : error}
             </Alert>
-          )}
+          )} */}
 
-          <Box component="form" onSubmit={handleSubmit}>
-            <Stack spacing={3}>
+        <Box component="form" onSubmit={handleSubmit(onSubmit)}>
+          <Stack spacing={3}>
+            {reason !== "forgot" && (
               <TextField
                 fullWidth
                 label="Current Password"
                 type="password"
-                value={formData.currentPassword}
-                onChange={handleInputChange("currentPassword")}
-                required
-                disabled={isLoading}
-                helperText="Use 'admin123' or 'tsp123' for demo"
-              />
-              <TextField
-                fullWidth
-                label="New Password"
-                type="password"
-                value={formData.newPassword}
-                onChange={handleInputChange("newPassword")}
-                required
-                disabled={isLoading}
-                helperText="Minimum 6 characters"
-              />
-              <TextField
-                fullWidth
-                label="Confirm New Password"
-                type="password"
-                value={formData.confirmPassword}
-                onChange={handleInputChange("confirmPassword")}
-                required
+                {...register("currentPassword", { required: true })}
                 disabled={isLoading}
               />
-              <Button
-                type="submit"
-                fullWidth
-                variant="contained"
-                size="large"
-                disabled={isLoading}
-                sx={{ py: 1.5 }}
-              >
-                {isLoading ? "Changing Password..." : "Change Password"}
-              </Button>
-            </Stack>
-          </Box>
-        </CardContent>
-      </Card>
-    </Container>
+            )}
+            <TextField
+              fullWidth
+              label="New Password"
+              type="password"
+              {...register("newPassword", { required: true })}
+              required
+              disabled={isLoading}
+              helperText="Minimum 6 characters"
+            />
+            <TextField
+              fullWidth
+              label="Confirm New Password"
+              type="password"
+              {...register("confirmPassword", {
+                required: true,
+                validate: (value) =>
+                  value === getValues("newPassword") ||
+                  "Passwords should match!",
+              })}
+              required
+              disabled={isLoading}
+            />
+            {errors.confirmPassword && (
+              <Typography variant="body2" color="error">
+                {errors.confirmPassword.message}
+              </Typography>
+            )}
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              size="large"
+              disabled={isLoading}
+              sx={{ py: 1.5 }}
+              startIcon={isLoading ? <CircularProgress size={20} /> : undefined}
+            >
+              {isLoading ? "Changing Password..." : "Change Password"}
+            </Button>
+          </Stack>
+        </Box>
+      </CardContent>
+    </Card>
   );
-} 
+}

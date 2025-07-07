@@ -1,5 +1,5 @@
-import { z } from "../lib/zod";
 import type { ContentfulStatusCode, StatusCode } from "hono/utils/http-status";
+import { z } from "../lib/zod";
 
 type ApiSuccessResponse<
   T,
@@ -60,6 +60,7 @@ const ResponseHandler = {
   status<U extends StatusCode>(statusCode: U) {
     return {
       statusCode,
+      json: undefined,
     } as const;
   },
 
@@ -79,7 +80,7 @@ const ResponseHandler = {
     return this.error("BAD_REQUEST", message, 400);
   },
 
-  internalError(message = "Internal server error") {
+  internalError(message = "Internal Server Error") {
     return this.error("INTERNAL_SERVER_ERROR", message, 500);
   },
 
@@ -88,11 +89,13 @@ const ResponseHandler = {
   },
 };
 
-const buildResponseSuccessSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
+const buildResponseSuccessSchema = <T extends z.ZodRawShape>(
+  dataSchema: z.ZodObject<T>
+) =>
   z.object({
     success: z.literal(true),
-    data: dataSchema,
-    meta: z.record(z.string(), z.any()).optional(),
+    data: dataSchema.shape.data ?? dataSchema,
+    ...(dataSchema.shape.meta ? { meta: dataSchema.shape.meta } : {}),
   });
 
 const buildResponseErrorSchema = <

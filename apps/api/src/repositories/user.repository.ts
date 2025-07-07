@@ -1,51 +1,105 @@
-import { PostgresJsDatabase } from "drizzle-orm/postgres-js";
-import { eq } from "drizzle-orm";
+import { eq, getTableName } from "drizzle-orm";
 import { users } from "../db/schema";
-import type { Schema } from "../db";
-import { BaseRepositoryImpl, type BaseRepository } from "./base.repository";
-import type {
-  User,
-  UserCreateParams,
-  UserUpdateParams,
-} from "../schemas/user.schema";
-import { encrypt } from "../lib/encryption";
+import {
+  BaseRepositoryImpl,
+  type BaseRepository,
+  type InferQueryModel,
+  type QueryConfig,
+  type QueryOptions,
+} from "./base.repository";
+import { hashPassword } from "better-auth/crypto";
+import { auth } from "../lib/auth";
+import type { PaginationResult } from "@miltera/helpers/query-builder";
 
-export class UserRepository
-  extends BaseRepositoryImpl<User>
-  implements BaseRepository<User>
+type UsersTable = typeof users;
+type Repository = BaseRepository<UsersTable>;
+
+class UserRepository
+  extends BaseRepositoryImpl<UsersTable>
+  implements Repository
 {
-  protected table = users;
-  protected idColumn = users.id;
+  protected readonly table = users;
 
-  constructor(db: PostgresJsDatabase<Schema>) {
-    super(db);
-  }
+  protected readonly allowedFilterFields = [
+    "id",
+    "email",
+    "firstName",
+    "lastName",
+    "role",
+    "createdAt",
+    "updatedAt",
+    "deletedAt",
+  ] as const satisfies [string, ...string[]];
 
-  async create(data: UserCreateParams): Promise<User> {
-    const password = encrypt(data.password);
+  protected readonly allowedSortFields = [
+    "firstName",
+    "lastName",
+    "email",
+    "role",
+    "createdAt",
+    "updatedAt",
+    "deletedAt",
+  ] as const satisfies [string, ...string[]];
 
-    return super.create({
-      ...data,
-      password,
+  protected readonly listQueryWithRelationsDefinition = {
+    columns: {
+      companyId: false,
+    },
+    with: {
+      company: {
+        columns: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  } as const satisfies QueryConfig<"users">;
+
+  async createUserWithPassword(
+    userData: Repository["$TEntityInsert"],
+    password: string
+  ) {
+    const ctx = await auth.$context;
+    const user = (await ctx.internalAdapter.createUser(
+      userData
+    )) as Repository["$TEntity"];
+
+    const hashedPassword = await hashPassword(password);
+    await ctx.internalAdapter.createAccount({
+      accountId: user.id,
+      providerId: "credential",
+      userId: user.id,
+      password: hashedPassword,
     });
+
+    return user;
   }
 
-  async update(id: string, data: UserUpdateParams): Promise<User | null> {
-    const password = data.password ? encrypt(data.password) : undefined;
+  create: Repository["create"] = async (data) => {
+    const ctx = await auth.$context;
+    return ctx.internalAdapter.createUser(data);
+  };
 
-    return super.update(id, {
-      ...data,
-      password,
-    });
-  }
+  update: Repository["update"] = async (id, data) => {
+    const ctx = await auth.$context;
+    return ctx.internalAdapter.updateUser(id, data);
+  };
 
-  async findByEmail(email: string): Promise<User | null> {
+  async findByEmail(email: string) {
     const result = await this.db
       .select()
       .from(this.table)
       .where(eq(this.table.email, email))
       .limit(1);
 
-    return result.length ? (result[0] as User) : null;
+    return result.length ? result[0] : null;
   }
 }
+
+type UserListWithRelations = InferQueryModel<
+  "users",
+  UserRepository["listQueryWithRelationsDefinition"]
+>;
+
+export { UserRepository };
+export type { UserListWithRelations };

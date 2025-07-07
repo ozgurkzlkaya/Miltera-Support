@@ -16,7 +16,8 @@ dotenv.config({
 const envSchema = z.object({
   NODE_ENV: z.string().optional().default("development"),
   DATABASE_URL: z.string().url(),
-  AUTH_SECRET: z.string(),
+  BETTER_AUTH_SECRET: z.string(),
+  BETTER_AUTH_URL: z.string(),
 });
 
 const env = envSchema.parse(process.env);

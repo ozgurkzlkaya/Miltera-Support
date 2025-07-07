@@ -1,23 +1,14 @@
 "use client";
 
-import { Box, Grid, Snackbar, Alert } from "@mui/material";
+import { Grid } from "@mui/material";
 import { useState } from "react";
-import { Layout } from "./Layout";
 import { CustomerWelcomeSection } from "./customer/CustomerWelcomeSection";
 import { CustomerStatsGrid } from "./customer/CustomerStatsGrid";
 import { CreateIssueModal } from "./customer/CreateIssueModal";
 import { RecentIssuesList } from "./customer/RecentIssuesList";
 import { QuickActionsGrid } from "./customer/QuickActionsGrid";
-
-// Mock customer data
-const customerInfo = {
-  companyName: "ABC Enerji Ltd. Şti.",
-  contactPerson: "Ali Veli",
-  accountManager: "Mehmet Kurnaz",
-  phone: "+90 532 123 4567",
-  email: "ali@abcenerji.com.tr",
-  memberSince: "2023-01-15",
-};
+import { useCompany } from "../features/companies/company.service";
+import { useAuthenticatedAuth } from "../features/auth/useAuth";
 
 const initialStats = {
   totalProducts: 12,
@@ -166,50 +157,62 @@ export default function CustomerPortalPage() {
     setSnackbar((prev) => ({ ...prev, open: false }));
   };
 
+  const auth = useAuthenticatedAuth();
+
+  const companyQueryResult = useCompany({ id: auth.user.companyId! });
+  if (!companyQueryResult.data) return null;
+
+  const company = companyQueryResult.data.data;
+
+  const customerInfo = {
+    companyName: company.name,
+    phone: company.phone,
+  };
+
   return (
-    <Layout title="Overview">
-        {/* Welcome Section */}
-        <CustomerWelcomeSection customerInfo={customerInfo} />
+    <>
+      {/* Welcome Section */}
+      <CustomerWelcomeSection customerInfo={customerInfo} />
 
-        {/* Stats Grid */}
-        <CustomerStatsGrid stats={stats} onStatClick={handleStatClick} />
+      {/* Stats Grid */}
+      <CustomerStatsGrid stats={stats} onStatClick={handleStatClick} />
 
-        {/* Main Content Grid */}
-        <Grid container spacing={3}>
-          {/* Recent Issues */}
-          <Grid size={{ xs: 12, lg: 9 }}>
-            <RecentIssuesList
-              issues={issues}
-              onCreateNew={handleQuickActions.createIssue}
-              onViewAll={() =>
-                setSnackbar({
-                  open: true,
-                  message:
-                    "Tüm arıza kayıtları sayfasına yönlendiriliyorsunuz...",
-                  severity: "info",
-                })
-              }
-              onViewIssue={handleViewIssue}
-              onContactTechnician={handleContactTechnician}
-            />
-          </Grid>
-
-          {/* Quick Actions */}
-          <Grid size={{ xs: 12, lg: 3 }}>
-            <QuickActionsGrid
-              onCreateIssue={handleQuickActions.createIssue}
-              onTrackShipments={handleQuickActions.trackShipments}            
-            />
-          </Grid>
+      {/* Main Content Grid */}
+      <Grid container spacing={3}>
+        {/* Recent Issues */}
+        <Grid size={{ xs: 12, lg: 9 }}>
+          <RecentIssuesList
+            issues={issues}
+            onCreateNew={handleQuickActions.createIssue}
+            onViewAll={() =>
+              setSnackbar({
+                open: true,
+                message:
+                  "Tüm arıza kayıtları sayfasına yönlendiriliyorsunuz...",
+                severity: "info",
+              })
+            }
+            onViewIssue={handleViewIssue}
+            onContactTechnician={handleContactTechnician}
+          />
         </Grid>
 
-        {/* Create Issue Modal */}
-        <CreateIssueModal
-          open={createIssueOpen}
-          onClose={() => setCreateIssueOpen(false)}
-          onSubmit={handleCreateIssue}
-          products={[]}
-        />
-    </Layout>
+        {/* Quick Actions */}
+        <Grid size={{ xs: 12, lg: 3 }}>
+          <QuickActionsGrid
+            onCreateIssue={handleQuickActions.createIssue}
+            onTrackShipments={handleQuickActions.trackShipments}
+          />
+        </Grid>
+      </Grid>
+
+      {/* Create Issue Modal */}
+      <CreateIssueModal
+        open={createIssueOpen}
+        onClose={() => setCreateIssueOpen(false)}
+        onSubmit={handleCreateIssue}
+        products={[]}
+      />
+    </>
   );
 }

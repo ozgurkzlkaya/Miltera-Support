@@ -5,15 +5,18 @@ import { z } from "../lib/zod";
 import ProductController from "../controllers/product.controller";
 import { buildResponseSuccessSchema } from "../helpers/response.helpers";
 import {
+  ProductCreateBulkSchema,
+  ProductCreateSchema,
+  ProductListSchema,
+  ProductSchema,
+  ProductUpdateSchema,
+} from "../dtos/product.dto";
+import {
   Error404Schema,
   Error422Schema,
   Error500Schema,
-} from "../schemas/base.schema";
-import {
-  ProductSchema,
-  ProductCreateParamsSchema,
-  ProductUpdateParamsSchema,
-} from "../schemas/product.schema";
+} from "../dtos/base.schema";
+import { authMiddleware } from "../helpers/auth.helpers";
 
 const list = createRoute({
   method: "get",
@@ -23,10 +26,10 @@ const list = createRoute({
     200: {
       content: {
         "application/json": {
-          schema: buildResponseSuccessSchema(z.array(ProductSchema)),
+          schema: buildResponseSuccessSchema(ProductListSchema),
         },
       },
-      description: "Retrieve the user",
+      description: "List all products",
     },
     500: {
       content: {
@@ -34,7 +37,7 @@ const list = createRoute({
           schema: Error500Schema,
         },
       },
-      description: "Retrieve the user",
+      description: "Internal server error",
     },
   },
 });
@@ -42,9 +45,7 @@ const list = createRoute({
 const show = createRoute({
   method: "get",
   path: "/:id",
-  request: {
-    params: ProductSchema,
-  },
+  request: {},
   responses: {
     200: {
       content: {
@@ -80,7 +81,7 @@ const create = createRoute({
     body: {
       content: {
         "application/json": {
-          schema: ProductCreateParamsSchema,
+          schema: ProductCreateSchema,
         },
       },
     },
@@ -113,15 +114,57 @@ const create = createRoute({
   },
 });
 
+const createBulk = createRoute({
+  method: "post",
+  path: "/bulk",
+  request: {
+    body: {
+      content: {
+        "application/json": {
+          schema: ProductCreateBulkSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        "application/json": {
+          schema: buildResponseSuccessSchema(ProductListSchema),
+        },
+      },
+      description: "Products created successfully",
+    },
+    422: {
+      content: {
+        "application/json": {
+          schema: Error422Schema,
+        },
+      },
+      description: "Unprocessable entity",
+    },
+    500: {
+      content: {
+        "application/json": {
+          schema: Error500Schema,
+        },
+      },
+      description: "Internal server error",
+    },
+  },
+});
+
 const update = createRoute({
   method: "put",
   path: "/:id",
   request: {
-    params: ProductUpdateParamsSchema,
+    params: z.object({
+      id: z.string(),
+    }),
     body: {
       content: {
         "application/json": {
-          schema: ProductUpdateParamsSchema,
+          schema: ProductUpdateSchema,
         },
       },
     },
@@ -166,7 +209,9 @@ const destroy = createRoute({
   method: "delete",
   path: "/:id",
   request: {
-    params: ProductUpdateParamsSchema,
+    params: z.object({
+      id: z.string(),
+    }),
   },
   responses: {
     204: {
@@ -191,11 +236,12 @@ const destroy = createRoute({
   },
 });
 
-const router = createRouter<HonoEnv>()
+const productsRoute = createRouter<HonoEnv>()
   .openapi(list, ProductController.list)
   .openapi(show, ProductController.show)
   .openapi(create, ProductController.create)
+  .openapi(createBulk, ProductController.createBulk)
   .openapi(update, ProductController.update)
   .openapi(destroy, ProductController.destroy);
 
-export default router;
+export default productsRoute;

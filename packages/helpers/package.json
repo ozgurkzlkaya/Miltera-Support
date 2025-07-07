@@ -1,0 +1,29 @@
+{
+  "name": "@miltera/helpers",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "lint": "eslint . --max-warnings 0",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.25.67",
+    "@asteasolutions/zod-to-openapi": "7.3.3",
+    "query-string": "^9.2.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@miltera/eslint-config": "workspace:*",
+    "@miltera/typescript-config": "workspace:*",
+    "@types/node": "^22.15.3",
+    "@types/react": "18.3.1",
+    "@types/react-dom": "18.3.1",
+    "eslint": "^9.28.0",
+    "typescript": "5.8.2"
+  }
+}

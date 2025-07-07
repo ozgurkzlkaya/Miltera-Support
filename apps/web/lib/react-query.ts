@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 // https://tanstack.com/query/latest/docs/framework/react/guides/advanced-ssr
+import { cache } from "react";
 import {
   isServer,
   QueryClient,
@@ -40,10 +41,13 @@ function makeQueryClient() {
 
 let browserQueryClient: QueryClient | undefined = undefined;
 
+const serverGetQueryClient = cache(makeQueryClient);
+
 function getQueryClient() {
   if (isServer) {
     // Server: always make a new query client
-    return makeQueryClient();
+    // This ensures that data is not shared between different users and requests, while still only creating the QueryClient once per request
+    return serverGetQueryClient();
   } else {
     // Browser: make a new query client if we don't already have one
     // This is very important, so we don't re-make a new client if React
@@ -63,12 +67,38 @@ type QueryConfig<T extends (...args: any[]) => any> = Omit<
   "queryKey" | "queryFn"
 >;
 
-type MutationConfig<MutationFnType extends (...args: any) => Promise<any>> =
-  UseMutationOptions<
-    ApiFnReturnType<MutationFnType>,
-    Error,
-    Parameters<MutationFnType>[0]
-  >;
+type MutationConfig<
+  MOptions extends { mutationFn: (...args: any) => Promise<any> },
+> = UseMutationOptions<
+  ApiFnReturnType<MOptions["mutationFn"]>,
+  Error,
+  Parameters<MOptions["mutationFn"]>[0]
+>;
+
+const mergeMutationConfig = <
+  MOptions extends { mutationFn: (...args: any) => Promise<any> },
+>(
+  ...configs: MutationConfig<MOptions>[]
+) => {
+  return configs.reduce((acc, config) => {
+    return {
+      ...acc,
+      ...config,
+      onSuccess: (...args) => {
+        acc.onSuccess?.(...args);
+        config.onSuccess?.(...args);
+      },
+      onError: (...args) => {
+        acc.onError?.(...args);
+        config.onError?.(...args);
+      },
+      onSettled: (...args) => {
+        acc.onSettled?.(...args);
+        config.onSettled?.(...args);
+      },
+    };
+  }, {} as MutationConfig<MOptions>);
+};
 
 declare module "@tanstack/react-query" {
   interface Register {
@@ -78,5 +108,5 @@ declare module "@tanstack/react-query" {
   }
 }
 
-export { getQueryClient, queryConfig };
+export { getQueryClient, queryConfig, mergeMutationConfig };
 export type { QueryConfig, MutationConfig };
