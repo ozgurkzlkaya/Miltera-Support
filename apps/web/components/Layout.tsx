@@ -41,6 +41,8 @@ import {
   Person as CustomerIcon,
   Engineering as ServiceIcon,
   Business as BusinessIcon,
+  Inventory as InventoryIcon,
+  BuildCircle as BuildCircleIcon,
 } from "@mui/icons-material";
 import { ReactNode, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -48,6 +50,8 @@ import { useAuth } from "../features/auth/useAuth";
 import Image from "next/image";
 import Link from "next/link";
 import { signOut } from "../features/auth/auth.service";
+import { NotificationCenter } from "./notifications/NotificationCenter";
+import { AdvancedNotificationBell } from "./notifications/AdvancedNotificationSystem";
 
 interface LayoutProps {
   title?: string;
@@ -116,6 +120,16 @@ export const Layout = ({ title, children }: LayoutProps) => {
       path: "/dashboard/products",
     },
     {
+      icon: <InventoryIcon />,
+      text: "Warehouse",
+      path: "/dashboard/warehouse",
+    },
+    {
+      icon: <BuildCircleIcon />,
+      text: "Service Operations",
+      path: "/dashboard/service-operations",
+    },
+    {
       icon: <AssignmentIcon />,
       text: "Issues",
       path: "/dashboard/issues",
@@ -125,12 +139,11 @@ export const Layout = ({ title, children }: LayoutProps) => {
       text: "Shipments",
       path: "/dashboard/shipments",
     },
-
-    // {
-    //   icon: <AssessmentIcon />,
-    //   text: "Reports",
-    //   path: "/dashboard/reports",
-    // },
+    {
+      icon: <AssessmentIcon />,
+      text: "Reports",
+      path: "/dashboard/reports",
+    },
 
     ...(auth.user.role !== "CUSTOMER"
       ? [
@@ -216,6 +229,7 @@ export const Layout = ({ title, children }: LayoutProps) => {
               </Typography>
             </Box>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                              <AdvancedNotificationBell />
               <Typography
                 variant="body2"
                 sx={{ display: { xs: "none", sm: "block" } }}

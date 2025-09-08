@@ -3,8 +3,6 @@ import type { HonoEnv } from "./config/env";
 import init from "./config/initializers/main";
 import { Scalar } from "@scalar/hono-api-reference";
 
-await init();
-
 import authRoute from "./routes/auth.routes";
 import usersRoute from "./routes/user.routes";
 import productTypesRoute from "./routes/product-type.routes";
@@ -13,51 +11,91 @@ import productsRoute from "./routes/product.routes";
 import issuesRoute from "./routes/issue.routes";
 import companiesRoute from "./routes/company.routes";
 import locationsRoute from "./routes/location.routes";
+import shipmentsRoute from "./routes/shipment.routes";
+import warehouseRoute from "./routes/warehouse.routes";
+import serviceOperationsRoute from "./routes/service-operations.routes";
+import reportsRoute from "./routes/reports.routes";
+import websocketRoute from "./routes/websocket.routes";
+import fileUploadRoute from "./routes/file-upload.routes";
+import searchRoute from "./routes/search.routes";
+
+// Yeni controller'lar
+import { productController } from "./controllers/product.controller";
+import { issueController } from "./controllers/issue.controller";
 
 import { ResponseHandler } from "./helpers/response.helpers";
 import { setSessionMiddleware } from "./helpers/auth.helpers";
+import { 
+  rateLimitMiddleware, 
+  securityHeadersMiddleware, 
+  requestLoggingMiddleware,
+  secureErrorHandler 
+} from "./lib/security";
+import { fileUploadMiddleware } from "./lib/upload";
+import { performanceMonitoringMiddleware } from "./lib/monitoring";
 
-// main (/api/v1/*)
-let app = createHonoApp<HonoEnv>()
-  .basePath("/api/v1")
-  // .get("/test", (c) => c.json(JSON.stringify(c.get("session") ?? {})))
-  .route("/auth", authRoute)
-  .route("/users", usersRoute)
-  .route("/product-types", productTypesRoute)
-  .route("/product-models", productModelsRoute)
-  .route("/products", productsRoute)
-  .route("/issues", issuesRoute)
-  .route("/companies", companiesRoute)
-  .route("/locations", locationsRoute);
+// Initialize function
+async function initializeApp() {
+  await init();
+  
+  // main (/api/v1/*)
+  let app = createHonoApp<HonoEnv>()
+    .basePath("/api/v1")
+    .use("*", securityHeadersMiddleware)
+    .use("*", rateLimitMiddleware)
+    .use("*", requestLoggingMiddleware)
+    .use("*", performanceMonitoringMiddleware)
+    .use("*", fileUploadMiddleware())
+    // .get("/test", (c) => c.json(JSON.stringify(c.get("session") ?? {})))
+    .get("/health", (c) => c.json({ status: "ok", timestamp: new Date().toISOString() }))
+    .route("/auth", authRoute)
+    .route("/users", usersRoute)
+    .route("/product-types", productTypesRoute)
+    .route("/product-models", productModelsRoute)
+    .route("/products", productsRoute)
+    .route("/issues", issuesRoute)
+    .route("/companies", companiesRoute)
+    .route("/locations", locationsRoute)
+    .route("/shipments", shipmentsRoute)
+    .route("/warehouse", warehouseRoute)
+    .route("/service-operations", serviceOperationsRoute)
+    .route("/reports", reportsRoute)
+    .route("/websocket", websocketRoute)
+    .route("/file-upload", fileUploadRoute)
+    .route("/search", searchRoute)
+    // Yeni API endpoint'leri
+    .route("/products", productController)
+    .route("/issues", issueController);
 
-app.use("*", setSessionMiddleware);
+  app.use("*", setSessionMiddleware);
 
-const _app: typeof app = (createHonoApp as any)().route("/", app);
+  const _app: typeof app = (createHonoApp as any)().route("/", app);
 
-// docs & health (/api/docs & /api/health)
-app = _app.route(
-  "/",
-  createRouter()
-    .basePath("/api")
-    .get(
-      "/docs",
-      Scalar({
-        content: _app.getOpenAPIDocument({
-          openapi: "3.0.0",
-          info: {
-            version: "1.0.0",
-            title: "Miltera Fixlog",
-          },
-        }),
-      })
-    )
-    .get("/health", (c) => c.json({ status: "ok" }))
-);
+  // docs & health (/api/docs & /api/health)
+  app = _app.route(
+    "/",
+    createRouter()
+      .basePath("/api")
+      .get(
+        "/docs",
+        Scalar({
+          content: _app.getOpenAPIDocument({
+            openapi: "3.0.0",
+            info: {
+              version: "1.0.0",
+              title: "Miltera Fixlog",
+            },
+          }),
+        })
+      )
+      .get("/health", (c) => c.json({ status: "ok" }))
+  );
 
-app.onError((error, c) => {
-  const err = ResponseHandler.internalError();
-  console.log(error);
-  return c.json(err.json, err.statusCode);
-});
+  app.onError((error, c) => {
+    return secureErrorHandler(error, c);
+  });
 
-export default app;
+  return app;
+}
+
+export default initializeApp;

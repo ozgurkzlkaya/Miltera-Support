@@ -89,13 +89,11 @@ const ResponseHandler = {
   },
 };
 
-const buildResponseSuccessSchema = <T extends z.ZodRawShape>(
-  dataSchema: z.ZodObject<T>
-) =>
+const buildResponseSuccessSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
   z.object({
     success: z.literal(true),
-    data: dataSchema.shape.data ?? dataSchema,
-    ...(dataSchema.shape.meta ? { meta: dataSchema.shape.meta } : {}),
+    data: dataSchema,
+    meta: z.record(z.any()).optional(),
   });
 
 const buildResponseErrorSchema = <
@@ -116,3 +114,12 @@ const buildResponseErrorSchema = <
 export { ResponseHandler };
 export { buildResponseSuccessSchema, buildResponseErrorSchema };
 export type { ApiSuccessResponse, ApiErrorResponse };
+
+// Convenience functions for common responses
+export const createSuccessResponse = <T>(data: T, meta?: Record<string, any>) => {
+  return ResponseHandler.success(data, meta);
+};
+
+export const createErrorResponse = (code: string, message: string, statusCode: number = 500) => {
+  return ResponseHandler.error(code, message, statusCode as any);
+};

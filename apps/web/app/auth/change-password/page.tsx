@@ -45,6 +45,10 @@ export default function ChangePasswordPage() {
   const isLoading = formState.isLoading || isSubmitting;
 
   const onSubmit = async (data: ChangePasswordFormData) => {
+    if (!token) {
+      throw new Error('Token is required');
+    }
+    
     return new Promise<void>((resolve, reject) => {
       authClient.resetPassword(
         {

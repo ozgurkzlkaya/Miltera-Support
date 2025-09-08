@@ -1,490 +1,425 @@
-"use client";
+'use client';
 
+import { useState, useEffect } from 'react';
 import {
   Box,
-  Chip,
-  Avatar,
   Typography,
-  Card,
-  CardContent,
+  Paper,
+  Grid,
   Button,
-  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Chip,
+  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  IconButton,
-  Tab,
-  Tabs,
-  Badge,
-  Tooltip,
-  Divider,
-} from "@mui/material";
-import { Layout } from "../../../components/Layout";
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Alert,
+  CircularProgress,
+} from '@mui/material';
 import {
-  DataTable,
-  TableColumn,
-  BulkAction,
-  useDataTableQuery,
-} from "../../../components/data-table";
-import BulkProductCreationModal from "../../../features/products/components/BulkProductCreationModal";
-import { ServiceOperationsManager } from "../../../components/ServiceOperationsManager";
-import { ProductHistoryDialog } from "../../../features/products/components/ProductHistoryDialog";
-import { useState } from "react";
-import {
-  Delete as DeleteIcon,
-  Category as CategoryIcon,
-  ModelTraining as ModelIcon,
-  BugReport as BugIcon,
-} from "@mui/icons-material";
-import Link from "next/link";
-import {
-  useCreateBulkProduct,
-  useCreateProduct,
-  useDeleteProduct,
-  useProduct,
-  useProducts,
-  useUpdateProduct,
-} from "../../../features/products/services/product.service";
-import { useAuthenticatedAuth } from "../../../features/auth/useAuth";
-import { FormField } from "../../../components/form/types";
-import { ProductStatuses } from "../../../features/products/data/product";
-import { loadOptions } from "../../../features/products/helpers/loadOptions";
+  Add as AddIcon,
+  Edit as EditIcon,
+  Visibility as ViewIcon,
+  CheckCircle as CheckCircleIcon,
+  Error as ErrorIcon,
+  Build as BuildIcon,
+} from '@mui/icons-material';
+import { Layout } from '../../../components/Layout';
 
-import { ProductCards } from "../../../features/products/components/ProductCards";
-import { ProductViewDialog } from "../../../features/products/components/ProductViewDialog";
-import { useProductModel } from "../../../features/products/services/product-model.service";
-import { useProductWithRelations } from "../../../features/products/services/product-relations.service";
-import ProductBulkCreateDialog from "../../../features/products/components/ProductBulkCreateDialog";
-import { keepPreviousData } from "@tanstack/react-query";
+interface Product {
+  id: string;
+  serialNumber: string | null;
+  status: string;
+  productionDate: string;
+  warrantyStatus: string;
+  productModel: {
+    name: string;
+  };
+  productType: {
+    name: string;
+  };
+  manufacturer: {
+    name: string;
+  };
+  location: {
+    name: string;
+  } | null;
+  owner: {
+    name: string;
+  } | null;
+}
 
-const formFields: FormField[] = [
-  {
-    id: "serialNumber",
-    label: "Serial Number",
-    type: "text",
-    required: true,
-    placeholder: "e.g., SN123456",
-    layout: { row: 0, column: 0 }, // First row, first column
-    validation: {
-      minLength: 6,
-    },
-  },
-  {
-    id: "status",
-    label: "Status",
-    type: "select",
-    required: true,
-    options: Object.entries(ProductStatuses).map(([value, label]) => ({
-      value,
-      label,
-    })),
-    layout: { row: 0, column: 1 }, // First row, second column
-  },
-  {
-    id: "productModelId",
-    accessorKey: "productModel.id",
-    label: "Product Model",
-    type: "autocomplete",
-    loadOptions: (query) => loadOptions("productModel", query),
-    required: true,
-    layout: { row: 1, column: 0 }, // Second row, full width
-  },
-  {
-    id: "ownerId",
-    accessorKey: "owner.id",
-    label: "Customer Company",
-    type: "autocomplete",
-    loadOptions: (query) => loadOptions("company", query),
-    required: false,
-    helperText: "Leave empty for stock items",
-    layout: { row: 2, column: 0 }, // Third row, first column
-  },
-  {
-    id: "locationId",
-    accessorKey: "location.id",
-    label: "Location",
-    type: "autocomplete",
-    loadOptions: (query) => loadOptions("location", query),
-    required: false,
-    helperText:
-      "Required for stock items (leave empty for customer-owned products)",
-    layout: { row: 2, column: 1 }, // Third row, second column
-  },
-  {
-    id: "productionDate",
-    label: "Production Date",
-    type: "date",
-    required: true,
-    layout: { row: 3, column: 0 },
-  },
-  {
-    id: "warrantyStartDate",
-    label: "Warranty Start Date",
-    type: "date",
-    required: false,
-    helperText: "Leave empty for stock items",
-    layout: { row: 3, column: 1 }, // Fourth row, second column
-  },
-  {
-    id: "warrantyPeriodMonths",
-    label: "Warranty Period (Months)",
-    type: "number",
-    required: true,
-    placeholder: "24",
-    layout: { row: 3, column: 2 }, // Fourth row, third column
-    validation: {
-      min: 1,
-      max: 120,
-    },
-  },
-];
+interface ProductFilter {
+  status?: string;
+  search?: string;
+}
 
 const getStatusColor = (status: string) => {
   switch (status) {
-    case "NEW":
-      return "success";
-    case "IN_SERVICE":
-      return "primary";
-    case "SHIPPED":
-      return "info";
-    case "IN_REPAIR":
-      return "warning";
-    case "TESTING":
-      return "secondary";
-    case "REPLACED":
-    case "DISPOSED":
-      return "error";
+    case 'FIRST_PRODUCTION':
+      return 'default';
+    case 'FIRST_PRODUCTION_ISSUE':
+      return 'error';
+    case 'FIRST_PRODUCTION_SCRAPPED':
+      return 'error';
+    case 'READY_FOR_SHIPMENT':
+      return 'success';
+    case 'SHIPPED':
+      return 'info';
+    case 'ISSUE_CREATED':
+      return 'warning';
+    case 'RECEIVED':
+      return 'warning';
+    case 'PRE_TEST_COMPLETED':
+      return 'info';
+    case 'UNDER_REPAIR':
+      return 'warning';
+    case 'SERVICE_SCRAPPED':
+      return 'error';
+    case 'DELIVERED':
+      return 'success';
     default:
-      return "default";
+      return 'default';
   }
 };
 
-const getIssueStatusColor = (status: string) => {
+const getStatusLabel = (status: string) => {
   switch (status) {
-    case "OPEN":
-      return "info";
-    case "IN_PROGRESS":
-      return "warning";
-    case "WAITING_PARTS":
-      return "secondary";
-    case "REPAIRED":
-      return "success";
-    case "CLOSED":
-      return "default";
+    case 'FIRST_PRODUCTION':
+      return 'İlk Üretim';
+    case 'FIRST_PRODUCTION_ISSUE':
+      return 'İlk Üretim Arıza';
+    case 'FIRST_PRODUCTION_SCRAPPED':
+      return 'İlk Üretim Hurda';
+    case 'READY_FOR_SHIPMENT':
+      return 'Sevkiyat Hazır';
+    case 'SHIPPED':
+      return 'Sevk Edildi';
+    case 'ISSUE_CREATED':
+      return 'Arıza Kaydı Oluşturuldu';
+    case 'RECEIVED':
+      return 'Cihaz Teslim Alındı';
+    case 'PRE_TEST_COMPLETED':
+      return 'Servis Ön Testi Yapıldı';
+    case 'UNDER_REPAIR':
+      return 'Cihaz Tamir Edilmekte';
+    case 'SERVICE_SCRAPPED':
+      return 'Servis Hurda';
+    case 'DELIVERED':
+      return 'Teslim Edildi';
     default:
-      return "default";
+      return status;
   }
 };
 
-const getPriorityColor = (priority: string) => {
-  switch (priority) {
-    case "CRITICAL":
-      return "error";
-    case "HIGH":
-      return "warning";
-    case "MEDIUM":
-      return "info";
-    case "LOW":
-      return "success";
-    default:
-      return "default";
-  }
-};
+export default function ProductsPage() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<ProductFilter>({});
+  const [openCreateDialog, setOpenCreateDialog] = useState(false);
+  const [openHardwareDialog, setOpenHardwareDialog] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
-const columns = (setIssuesDialog: any): TableColumn[] => [
-  {
-    id: "name",
-    label: "Product",
-    width: 180,
-    sortable: true,
-    filterable: true,
-    render: (value, row) => (
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <Box>
-          <Typography variant="body2" fontWeight="bold">
-            {row.productModel.name}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {row.serialNumber}
-          </Typography>
-        </Box>
-      </Box>
-    ),
-  },
-  {
-    id: "productModel.productType.name",
-    label: "Type",
-    width: 120,
-    sortable: true,
-    filterable: true,
-    filterType: "select",
-    // filterOptions: productTypeOptions.map((opt) => ({
-    //   value: opt.label,
-    //   label: opt.label,
-    // })),
-    render: (value) => (
-      <Chip label={value} color="primary" size="small" variant="outlined" />
-    ),
-  },
-  {
-    id: "productModel.name",
-    label: "Model",
-    width: 100,
-    sortable: true,
-    filterable: true,
-    filterType: "select",
-    // filterOptions: productModelOptions.map((opt) => ({
-    //   value: opt.label,
-    //   label: opt.label,
-    // })),
-  },
-  {
-    id: "owner.name",
-    label: "Company",
-    width: 130,
-    sortable: true,
-    filterable: true,
-    filterType: "select",
-    // filterOptions: companyOptions.map((opt) => ({
-    //   value: opt.label,
-    //   label: opt.label,
-    // })),
-  },
-  {
-    id: "status",
-    label: "Status",
-    width: 120,
-    sortable: true,
-    filterable: true,
-    filterType: "select",
-    // filterOptions: statusOptions.map((opt) => ({
-    //   value: opt.value,
-    //   label: opt.label,
-    // })),
-    render: (value) => (
-      <Chip
-        label={value ? value.replace("_", " ") : "Unknown"}
-        color={getStatusColor(value || "") as any}
-        size="small"
-      />
-    ),
-  },
-  {
-    id: "location.name",
-    label: "Location",
-    width: 140,
-    sortable: true,
-    filterable: true,
-    filterType: "select",
-    // filterOptions: [
-    //   { value: "", label: "Customer-owned" },
-    //   ...stockLocationOptions.map((opt) => ({
-    //     value: opt.label,
-    //     label: opt.label,
-    //   })),
-    // ],
-    render: (value, row) =>
-      value ? (
-        <Chip label={value} color="info" size="small" variant="outlined" />
-      ) : row.ownerId ? (
-        <Typography variant="caption" color="text.secondary" fontStyle="italic">
-          Customer-owned
-        </Typography>
-      ) : null,
-  },
+  // Mock data - gerçek API'den gelecek
+  useEffect(() => {
+    const mockProducts: Product[] = [
+      {
+        id: '1',
+        serialNumber: 'SN001',
+        status: 'FIRST_PRODUCTION',
+        productionDate: '2025-01-15',
+        warrantyStatus: 'PENDING',
+        productModel: { name: 'Gateway-2000' },
+        productType: { name: 'Ağ Geçidi' },
+        manufacturer: { name: 'Miltera' },
+        location: { name: 'Depo A' },
+        owner: null,
+      },
+      {
+        id: '2',
+        serialNumber: 'SN002',
+        status: 'READY_FOR_SHIPMENT',
+        productionDate: '2025-01-10',
+        warrantyStatus: 'IN_WARRANTY',
+        productModel: { name: 'Energy Analyzer' },
+        productType: { name: 'Enerji Analizörü' },
+        manufacturer: { name: 'Miltera' },
+        location: { name: 'Depo B' },
+        owner: null,
+      },
+      {
+        id: '3',
+        serialNumber: 'SN003',
+        status: 'SHIPPED',
+        productionDate: '2025-01-05',
+        warrantyStatus: 'IN_WARRANTY',
+        productModel: { name: 'VPN Router' },
+        productType: { name: 'VPN Router' },
+        manufacturer: { name: 'Miltera' },
+        location: null,
+        owner: { name: 'ABC Şirketi' },
+      },
+    ];
 
-  {
-    id: "warrantyStartDate",
-    label: "Warranty Start",
-    width: 120,
-    sortable: true,
-    filterable: true,
-    filterType: "date",
-    format: (value) => new Date(value).toLocaleDateString(),
-  },
-  {
-    id: "productionDate",
-    label: "Production",
-    width: 120,
-    sortable: true,
-    filterable: true,
-    filterType: "date",
-    format: (value) => new Date(value).toLocaleDateString(),
-  },
-  {
-    id: "issues",
-    label: "Issues",
-    width: 120,
-    sortable: false,
-    filterable: false,
-    render: (value, row) => {
-      // const productIssues = getProductIssues(row.id);
-      // const activeIssues = productIssues.filter(
-      //   (issue) => issue.status !== "CLOSED" && issue.status !== "REPAIRED"
-      // );
+    setTimeout(() => {
+      setProducts(mockProducts);
+      setLoading(false);
+    }, 1000);
+  }, []);
 
-      const productIssues = [];
-      const activeIssues = [];
+  const handleCreateProduct = () => {
+    setOpenCreateDialog(true);
+  };
 
+  const handleHardwareVerification = (product: Product) => {
+    setSelectedProduct(product);
+    setOpenHardwareDialog(true);
+  };
+
+  const filteredProducts = products.filter(product => {
+    if (filter.status && product.status !== filter.status) return false;
+    if (filter.search) {
+      const search = filter.search.toLowerCase();
       return (
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Tooltip title={`Click to view ${productIssues.length} issues`}>
-            <IconButton
-              size="small"
-              onClick={() => setIssuesDialog({ open: true, product: row })}
-              sx={{ p: 0 }}
-            >
-              <Badge badgeContent={activeIssues.length} color="error">
-                <BugIcon
-                  color={activeIssues.length > 0 ? "error" : "disabled"}
-                />
-              </Badge>
-            </IconButton>
-          </Tooltip>
-        </Stack>
+        product.serialNumber?.toLowerCase().includes(search) ||
+        product.productModel.name.toLowerCase().includes(search) ||
+        product.productType.name.toLowerCase().includes(search)
       );
-    },
-  },
-];
-
-const ProductsPage = ({ products: _products }: { products: any }) => {
-  const auth = useAuthenticatedAuth();
-
-  const {
-    query,
-    handlePaginationChange,
-    handleSortingChange,
-    handleFilterChange,
-    handleGlobalFilterChange,
-  } = useDataTableQuery();
-
-  const productsQueryResult = useProducts({
-    query,
-    config: {
-      placeholderData: keepPreviousData,
-    },
+    }
+    return true;
   });
 
-  const [currentProductId, setCurrentProductId] = useState<string | null>(null);
-  const {
-    productQueryResult,
-    productModelQueryResult,
-    productTypeQueryResult,
-    productLocationQueryResult,
-    productOwnerCompanyQueryResult,
-    isLoading,
-  } = useProductWithRelations({
-    id: currentProductId ?? null,
-  });
-
-  const currentProduct = productQueryResult.data?.data;
-  const currentProductType = productTypeQueryResult.data?.data;
-  const currentProductModel = productModelQueryResult.data?.data;
-  const currentProductLocation = productLocationQueryResult.data?.data;
-  const currentProductOwnerCompany = productOwnerCompanyQueryResult.data?.data;
-
-  const createMutation = useCreateProduct();
-  const createBulkMutation = useCreateBulkProduct();
-  const updateMutation = useUpdateProduct();
-  const deleteMutation = useDeleteProduct();
-
-  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [isBulkCreateDialogOpen, setIsBulkCreateDialogOpen] = useState(false);
-
-  const bulkActions: BulkAction[] = [
-    {
-      id: "delete",
-      label: "Delete Selected",
-      icon: <DeleteIcon />,
-      color: "error",
-      action: () => {},
-      confirmMessage:
-        "Are you sure you want to delete the selected products? This action cannot be undone.",
-    },
-  ];
+  if (loading) {
+    return (
+      <Layout>
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+          <CircularProgress />
+        </Box>
+      </Layout>
+    );
+  }
 
   return (
-    <>
-      {" "}
+    <Layout>
       <Box sx={{ p: 3 }}>
-        {/* Quick Actions */}
-        <Box sx={{ mb: 3, display: "flex", gap: 2, flexWrap: "wrap" }}>
-          <Stack direction="row" spacing={2} sx={{ flex: 1, minWidth: 0 }}>
-            {/* <ProductCards /> */}
-
-            {auth.user.role !== "customer" ? (
-              <Stack spacing={1} sx={{ minWidth: 200 }}>
-                <Link href="/dashboard/products/types" passHref>
-                  <Button
-                    variant="outlined"
-                    startIcon={<CategoryIcon />}
-                    fullWidth
-                  >
-                    Manage Product Types
-                  </Button>
-                </Link>
-                <Link href="/dashboard/products/models" passHref>
-                  <Button
-                    variant="outlined"
-                    startIcon={<ModelIcon />}
-                    fullWidth
-                  >
-                    Manage Product Models
-                  </Button>
-                </Link>
-              </Stack>
-            ) : null}
-          </Stack>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+          <Typography variant="h4" component="h1">
+            Ürün Yönetimi
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleCreateProduct}
+          >
+            Yeni Ürün Ekle
+          </Button>
         </Box>
 
-        <DataTable
-          title="Products"
-          columns={columns({})}
-          queryResult={productsQueryResult}
-          formFields={formFields}
-          {...(auth.user.role !== "customer"
-            ? {
-                onAdd: (data) => createMutation.mutateAsync({ payload: data }),
-                onEdit: (id, data) =>
-                  updateMutation.mutateAsync({ id, payload: data }),
-                onDelete: (id) => deleteMutation.mutateAsync({ id }),
-              }
-            : {})}
-          onView={(id) => {
-            setCurrentProductId(id);
-            setIsViewDialogOpen(true);
-          }}
-          addButtonText="Add Product"
-          bulkAddButton={
-            auth.user.role !== "customer"
-              ? {
-                  text: "Bulk Add Products",
-                  onClick: () => setIsBulkCreateDialogOpen(true),
-                }
-              : undefined
-          }
-          selectable={true}
-          bulkActions={bulkActions}
-        />
-      </Box>
-      <ProductViewDialog
-        open={isViewDialogOpen}
-        onClose={() => setIsViewDialogOpen(false)}
-        isLoading={isLoading}
-        product={currentProduct}
-        productModel={currentProductModel}
-        productType={currentProductType}
-        productLocation={currentProductLocation}
-        productOwnerCompany={currentProductOwnerCompany}
-      />
-      <ProductBulkCreateDialog
-        open={isBulkCreateDialogOpen}
-        onClose={() => setIsBulkCreateDialogOpen(false)}
-        onSubmit={(body) => createBulkMutation.mutateAsync({ payload: body })}
-      />
-    </>
-  );
-};
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
 
-export default ProductsPage;
+        {/* Filtreler */}
+        <Paper sx={{ p: 2, mb: 3 }}>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} sm={4}>
+              <TextField
+                fullWidth
+                label="Arama"
+                placeholder="Seri numara, model, tür..."
+                value={filter.search || ''}
+                onChange={(e) => setFilter({ ...filter, search: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <FormControl fullWidth>
+                <InputLabel>Durum</InputLabel>
+                <Select
+                  value={filter.status || ''}
+                  label="Durum"
+                  onChange={(e) => setFilter({ ...filter, status: e.target.value })}
+                >
+                  <MenuItem value="">Tümü</MenuItem>
+                  <MenuItem value="FIRST_PRODUCTION">İlk Üretim</MenuItem>
+                  <MenuItem value="FIRST_PRODUCTION_ISSUE">İlk Üretim Arıza</MenuItem>
+                  <MenuItem value="READY_FOR_SHIPMENT">Sevkiyat Hazır</MenuItem>
+                  <MenuItem value="SHIPPED">Sevk Edildi</MenuItem>
+                  <MenuItem value="UNDER_REPAIR">Tamir Edilmekte</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
+        </Paper>
+
+        {/* Ürün Tablosu */}
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Seri Numara</TableCell>
+                <TableCell>Model</TableCell>
+                <TableCell>Tür</TableCell>
+                <TableCell>Üretici</TableCell>
+                <TableCell>Durum</TableCell>
+                <TableCell>Konum</TableCell>
+                <TableCell>Üretim Tarihi</TableCell>
+                <TableCell>İşlemler</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredProducts.map((product) => (
+                <TableRow key={product.id}>
+                  <TableCell>
+                    {product.serialNumber || (
+                      <Chip label="Henüz atanmadı" size="small" color="warning" />
+                    )}
+                  </TableCell>
+                  <TableCell>{product.productModel.name}</TableCell>
+                  <TableCell>{product.productType.name}</TableCell>
+                  <TableCell>{product.manufacturer.name}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={getStatusLabel(product.status)}
+                      color={getStatusColor(product.status) as any}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    {product.location?.name || (
+                      <Chip label="Müşteride" size="small" color="info" />
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {new Date(product.productionDate).toLocaleDateString('tr-TR')}
+                  </TableCell>
+                  <TableCell>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleHardwareVerification(product)}
+                      disabled={product.status !== 'FIRST_PRODUCTION'}
+                      title="Donanım Doğrulama"
+                    >
+                      <CheckCircleIcon />
+                    </IconButton>
+                    <IconButton size="small" title="Görüntüle">
+                      <ViewIcon />
+                    </IconButton>
+                    <IconButton size="small" title="Düzenle">
+                      <EditIcon />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        {/* Yeni Ürün Ekleme Dialog */}
+        <Dialog open={openCreateDialog} onClose={() => setOpenCreateDialog(false)} maxWidth="md" fullWidth>
+          <DialogTitle>Yeni Ürün Ekle</DialogTitle>
+          <DialogContent>
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Ürün Modeli</InputLabel>
+                  <Select label="Ürün Modeli">
+                    <MenuItem value="1">Gateway-2000</MenuItem>
+                    <MenuItem value="2">Energy Analyzer</MenuItem>
+                    <MenuItem value="3">VPN Router</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Adet"
+                  type="number"
+                  inputProps={{ min: 1, max: 100 }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Üretim Tarihi"
+                  type="date"
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Konum</InputLabel>
+                  <Select label="Konum">
+                    <MenuItem value="1">Depo A</MenuItem>
+                    <MenuItem value="2">Depo B</MenuItem>
+                    <MenuItem value="3">Depo C</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenCreateDialog(false)}>İptal</Button>
+            <Button variant="contained">Ekle</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Donanım Doğrulama Dialog */}
+        <Dialog open={openHardwareDialog} onClose={() => setOpenHardwareDialog(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>Donanım Doğrulama ve Konfigürasyon</DialogTitle>
+          <DialogContent>
+            {selectedProduct && (
+              <Grid container spacing={2} sx={{ mt: 1 }}>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Ürün: {selectedProduct.productModel.name}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Seri Numara"
+                    required
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Garanti Başlangıç Tarihi"
+                    type="date"
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Garanti Süresi (Ay)"
+                    type="number"
+                    inputProps={{ min: 0, max: 120 }}
+                  />
+                </Grid>
+              </Grid>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenHardwareDialog(false)}>İptal</Button>
+            <Button variant="contained">Tamamla</Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
+    </Layout>
+  );
+}

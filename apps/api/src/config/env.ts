@@ -1,12 +1,11 @@
 import path from "path";
-import url from "url";
 import dotenv from "dotenv";
 
 import { z } from "../lib/zod";
 import type { Env } from "hono";
 
-const __dirname = url.fileURLToPath(import.meta.url);
-const envLocalPath = path.resolve(__dirname, "..", "..", "..", ".env.local");
+// Geçici olarak doğrudan path kullanıyoruz
+const envLocalPath = path.resolve(process.cwd(), ".env.local");
 
 // TODO: temporary
 dotenv.config({
@@ -15,9 +14,15 @@ dotenv.config({
 
 const envSchema = z.object({
   NODE_ENV: z.string().optional().default("development"),
-  DATABASE_URL: z.string().url(),
-  BETTER_AUTH_SECRET: z.string(),
-  BETTER_AUTH_URL: z.string(),
+  DATABASE_URL: z.string().optional().default("postgresql://localhost:5432/fixlog"),
+  BETTER_AUTH_SECRET: z.string().optional().default("dev-secret-key-123"),
+  BETTER_AUTH_URL: z.string().optional().default("http://localhost:3001"),
+  REDIS_URL: z.string().optional().default("redis://localhost:6379"),
+  FRONTEND_URL: z.string().optional().default("http://localhost:3002"),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.string().optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
 });
 
 const env = envSchema.parse(process.env);

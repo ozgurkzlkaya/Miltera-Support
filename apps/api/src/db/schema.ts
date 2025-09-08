@@ -1,55 +1,91 @@
-import { pgTable, text, timestamp, uuid, boolean, integer, pgEnum, varchar, primaryKey, uniqueIndex } from 'drizzle-orm/pg-core';
-import { relations, sql  } from 'drizzle-orm';
-import { customTimestamp } from './ponyfill';
+import { pgTable, text, integer, boolean, timestamp, uuid, decimal, jsonb } from 'drizzle-orm/pg-core';
+import { relations, sql } from 'drizzle-orm';
 
-// Enums
-export const userRoleEnum = pgEnum('user_role', ['ADMIN', 'TSP', 'CUSTOMER']);
-export const productStatusEnum = pgEnum('product_status', ['NEW', 'IN_SERVICE', 'REPAIRED', 'SHIPPED', 'DELIVERED', 'SCRAPPED']);
-export const issueStatusEnum = pgEnum('issue_status', ['OPEN', 'IN_PROGRESS', 'WAITING_PARTS', 'REPAIRED', 'CLOSED', 'CANCELLED']);
-export const issuePriorityEnum = pgEnum('issue_priority', ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']);
-export const issueSourceEnum = pgEnum('issue_source', ['CUSTOMER', 'TSP']);
-export const operationTypeEnum = pgEnum('operation_type', ['INITIAL_TEST', 'REPAIR', 'FINAL_TEST', 'QUALITY_CHECK']);
-export const shipmentTypeEnum = pgEnum('shipment_type', ['SALES', 'SERVICE_RETURN', 'SERVICE_SEND']);
-export const shipmentStatusEnum = pgEnum('shipment_status', ['PREPARING', 'SHIPPED', 'DELIVERED', 'CANCELLED']);
-export const serviceOperationStatusEnum = pgEnum('service_operation_status', ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']);
+// Enums - PostgreSQL için enum olarak tanımlandı
+export const userRoleEnum = ['ADMIN', 'TSP', 'CUSTOMER'] as const;
+export const productStatusEnum = [
+    'FIRST_PRODUCTION',           // İlk Üretim
+    'FIRST_PRODUCTION_ISSUE',     // İlk Üretim Arıza
+    'FIRST_PRODUCTION_SCRAPPED',  // İlk Üretim Hurda
+    'READY_FOR_SHIPMENT',         // Sevkiyat Hazır
+    'SHIPPED',                    // Sevk Edildi
+    'ISSUE_CREATED',              // Arıza Kaydı Oluşturuldu
+    'RECEIVED',                   // Cihaz Teslim Alındı
+    'PRE_TEST_COMPLETED',         // Servis Ön Testi Yapıldı
+    'UNDER_REPAIR',               // Cihaz Tamir Edilmekte
+    'SERVICE_SCRAPPED',           // Servis Hurda
+    'DELIVERED'                   // Teslim Edildi
+] as const;
+
+export const issueStatusEnum = [
+    'OPEN',                       // Açık
+    'IN_PROGRESS',                // İşlemde
+    'WAITING_CUSTOMER_APPROVAL',  // Müşteri Onayı Bekliyor
+    'REPAIRED',                   // Tamir Edildi
+    'CLOSED',                     // Kapalı
+    'CANCELLED'                   // İptal Edildi
+] as const;
+
+export const issuePriorityEnum = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const;
+export const issueSourceEnum = ['CUSTOMER', 'TSP', 'FIRST_PRODUCTION'] as const;
+export const operationTypeEnum = [
+    'HARDWARE_VERIFICATION',      // Donanım Doğrulama
+    'CONFIGURATION',              // Konfigürasyon
+    'PRE_TEST',                   // Ön Test
+    'REPAIR',                     // Tamir
+    'FINAL_TEST',                 // Final Test
+    'QUALITY_CHECK'               // Kalite Kontrol
+] as const;
+
+export const shipmentTypeEnum = ['SALES', 'SERVICE_RETURN', 'SERVICE_SEND'] as const;
+export const shipmentStatusEnum = ['PREPARING', 'SHIPPED', 'DELIVERED', 'CANCELLED'] as const;
+export const serviceOperationStatusEnum = ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'] as const;
+export const warrantyStatusEnum = ['IN_WARRANTY', 'OUT_OF_WARRANTY', 'PENDING'] as const;
     
 const timestamps = {
 	createdAt: timestamp("created_at")
-		.defaultNow()
+		.default(sql`CURRENT_TIMESTAMP`)
 		.notNull(),
-	updatedAt: customTimestamp("updated_at")
-		.default(sql`now()`)
-		.notNull()
-        .$onUpdate(() => sql`now()`),
+	updatedAt: timestamp("updated_at")
+		.default(sql`CURRENT_TIMESTAMP`)
+		.notNull(),
     deletedAt: timestamp('deleted_at'),
 }
 
-// Companies table
+// Companies table - Müşteri ve Üretici Firmalar
 export const companies = pgTable('companies', {
-    id: uuid('id').defaultRandom().primaryKey(),
-    name: text('name').notNull(),
-    address: text('address'),
-    phone: text('phone'),
-    email: text('email'),
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),                    // Firma İsmi
+    address: text('address'),                        // Firma Adresi
+    phone: text('phone'),                            // Firma Telefonu
+    email: text('email'),                            // Firma E-posta
+    contactPersonName: text('contact_person_name'),  // İlgili Kişi Adı
+    contactPersonSurname: text('contact_person_surname'), // İlgili Kişi Soyadı
+    contactPersonEmail: text('contact_person_email'), // İlgili Kişi E-posta
+    contactPersonPhone: text('contact_person_phone'), // İlgili Kişi Telefon
+    isManufacturer: boolean('is_manufacturer').default(false), // Üretici mi?
     ...timestamps
 });
 
-// Users table
+// Users table - Kullanıcı Yönetimi
 export const users = pgTable('users', {
-    id: uuid('id').defaultRandom().primaryKey(),
-    name: text('name').notNull(),
-    email: text('email').notNull().unique(),
+    id: uuid('id').primaryKey().defaultRandom(),
+    firstName: text('first_name').notNull(),         // Ad
+    lastName: text('last_name').notNull(),           // Soyad
+    name: text('name'),                              // Full name for search
+    email: text('email').notNull().unique(),         // E-posta (Kullanıcı Adı)
     emailVerified: boolean("email_verified").default(false).notNull(),
     image: text("image"),
-    role: userRoleEnum('role').notNull(),
-    companyId: uuid('company_id').references(() => companies.id),
+    role: text('role').notNull(),                    // ADMIN, TSP, CUSTOMER
+    companyId: uuid('company_id').references(() => companies.id), // Müşteri firması (CUSTOMER için)
+    isActive: boolean('is_active').default(true).notNull(),
     mustChangePassword: boolean('must_change_password').default(false).notNull(),
     ...timestamps
 });
 
 // Accounts table
 export const accounts = pgTable("accounts", {
-    id: uuid('id').defaultRandom().primaryKey(),
+    id: uuid('id').primaryKey().defaultRandom(),
     accountId: text('account_id').notNull(),
     providerId: text('provider_id').notNull(),
     userId: uuid('user_id').notNull().references(()=> users.id, { onDelete: 'cascade' }),
@@ -60,31 +96,31 @@ export const accounts = pgTable("accounts", {
     refreshTokenExpiresAt: timestamp('refresh_token_expires_at'),
     scope: text('scope'),
     password: text('password'),
-    createdAt: timestamps.createdAt,
-    updatedAt: timestamps.updatedAt,
+    createdAt: timestamp('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
+    updatedAt: timestamp('updated_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
 // Verifications table
 export const verifications = pgTable("verifications", {
-    id: uuid('id').defaultRandom().primaryKey(),
+    id: uuid('id').primaryKey().defaultRandom(),
     identifier: text('identifier').notNull(),
     value: text('value').notNull(),
     expiresAt: timestamp('expires_at').notNull(),
-    createdAt: timestamps.createdAt,
-    updatedAt: timestamps.updatedAt,
+    createdAt: timestamp('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
+    updatedAt: timestamp('updated_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
 // JWKS table
 export const jwkss = pgTable("jwkss", {
-    id: uuid('id').defaultRandom().primaryKey(),
+    id: uuid('id').primaryKey().defaultRandom(),
     publicKey: text('public_key').notNull(),
     privateKey: text('private_key').notNull(),
-    createdAt: timestamps.createdAt,
+    createdAt: timestamp('created_at').notNull(),
 });
 
 // Product Types table
 export const productTypes = pgTable('product_types', {
-    id: uuid('id').defaultRandom().primaryKey(),
+    id: uuid('id').primaryKey().defaultRandom(),
     name: text('name').notNull(),
     description: text('description'),
     ...timestamps
@@ -92,7 +128,7 @@ export const productTypes = pgTable('product_types', {
 
 // Product Models table
 export const productModels = pgTable('product_models', {
-    id: uuid('id').defaultRandom().primaryKey(),
+    id: uuid('id').primaryKey().defaultRandom(),
     productTypeId: uuid('product_type_id').references(() => productTypes.id).notNull(),
     manufacturerId: uuid('manufacturer_id').references(() => companies.id).notNull(),
     name: text('name').notNull(),
@@ -102,7 +138,7 @@ export const productModels = pgTable('product_models', {
 
 // Locations table (for inventory management)
 export const locations = pgTable('locations', {
-    id: uuid('id').defaultRandom().primaryKey(),
+    id: uuid('id').primaryKey().defaultRandom(),
     name: text('name').notNull(), // e.g., "Warehouse A", "Service Center", "Shelf B-12"
     type: text('type').notNull(), // e.g., "WAREHOUSE", "SHELF", "SERVICE_AREA"
     address: text('address'),
@@ -110,22 +146,53 @@ export const locations = pgTable('locations', {
     ...timestamps
 });
 
-// Products table
-export const products = pgTable('products', {
-    id: uuid('id').defaultRandom().primaryKey(),
-    productModelId: uuid('product_model_id').references(() => productModels.id).notNull(),
-    serialNumber: text('serial_number').notNull(),
-    status: productStatusEnum('status').notNull(),
-    
-    // Customer ownership fields (only populated when ownerId is not null = customer-owned)
-    ownerId: uuid('owner_id').references(() => companies.id), // The customer company - null = stock, not null = customer-owned
+// Issue Categories table
+export const issueCategories = pgTable('issue_categories', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    description: text('description'),
+    isActive: boolean('is_active').default(true).notNull(),
+    ...timestamps
+});
 
-    productionDate: timestamp('production_date').notNull(),
-    warrantyStartDate: timestamp('warranty_start_date'),
-    warrantyPeriodMonths: integer('warranty_period_months'),
-    soldDate: timestamp('sold_date'),
+// Internal Issue Categories table
+export const internalIssueCategories = pgTable('internal_issue_categories', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    description: text('description'),
+    isActive: boolean('is_active').default(true).notNull(),
+    ...timestamps
+});
+
+// Products table - Ürün Yaşam Döngüsü Takibi
+export const products = pgTable('products', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    productModelId: uuid('product_model_id').references(() => productModels.id).notNull(),
+    productTypeId: uuid('product_type_id').references(() => productTypes.id), // Product type reference
+    serialNumber: text('serial_number'),              // Cihaz Seri Numarası (Donanım Doğrulama'da girilir)
+    status: text('status').notNull(),    // Ürün Durumu (Yaşam Döngüsü)
+    currentStatus: text('current_status').notNull(), // Current status for search
+    notes: text('notes'), // Product notes
     
-    // Location fields (only populated when ownerId is null = stock product, null when sent to customer)
+    // Müşteri sahipliği (sadece satış yapıldığında doldurulur)
+    ownerId: uuid('owner_id').references(() => companies.id), // Müşteri firması - null = stok, not null = müşteriye ait
+    companyId: uuid('company_id').references(() => companies.id), // Company reference for search
+
+    // Üretim bilgileri
+    productionDate: timestamp('production_date').notNull(), // Üretim Tarihi
+    productionEntryBy: uuid('production_entry_by').references(() => users.id).notNull(), // Üretim Girişi Hesabı
+    
+    // Garanti bilgileri
+    warrantyStartDate: timestamp('warranty_start_date'), // Garanti Başlangıç Tarihi
+    warrantyPeriodMonths: integer('warranty_period_months'), // Garanti Süresi (Ay)
+    warrantyStatus: text('warranty_status').default('PENDING'), // Garanti Durumu
+    soldDate: timestamp('sold_date'), // Satış Tarihi
+    
+    // Konfigürasyon bilgileri
+    hardwareVerificationDate: timestamp('hardware_verification_date'), // Donanım Doğrulama Tarihi
+    hardwareVerificationBy: uuid('hardware_verification_by').references(() => users.id), // Donanım Doğrulama Hesabı
+    
+    // Konum bilgileri (sadece stok ürünler için)
     locationId: uuid('location_id').references(() => locations.id), // null when product is with customer
     
     createdBy: uuid('created_by').references(() => users.id).notNull(),
@@ -133,185 +200,157 @@ export const products = pgTable('products', {
     ...timestamps
 });
 
-export const issueCategories = pgTable('issue_categories', {
-    id: uuid('id').defaultRandom().primaryKey(),
-    name: varchar('name', { length: 120 }).notNull().unique(),
-    description: text('description'),
-    displayOrder: integer('display_order').default(0),
-    ...timestamps
-});
-
-// Internal issue categories table
-export const internalIssueCategories = pgTable('internal_issue_categories', {
-    id: uuid('id').defaultRandom().primaryKey(),
-    code: varchar('code', { length: 64 }).notNull().unique(),
-    name: varchar('name', { length: 120 }).notNull(),
-    ...timestamps
-});
-
-// N↔N mapping between the two lists (public and internal issue categories)
-export const publicToInternalCategoryMap = pgTable('public_to_internal_category_map', {
-    publicCategoryId: uuid('public_category_id').references(() => issueCategories.id, { onDelete: 'cascade' }).notNull(),
-    internalCategoryId: uuid('internal_category_id').references(() => internalIssueCategories.id, { onDelete: 'cascade' }).notNull(),
-}, (table) => {
-    return [primaryKey({ columns: [table.publicCategoryId, table.internalCategoryId] })]
-});
-
-// Issues table
+// Issues table - Arıza Yönetimi
 export const issues = pgTable('issues', {
-    id: uuid('id').defaultRandom().primaryKey(),
-    issueNumber: varchar('issue_number', { length: 20 }).notNull().unique(),
+    id: uuid('id').primaryKey().defaultRandom(),
+    issueNumber: text('issue_number').notNull().unique(), // YYMMDD-XX format
+    productId: uuid('product_id').references(() => products.id).notNull(),
+    customerId: uuid('customer_id').references(() => companies.id).notNull(),
+    companyId: uuid('company_id').references(() => companies.id).notNull(), // Company reference for search
+    reportedBy: uuid('reported_by').references(() => users.id).notNull(),
+    assignedTo: uuid('assigned_to').references(() => users.id),
     
-    // Source and context
-    source: issueSourceEnum('source').notNull(),                          // Who/what created this issue
-    companyId: uuid('company_id').references(() => companies.id),         // Customer company (null for internal issues)
-    
-    // Categories (flexible based on source)
-    categoryId: uuid('category_id').references(() => issueCategories.id), // Customer-facing category (optional for internal)
-    internalCategoryId: uuid('internal_category_id').references(() => internalIssueCategories.id),
-    
-    // Status and priority
-    status: issueStatusEnum('status').notNull(),
-    priority: issuePriorityEnum('priority').notNull(),
-    
-    // Descriptions
-    customerDescription: text('customer_description'),                   // From customer (if customer-reported)
-    technicianDescription: text('technician_description'),               // From technician
-    
-    createdBy: uuid('created_by').references(() => users.id).notNull(),
-    ...timestamps
-});
-
-// Issue Products junction table - many-to-many relationship
-export const issueProducts = pgTable('issue_products', {
-    id: uuid('id').defaultRandom().primaryKey(),
-    issueId: uuid('issue_id').references(() => issues.id, { onDelete: 'cascade' }).notNull(),
-    productId: uuid('product_id').references(() => products.id, { onDelete: 'cascade' }).notNull(),
-}, (table) => {
-    return [
-        // Ensure same product can't be added twice to same issue
-        uniqueIndex('unique_issue_product').on(table.issueId, table.productId)
-    ];
-});
-
-// Service Operations table
-export const serviceOperations = pgTable('service_operations', {
-    id: uuid('id').defaultRandom().primaryKey(),
-    issueId: uuid('issue_id').references(() => issues.id, { onDelete: 'cascade' }).notNull(),
-    issueProductId: uuid('issue_product_id').references(() => issueProducts.id, { onDelete: 'cascade' }), // Link to specific product in issue
-    operationType: operationTypeEnum('operation_type').notNull(),
-    performedBy: uuid('performed_by').references(() => users.id).notNull(),
-    status: serviceOperationStatusEnum('status').notNull(),
+    title: text('title').notNull(),
     description: text('description').notNull(),
-    findings: text('findings'),
-    actionsTaken: text('actions_taken'),
-    operationDate: timestamp('operation_date').notNull(),
+    customerDescription: text('customer_description'), // Customer description
+    technicianDescription: text('technician_description'), // Technician description
+    status: text('status').notNull(), // issueStatusEnum
+    priority: text('priority').notNull(), // issuePriorityEnum
+    source: text('source').notNull(), // issueSourceEnum
+    
+    // Kategori bilgileri
+    issueCategoryId: uuid('issue_category_id').references(() => issueCategories.id),
+    internalIssueCategoryId: uuid('internal_issue_category_id').references(() => internalIssueCategories.id),
+    
+    // Garanti ve maliyet bilgileri
+    isUnderWarranty: boolean('is_under_warranty').default(false),
+    estimatedCost: decimal('estimated_cost', { precision: 10, scale: 2 }),
+    actualCost: decimal('actual_cost', { precision: 10, scale: 2 }),
+    
+    // Tarih bilgileri
+    reportedAt: timestamp('reported_at').notNull(),
+    assignedAt: timestamp('assigned_at'),
+    resolvedAt: timestamp('resolved_at'),
+    preInspectionDate: timestamp('pre_inspection_date'),
+    repairDate: timestamp('repair_date'),
+    
+    // İşlem yapan kişiler
+    preInspectedBy: uuid('pre_inspected_by').references(() => users.id),
+    repairedBy: uuid('repaired_by').references(() => users.id),
+    
     ...timestamps
 });
 
-// Shipments table
-export const shipments = pgTable('shipments', {
-    id: uuid('id').defaultRandom().primaryKey(),
-    shipmentNumber: text('shipment_number').notNull().unique(),
-    type: shipmentTypeEnum('type').notNull(),
-    companyId: uuid('company_id').references(() => companies.id).notNull(),
-    issueId: uuid('issue_id').references(() => issues.id), // For SERVICE_RETURN/SERVICE_SEND shipments
-    status: shipmentStatusEnum('status').notNull(),
-    trackingNumber: text('tracking_number'),
-    estimatedDelivery: timestamp('estimated_delivery'),
-    actualDelivery: timestamp('actual_delivery'),
+// Service Operations table - Teknik Servis Operasyonları
+export const serviceOperations = pgTable('service_operations', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    issueId: uuid('issue_id').references(() => issues.id).notNull(),
+    productId: uuid('product_id').references(() => products.id).notNull(),
+    issueProductId: uuid('issue_product_id').references(() => issueProducts.id), // Issue product reference
+    technicianId: uuid('technician_id').references(() => users.id).notNull(),
+    performedBy: uuid('performed_by').references(() => users.id).notNull(), // Who performed the operation
+    
+    operationType: text('operation_type').notNull(), // operationTypeEnum
+    status: text('status').notNull(), // serviceOperationStatusEnum
+    description: text('description').notNull(),
     notes: text('notes'),
+    findings: text('findings'), // Operation findings
+    actionsTaken: text('actions_taken'), // Actions taken during operation
+    operationDate: timestamp('operation_date').notNull(), // Operation date
+    
+    // Garanti ve maliyet bilgileri
+    isUnderWarranty: boolean('is_under_warranty').default(false),
+    cost: decimal('cost', { precision: 10, scale: 2 }),
+    
+    // Parça ve test bilgileri
+    partsUsed: jsonb('parts_used'), // JSON array of parts
+    testResults: jsonb('test_results'), // JSON object of test results
+    
+    // Zaman bilgileri
+    startedAt: timestamp('started_at'),
+    completedAt: timestamp('completed_at'),
+    estimatedDuration: integer('estimated_duration'), // minutes
+    duration: integer('duration'), // actual duration in minutes
+    
+    ...timestamps
+});
+
+// Shipments table - Sevkiyat Yönetimi
+export const shipments = pgTable('shipments', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    shipmentNumber: text('shipment_number').notNull().unique(),
+    type: text('type').notNull(), // shipmentTypeEnum
+    status: text('status').notNull(), // shipmentStatusEnum
+    
+    fromLocationId: uuid('from_location_id').references(() => locations.id),
+    toLocationId: uuid('to_location_id').references(() => locations.id),
+    fromCompanyId: uuid('from_company_id').references(() => companies.id),
+    toCompanyId: uuid('to_company_id').references(() => companies.id),
+    companyId: uuid('company_id').references(() => companies.id), // Company reference for search
+    productId: uuid('product_id').references(() => products.id), // Product reference
+    
+    trackingNumber: text('tracking_number'),
+    notes: text('notes'), // Shipment notes
+    totalCost: decimal('total_cost', { precision: 10, scale: 2 }),
+    estimatedDelivery: timestamp('estimated_delivery'), // Estimated delivery date
+    actualDelivery: timestamp('actual_delivery'), // Actual delivery date
+    shippedAt: timestamp('shipped_at'),
+    deliveredAt: timestamp('delivered_at'),
+    
     createdBy: uuid('created_by').references(() => users.id).notNull(),
-    updatedBy: uuid('updated_by').references(() => users.id).notNull(),
-    ...timestamps,
+    ...timestamps
 });
 
 // Shipment Items table
 export const shipmentItems = pgTable('shipment_items', {
-    id: uuid('id').defaultRandom().primaryKey(),
-    shipmentId: uuid('shipment_id').references(() => shipments.id, { onDelete: 'cascade' }).notNull(),
+    id: uuid('id').primaryKey().defaultRandom(),
+    shipmentId: uuid('shipment_id').references(() => shipments.id).notNull(),
     productId: uuid('product_id').references(() => products.id).notNull(),
-}, (table) => {
-    return [
-        // Ensure same item can't be added twice to same shipment
-        uniqueIndex('unique_shipment_item').on(table.shipmentId, table.productId)
-    ];
+    quantity: integer('quantity').notNull().default(1),
+    notes: text('notes'),
+    ...timestamps
 });
 
-// Product History Event Types
-export const productHistoryEventTypeEnum = pgEnum('product_history_event_type', [
-    'production', 'test', 'shipping', 'service', 'status_change', 'issue', 'other'
-]);
+// Issue Products table (for multiple products in one issue)
+export const issueProducts = pgTable('issue_products', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    issueId: uuid('issue_id').references(() => issues.id).notNull(),
+    productId: uuid('product_id').references(() => products.id).notNull(),
+    notes: text('notes'),
+    ...timestamps
+});
 
-// Product History table - tracks product lifecycle events
+// Product History table - Ürün Geçmişi
 export const productHistory = pgTable('product_history', {
-    id: uuid('id').defaultRandom().primaryKey(),
-    productId: uuid('product_id').references(() => products.id, { onDelete: 'cascade' }).notNull(),
-    
+    id: uuid('id').primaryKey().defaultRandom(),
+    productId: uuid('product_id').references(() => products.id).notNull(),
+    eventType: text('event_type').notNull(), // 'STATUS_CHANGE', 'LOCATION_CHANGE', 'OWNER_CHANGE', etc.
+    event: text('event').notNull(), // Event description
+    eventData: jsonb('event_data'), // JSON object
+    eventTimestamp: timestamp('event_timestamp').notNull(), // Event timestamp
+    locationId: uuid('location_id').references(() => locations.id), // Location at time of event
+    performedBy: uuid('performed_by').references(() => users.id).notNull(),
+    performedAt: timestamp('performed_at').notNull(),
     createdBy: uuid('created_by').references(() => users.id).notNull(),
-
-    // Event information
-    event: varchar('event', { length: 255 }).notNull(),                    // Event title
-    eventType: productHistoryEventTypeEnum('event_type').notNull(),        // Category for UI grouping
-    
-    // Actor and context
-    performedBy: uuid('performed_by').references(() => users.id).notNull(),       // User who performed the action
-    locationId: uuid('location_id').references(() => locations.id),               // Where it happened
-    
-    // Related entities (optional)
-    relatedIssueId: uuid('related_issue_id').references(() => issues.id),
-    relatedShipmentId: uuid('related_shipment_id').references(() => shipments.id),
-    relatedServiceOperationId: uuid('related_service_operation_id').references(() => serviceOperations.id),
-
-    // Timestamps
-    eventTimestamp: timestamp('event_timestamp').notNull(),
     ...timestamps
 });
 
 // Relations
+export const companiesRelations = relations(companies, ({ many }) => ({
+    users: many(users),
+    products: many(products),
+    issues: many(issues),
+    shipments: many(shipments),
+}));
+
 export const usersRelations = relations(users, ({ one, many }) => ({
     company: one(companies, {
         fields: [users.companyId],
         references: [companies.id],
     }),
-    createdProducts: many(products, { relationName: 'createdBy' }),
-    updatedProducts: many(products, { relationName: 'updatedBy' }),
-    createdIssues: many(issues),
-    serviceOperations: many(serviceOperations),
-    createdShipments: many(shipments, { relationName: 'createdBy' }),
-    updatedShipments: many(shipments, { relationName: 'updatedBy' }),
-    createdProductHistory: many(productHistory, { relationName: 'createdBy' }),
-    performedProductHistory: many(productHistory, { relationName: 'performedBy' }),
-}));
-
-export const companiesRelations = relations(companies, ({ many }) => ({
-    users: many(users),
-    manufacturedProducts: many(productModels, { relationName: 'manufacturer' }),
-    ownedProducts: many(products, { relationName: 'owner' }),
+    products: many(products),
     issues: many(issues),
-    shipments: many(shipments),
-}));
-
-export const productTypesRelations = relations(productTypes, ({ many }) => ({
-    productModels: many(productModels),
-}));
-
-export const productModelsRelations = relations(productModels, ({ one, many }) => ({
-    productType: one(productTypes, {
-        fields: [productModels.productTypeId],
-        references: [productTypes.id],
-    }),
-    manufacturer: one(companies, {
-        fields: [productModels.manufacturerId],
-        references: [companies.id],
-        relationName: 'manufacturer',
-    }),
-    products: many(products),
-}));
-
-export const locationsRelations = relations(locations, ({ many }) => ({
-    products: many(products),
-    productHistory: many(productHistory),
+    serviceOperations: many(serviceOperations),
 }));
 
 export const productsRelations = relations(products, ({ one, many }) => ({
@@ -322,71 +361,97 @@ export const productsRelations = relations(products, ({ one, many }) => ({
     owner: one(companies, {
         fields: [products.ownerId],
         references: [companies.id],
-        relationName: 'owner',
     }),
     location: one(locations, {
         fields: [products.locationId],
         references: [locations.id],
     }),
-    createdBy: one(users, {
-        fields: [products.createdBy],
-        references: [users.id],
-        relationName: 'createdBy',
-    }),
-    updatedBy: one(users, {
-        fields: [products.updatedBy],
-        references: [users.id],
-        relationName: 'updatedBy',
-    }),
-    issues: many(issueProducts),
-    shipmentItems: many(shipmentItems),
-    productHistory: many(productHistory),
-}));
-    
-export const issueCategoriesRelations = relations(issueCategories, ({ many }) => ({
     issues: many(issues),
-    mappings: many(publicToInternalCategoryMap),
-}));
-
-export const internalIssueCategoriesRelations = relations(internalIssueCategories, ({ many }) => ({
-    issues: many(issues),
-    mappings: many(publicToInternalCategoryMap),
-}));
-
-export const publicToInternalCategoryMapRelations = relations(publicToInternalCategoryMap, ({ one }) => ({
-    publicCategory: one(issueCategories, {
-        fields: [publicToInternalCategoryMap.publicCategoryId],
-        references: [issueCategories.id],
-    }),     
-    internalCategory: one(internalIssueCategories, {    
-        fields: [publicToInternalCategoryMap.internalCategoryId],
-        references: [internalIssueCategories.id],
-    }),
+    serviceOperations: many(serviceOperations),
+    shipments: many(shipments),
+    history: many(productHistory),
 }));
 
 export const issuesRelations = relations(issues, ({ one, many }) => ({
-    company: one(companies, {
-        fields: [issues.companyId],
+    product: one(products, {
+        fields: [issues.productId],
+        references: [products.id],
+    }),
+    customer: one(companies, {
+        fields: [issues.customerId],
+        references: [companies.id],
+    }),
+    reportedBy: one(users, {
+        fields: [issues.reportedBy],
+        references: [users.id],
+    }),
+    assignedTo: one(users, {
+        fields: [issues.assignedTo],
+        references: [users.id],
+    }),
+    issueCategory: one(issueCategories, {
+        fields: [issues.issueCategoryId],
+        references: [issueCategories.id],
+    }),
+    internalIssueCategory: one(internalIssueCategories, {
+        fields: [issues.internalIssueCategoryId],
+        references: [internalIssueCategories.id],
+    }),
+    serviceOperations: many(serviceOperations),
+    issueProducts: many(issueProducts),
+}));
+
+export const serviceOperationsRelations = relations(serviceOperations, ({ one }) => ({
+    issue: one(issues, {
+        fields: [serviceOperations.issueId],
+        references: [issues.id],
+    }),
+    product: one(products, {
+        fields: [serviceOperations.productId],
+        references: [products.id],
+    }),
+    technician: one(users, {
+        fields: [serviceOperations.technicianId],
+        references: [users.id],
+    }),
+}));
+
+export const shipmentsRelations = relations(shipments, ({ one, many }) => ({
+    fromLocation: one(locations, {
+        fields: [shipments.fromLocationId],
+        references: [locations.id],
+    }),
+    toLocation: one(locations, {
+        fields: [shipments.toLocationId],
+        references: [locations.id],
+    }),
+    fromCompany: one(companies, {
+        fields: [shipments.fromCompanyId],
+        references: [companies.id],
+    }),
+    toCompany: one(companies, {
+        fields: [shipments.toCompanyId],
         references: [companies.id],
     }),
     createdBy: one(users, {
-        fields: [issues.createdBy],
+        fields: [shipments.createdBy],
         references: [users.id],
-    }), 
-    category: one(issueCategories, {
-        fields: [issues.categoryId],
-        references: [issueCategories.id],
     }),
-    internalCategory: one(internalIssueCategories, {
-        fields: [issues.internalCategoryId],
-        references: [internalIssueCategories.id],
-    }),
-    issueProducts: many(issueProducts),
-    serviceOperations: many(serviceOperations),
-    shipments: many(shipments),
+    shipmentItems: many(shipmentItems),
 }));
 
-export const issueProductsRelations = relations(issueProducts, ({ one, many }) => ({
+export const shipmentItemsRelations = relations(shipmentItems, ({ one }) => ({
+    shipment: one(shipments, {
+        fields: [shipmentItems.shipmentId],
+        references: [shipments.id],
+    }),
+    product: one(products, {
+        fields: [shipmentItems.productId],
+        references: [products.id],
+    }),
+}));
+
+export const issueProductsRelations = relations(issueProducts, ({ one }) => ({
     issue: one(issues, {
         fields: [issueProducts.issueId],
         references: [issues.id],
@@ -395,55 +460,37 @@ export const issueProductsRelations = relations(issueProducts, ({ one, many }) =
         fields: [issueProducts.productId],
         references: [products.id],
     }),
-    serviceOperations: many(serviceOperations),
 }));
 
-export const serviceOperationsRelations = relations(serviceOperations, ({ one }) => ({
-    issue: one(issues, {
-        fields: [serviceOperations.issueId],
-        references: [issues.id],
-    }),
-    issueProduct: one(issueProducts, {
-        fields: [serviceOperations.issueProductId],
-        references: [issueProducts.id],
-    }),
-    performedBy: one(users, {
-        fields: [serviceOperations.performedBy],
-        references: [users.id],
-    }),
-}));
+// File Attachments table - Dosya Ekleri
+export const fileAttachments = pgTable('file_attachments', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    fileName: text('file_name').notNull(),                    // Dosya adı
+    originalFileName: text('original_file_name').notNull(),   // Orijinal dosya adı
+    filePath: text('file_path').notNull(),                   // Dosya yolu
+    fileUrl: text('file_url'),                               // Cloudinary URL (opsiyonel)
+    mimeType: text('mime_type').notNull(),                   // MIME türü
+    fileSize: integer('file_size').notNull(),                // Dosya boyutu (bytes)
+    fileType: text('file_type').notNull(),                   // Dosya türü (image, document, etc.)
+    
+    // İlişkili entity bilgileri
+    entityType: text('entity_type').notNull(),               // Hangi entity'ye ait (issue, product, shipment)
+    entityId: uuid('entity_id').notNull(),                   // Entity ID
+    
+    // Yükleyen kullanıcı
+    uploadedBy: uuid('uploaded_by').references(() => users.id).notNull(),
+    
+    // Metadata
+    description: text('description'),                        // Dosya açıklaması
+    tags: jsonb('tags'),                                     // Etiketler (JSON array)
+    
+    ...timestamps
+});
 
-export const shipmentsRelations = relations(shipments, ({ one, many }) => ({
-    company: one(companies, {
-        fields: [shipments.companyId],
-        references: [companies.id],
-    }),
-    createdBy: one(users, {
-        fields: [shipments.createdBy],
+export const fileAttachmentsRelations = relations(fileAttachments, ({ one }) => ({
+    uploadedBy: one(users, {
+        fields: [fileAttachments.uploadedBy],
         references: [users.id],
-        relationName: 'createdBy',
-    }),
-    updatedBy: one(users, {
-        fields: [shipments.updatedBy],
-        references: [users.id],
-        relationName: 'updatedBy',
-    }),
-    issue: one(issues, {
-        fields: [shipments.issueId],
-        references: [issues.id],
-    }),
-    items: many(shipmentItems, { relationName: 'shipment' } ),
-}));
-
-export const shipmentItemsRelations = relations(shipmentItems, ({ one }) => ({
-    shipment: one(shipments, {
-        fields: [shipmentItems.shipmentId],
-        references: [shipments.id],
-        relationName: 'shipment',
-    }),
-    product: one(products, {
-        fields: [shipmentItems.productId],
-        references: [products.id],
     }),
 }));
 
@@ -452,30 +499,21 @@ export const productHistoryRelations = relations(productHistory, ({ one }) => ({
         fields: [productHistory.productId],
         references: [products.id],
     }),
-    createdBy: one(users, {
-        fields: [productHistory.createdBy],
-        references: [users.id],
-        relationName: 'createdBy',
-    }),
     performedBy: one(users, {
         fields: [productHistory.performedBy],
         references: [users.id],
-        relationName: 'performedBy',
+    }),
+    createdBy: one(users, {
+        fields: [productHistory.createdBy],
+        references: [users.id],
     }),
     location: one(locations, {
         fields: [productHistory.locationId],
         references: [locations.id],
     }),
-    relatedIssue: one(issues, {
-        fields: [productHistory.relatedIssueId],
-        references: [issues.id],
-    }),
-    relatedShipment: one(shipments, {       
-        fields: [productHistory.relatedShipmentId],
-        references: [shipments.id],
-    }),
-    relatedServiceOperation: one(serviceOperations, {
-        fields: [productHistory.relatedServiceOperationId],
-        references: [serviceOperations.id],
-    }),
-})); 
+}));
+
+// Type definitions
+export type ProductStatus = typeof productStatusEnum[number];
+export type WarrantyStatus = typeof warrantyStatusEnum[number];
+export type ProductHistoryEventType = 'STATUS_CHANGE' | 'LOCATION_CHANGE' | 'OWNER_CHANGE' | 'WARRANTY_CHANGE' | 'PRODUCTION_ENTRY' | 'HARDWARE_VERIFICATION' | 'SALE' | 'ISSUE_CREATED' | 'SERVICE_OPERATION'; 

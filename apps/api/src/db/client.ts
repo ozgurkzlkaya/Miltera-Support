@@ -4,10 +4,17 @@ import { Pool } from "pg";
 import * as schema from "./schema";
 import env from "../config/env";
 
-const client = new Pool({
-  connectionString: env.DATABASE_URL,
+const pool = new Pool({
+  host: "localhost",
+  port: 5432,
+  user: "postgres",
+  password: "postgres",
+  database: "fixlog",
+  ssl: false,
+  connectionTimeoutMillis: 5000,
+  idleTimeoutMillis: 30000,
 });
 
-const db = drizzle({ client, schema });
+const db = drizzle(pool, { schema });
 
 export { db };

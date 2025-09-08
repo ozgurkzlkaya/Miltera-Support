@@ -3,7 +3,6 @@
 // https://tanstack.com/query/latest/docs/framework/react/guides/advanced-ssr
 import { cache } from "react";
 import {
-  isServer,
   QueryClient,
   defaultShouldDehydrateQuery,
   type UseMutationOptions,
@@ -44,17 +43,18 @@ let browserQueryClient: QueryClient | undefined = undefined;
 const serverGetQueryClient = cache(makeQueryClient);
 
 function getQueryClient() {
-  if (isServer) {
-    // Server: always make a new query client
-    // This ensures that data is not shared between different users and requests, while still only creating the QueryClient once per request
-    return serverGetQueryClient();
-  } else {
+  // Check if we're in a browser environment
+  if (typeof window !== 'undefined') {
     // Browser: make a new query client if we don't already have one
     // This is very important, so we don't re-make a new client if React
     // suspends during the initial render. This may not be needed if we
     // have a suspense boundary BELOW the creation of the query client
     if (!browserQueryClient) browserQueryClient = makeQueryClient();
     return browserQueryClient;
+  } else {
+    // Server: always make a new query client
+    // This ensures that data is not shared between different users and requests, while still only creating the QueryClient once per request
+    return serverGetQueryClient();
   }
 }
 

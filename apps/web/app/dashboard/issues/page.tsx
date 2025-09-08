@@ -1,2260 +1,637 @@
-"use client";
+'use client';
 
+import { useState, useEffect } from 'react';
 import {
   Box,
-  Chip,
-  Avatar,
   Typography,
-  Card,
-  CardContent,
-  Stack,
+  Paper,
+  Grid,
   Button,
-  TextField,
-  Tab,
-  Tabs,
-  Alert,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Autocomplete,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Chip,
+  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  IconButton,
-  Divider,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Alert,
+  CircularProgress,
   Badge,
-} from "@mui/material";
-import { Layout } from "../../../components/Layout";
+} from '@mui/material';
 import {
-  DataTable,
-  TableColumn,
-  FormField,
-  BulkAction,
-} from "../../../components/DataTable";
-import { ConfirmDialog } from "../../../components/ConfirmDialog";
-import { ServiceOperationsManager } from "../../../components/ServiceOperationsManager";
-import { ProductSelectionModal } from "../../../components/ProductSelectionModal";
-import { useState } from "react";
-import {
-  Delete as DeleteIcon,
-  Assignment as IssueIcon,
-  Person as PersonIcon,
-  Business as BusinessIcon,
-  Build as RepairIcon,
-  Schedule as ScheduleIcon,
-  Engineering as ServiceIcon,
-  Visibility as ViewIcon,
   Add as AddIcon,
-  Science as TestIcon,
-  CheckCircle as QualityIcon,
-  Assessment as InitialIcon,
-  Timer as TimerIcon,
-  Inventory as PartsIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
-  Category as CategoryIcon,
-  Settings as SettingsIcon,
-  Close as CloseIcon,
-  LocationOn as LocationIcon,
-  CalendarToday as CalendarIcon,
-  PriorityHigh as PriorityIcon,
-  Description as DescriptionIcon,
-  AttachFile as AttachIcon,
-} from "@mui/icons-material";
-import Link from "next/link";
-import { useAuthenticatedAuth } from "../../../features/auth/useAuth";
+  Edit as EditIcon,
+  Visibility as ViewIcon,
+  Build as BuildIcon,
+  CheckCircle as CheckCircleIcon,
+  Warning as WarningIcon,
+  Error as ErrorIcon,
+  Info as InfoIcon,
+} from '@mui/icons-material';
+import { Layout } from '../../../components/Layout';
 
-const initialIssues = [
-  {
-    id: 1,
-    issueNumber: "ARZ-2024-001",
-    products: [
-      {
-        id: 1,
-        name: "Gateway-2000-001",
-        serial: "SN123456",
-        warrantyStartDate: "2024-01-01T00:00:00Z",
-        warrantyPeriodMonths: 24,
-      },
-    ],
-    companyId: 1,
-    companyName: "ABC Enerji Ltd.",
-    issueTypeId: 1,
-    issueTypeName: "NET_CONN: Network Connection",
-    title: "Gateway Connection Timeout",
-    description:
-      "Gateway device experiencing frequent connection timeouts with remote servers",
-    status: "IN_PROGRESS",
-    priority: "HIGH",
-    assignedTspId: 1,
-    assignedTspName: "John Doe",
-    estimatedResolutionDate: "2024-06-15",
-    actualResolutionDate: null,
-    location: "İstanbul Fabrika - Ana Bina",
-    urgencyLevel: "Normal",
-    customerImpact: "Medium",
-    rootCause: null,
-    resolutionSummary: null,
-    customerSatisfaction: null,
-    followUpRequired: true,
-    createdAt: "2024-06-01T10:30:00Z",
-    updatedAt: "2024-06-03T14:20:00Z",
-    createdBy: "Customer Portal",
-    lastUpdatedBy: "John Doe",
-    attachments: ["gateway_logs.txt", "network_config.json"],
-    serviceOperations: [
-      {
-        id: 1,
-        operationType: "INITIAL_TEST",
-        performedBy: "John Doe",
-        description: "Initial diagnostic test completed",
-        findings: "Network configuration issues detected",
-        date: "2024-06-02",
-        productId: 1,
-      },
-    ],
-  },
-  {
-    id: 2,
-    issueNumber: "ARZ-2024-002",
-    products: [
-      {
-        id: 2,
-        name: "EA-100-005",
-        serial: "SN654321",
-        warrantyStartDate: "2023-06-01T00:00:00Z",
-        warrantyPeriodMonths: 36,
-      },
-      {
-        id: 4,
-        name: "SM-300-003",
-        serial: "SN456789",
-        warrantyStartDate: "2023-08-01T00:00:00Z",
-        warrantyPeriodMonths: 24,
-      },
-    ],
-    companyId: 2,
-    companyName: "XYZ Elektrik A.Ş.",
-    issueTypeId: 3,
-    issueTypeName: "CAL_SENSOR: Sensor Calibration",
-    title: "Energy Analyzer Calibration Required",
-    description:
-      "Device showing inconsistent readings, requires professional calibration",
-    status: "WAITING_PARTS",
-    priority: "MEDIUM",
-    assignedTspId: 2,
-    assignedTspName: "Jane Smith",
-    estimatedResolutionDate: "2024-06-12",
-    actualResolutionDate: null,
-    location: "Ankara Sahası",
-    urgencyLevel: "High",
-    customerImpact: "High",
-    rootCause: "Sensor drift due to environmental conditions",
-    resolutionSummary: null,
-    customerSatisfaction: null,
-    followUpRequired: false,
-    createdAt: "2024-06-01T14:20:00Z",
-    updatedAt: "2024-06-04T09:15:00Z",
-    createdBy: "Customer Portal",
-    lastUpdatedBy: "Jane Smith",
-    attachments: ["calibration_report.pdf"],
-    serviceOperations: [
-      {
-        id: 2,
-        operationType: "REPAIR",
-        performedBy: "Jane Smith",
-        description: "Calibration sensors replaced",
-        findings: "Old sensors were beyond tolerance",
-        date: "2024-06-03",
-        productId: 2,
-      },
-      {
-        id: 4,
-        operationType: "REPAIR",
-        performedBy: "Jane Smith",
-        description: "Secondary unit sensor calibration",
-        findings: "Sensors within acceptable range",
-        date: "2024-06-04",
-        productId: 4,
-      },
-    ],
-  },
-  {
-    id: 3,
-    issueNumber: "ARZ-2024-003",
-    products: [
-      {
-        id: 3,
-        name: "VR-500-012",
-        serial: "SN987654",
-        warrantyStartDate: "2022-03-01T00:00:00Z",
-        warrantyPeriodMonths: 12,
-      },
-    ],
-    companyId: 3,
-    companyName: "DEF Teknoloji",
-    issueTypeId: 5,
-    issueTypeName: "SW_UPDATE: Software Update",
-    title: "VPN Router Firmware Update",
-    description:
-      "Router requires firmware update to fix security vulnerabilities",
-    status: "REPAIRED",
-    priority: "CRITICAL",
-    assignedTspId: 3,
-    assignedTspName: "Mike Johnson",
-    estimatedResolutionDate: "2024-06-08",
-    actualResolutionDate: "2024-06-07",
-    location: "İzmir Depo",
-    urgencyLevel: "Critical",
-    customerImpact: "Low",
-    rootCause: "Outdated firmware version",
-    resolutionSummary:
-      "Firmware updated to latest version, security patches applied",
-    customerSatisfaction: 5,
-    followUpRequired: false,
-    createdAt: "2024-06-01T09:15:00Z",
-    updatedAt: "2024-06-07T16:45:00Z",
-    createdBy: "Customer Portal",
-    lastUpdatedBy: "Mike Johnson",
-    attachments: ["firmware_update_log.txt"],
-    serviceOperations: [
-      {
-        id: 3,
-        operationType: "FINAL_TEST",
-        performedBy: "Mike Johnson",
-        description: "Final testing completed successfully",
-        findings: "All systems operational",
-        date: "2024-06-07",
-        productId: 3,
-      },
-    ],
-  },
-];
+interface Issue {
+  id: string;
+  issueNumber: string;
+  source: string;
+  status: string;
+  priority: string;
+  customerDescription?: string;
+  technicianDescription?: string;
+  isUnderWarranty: boolean;
+  estimatedCost?: number;
+  actualCost?: number;
+  issueDate: string;
+  company: {
+    name: string;
+  } | null;
+  category: {
+    name: string;
+  } | null;
+  createdByUser: {
+    firstName: string;
+    lastName: string;
+  };
+}
 
-// Mock data for category mapping
-const externalCategories = [
-  {
-    id: 1,
-    name: "Connection Issues",
-    description: "Network and connectivity problems",
-  },
-  {
-    id: 2,
-    name: "Calibration",
-    description: "Device calibration requirements",
-  },
-  {
-    id: 3,
-    name: "Software Update",
-    description: "Firmware and software updates",
-  },
-  {
-    id: 4,
-    name: "Hardware Malfunction",
-    description: "Physical hardware problems",
-  },
-  {
-    id: 5,
-    name: "Data Synchronization",
-    description: "Data sync and reporting issues",
-  },
-];
+interface IssueFilter {
+  status?: string;
+  source?: string;
+  priority?: string;
+  search?: string;
+}
 
-const internalCategories = [
-  {
-    id: 1,
-    code: "NET_CONN",
-    name: "Network Connection",
-    defaultPriority: "HIGH",
-    slaMinutes: 240,
-  },
-  {
-    id: 2,
-    code: "NET_CONFIG",
-    name: "Network Configuration",
-    defaultPriority: "MEDIUM",
-    slaMinutes: 480,
-  },
-  {
-    id: 3,
-    code: "CAL_SENSOR",
-    name: "Sensor Calibration",
-    defaultPriority: "MEDIUM",
-    slaMinutes: 720,
-  },
-  {
-    id: 4,
-    code: "CAL_METER",
-    name: "Meter Calibration",
-    defaultPriority: "HIGH",
-    slaMinutes: 480,
-  },
-  {
-    id: 5,
-    code: "SW_UPDATE",
-    name: "Software Update",
-    defaultPriority: "LOW",
-    slaMinutes: 1440,
-  },
-  {
-    id: 6,
-    code: "SW_CONFIG",
-    name: "Software Configuration",
-    defaultPriority: "MEDIUM",
-    slaMinutes: 360,
-  },
-  {
-    id: 7,
-    code: "HW_REPLACE",
-    name: "Hardware Replacement",
-    defaultPriority: "CRITICAL",
-    slaMinutes: 120,
-  },
-  {
-    id: 8,
-    code: "HW_REPAIR",
-    name: "Hardware Repair",
-    defaultPriority: "HIGH",
-    slaMinutes: 360,
-  },
-  {
-    id: 9,
-    code: "DATA_SYNC",
-    name: "Data Synchronization",
-    defaultPriority: "MEDIUM",
-    slaMinutes: 480,
-  },
-];
-
-const initialCategoryMappings = [
-  {
-    id: 1,
-    externalCategoryId: 1,
-    externalCategoryName: "Connection Issues",
-    internalCategories: [
-      { id: 1, code: "NET_CONN", name: "Network Connection" },
-      { id: 2, code: "NET_CONFIG", name: "Network Configuration" },
-    ],
-  },
-  {
-    id: 2,
-    externalCategoryId: 2,
-    externalCategoryName: "Calibration",
-    internalCategories: [
-      { id: 3, code: "CAL_SENSOR", name: "Sensor Calibration" },
-      { id: 4, code: "CAL_METER", name: "Meter Calibration" },
-    ],
-  },
-  {
-    id: 3,
-    externalCategoryId: 3,
-    externalCategoryName: "Software Update",
-    internalCategories: [
-      { id: 5, code: "SW_UPDATE", name: "Software Update" },
-      { id: 6, code: "SW_CONFIG", name: "Software Configuration" },
-    ],
-  },
-];
-
-// Options for dropdowns
-const statusOptions = [
-  { value: "OPEN", label: "Open" },
-  { value: "IN_PROGRESS", label: "In Progress" },
-  { value: "WAITING_PARTS", label: "Waiting Parts" },
-  { value: "REPAIRED", label: "Repaired" },
-  { value: "CLOSED", label: "Closed" },
-  { value: "CANCELLED", label: "Cancelled" },
-];
-
-const priorityOptions = [
-  { value: "LOW", label: "Low" },
-  { value: "MEDIUM", label: "Medium" },
-  { value: "HIGH", label: "High" },
-  { value: "CRITICAL", label: "Critical" },
-];
-
-// Issue type options now derived from internal categories
-const getIssueTypeOptions = (internalCategories: any[]) => {
-  return internalCategories.map((cat) => ({
-    value: cat.id,
-    label: `${cat.code}: ${cat.name}`,
-  }));
-};
-
-// Create issue type filter options from category mappings
-const getIssueTypeFilterOptions = () => {
-  const options: Array<{ value: string; label: string }> = [];
-  initialCategoryMappings.forEach((mapping) => {
-    mapping.internalCategories.forEach((cat) => {
-      options.push({
-        value: `${cat.code}: ${cat.name}`,
-        label: `${cat.code}: ${cat.name}`,
-      });
-    });
-  });
-  return options;
-};
-
-const productOptions = [
-  { value: 1, label: "Gateway-2000-001 (SN123456)" },
-  { value: 2, label: "EA-100-005 (SN654321)" },
-  { value: 3, label: "VR-500-012 (SN987654)" },
-  { value: 4, label: "SM-300-003 (SN456789)" },
-];
-
-const companyOptions = [
-  { value: 1, label: "ABC Enerji Ltd." },
-  { value: 2, label: "XYZ Elektrik A.Ş." },
-  { value: 3, label: "DEF Teknoloji" },
-  { value: 4, label: "GHI Enerji" },
-];
-
-const tspOptions = [
-  { value: 1, label: "John Doe" },
-  { value: 2, label: "Jane Smith" },
-  { value: 3, label: "Mike Johnson" },
-  { value: 4, label: "Sarah Wilson" },
-];
-
-// Helper functions for styling
 const getStatusColor = (status: string) => {
   switch (status) {
-    case "OPEN":
-      return "default";
-    case "IN_PROGRESS":
-      return "info";
-    case "WAITING_PARTS":
-      return "warning";
-    case "REPAIRED":
-      return "success";
-    case "CLOSED":
-      return "success";
-    case "CANCELLED":
-      return "error";
+    case 'OPEN':
+      return 'info';
+    case 'IN_PROGRESS':
+      return 'warning';
+    case 'WAITING_CUSTOMER_APPROVAL':
+      return 'secondary';
+    case 'REPAIRED':
+      return 'success';
+    case 'CLOSED':
+      return 'default';
+    case 'CANCELLED':
+      return 'error';
     default:
-      return "default";
+      return 'default';
+  }
+};
+
+const getStatusLabel = (status: string) => {
+  switch (status) {
+    case 'OPEN':
+      return 'Açık';
+    case 'IN_PROGRESS':
+      return 'İşlemde';
+    case 'WAITING_CUSTOMER_APPROVAL':
+      return 'Müşteri Onayı Bekliyor';
+    case 'REPAIRED':
+      return 'Tamir Edildi';
+    case 'CLOSED':
+      return 'Kapalı';
+    case 'CANCELLED':
+      return 'İptal Edildi';
+    default:
+      return status;
   }
 };
 
 const getPriorityColor = (priority: string) => {
   switch (priority) {
-    case "LOW":
-      return "default";
-    case "MEDIUM":
-      return "info";
-    case "HIGH":
-      return "warning";
-    case "CRITICAL":
-      return "error";
+    case 'CRITICAL':
+      return 'error';
+    case 'HIGH':
+      return 'warning';
+    case 'MEDIUM':
+      return 'info';
+    case 'LOW':
+      return 'success';
     default:
-      return "default";
+      return 'default';
   }
 };
 
-const formatSLA = (minutes: number) => {
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+const getPriorityLabel = (priority: string) => {
+  switch (priority) {
+    case 'CRITICAL':
+      return 'Kritik';
+    case 'HIGH':
+      return 'Yüksek';
+    case 'MEDIUM':
+      return 'Orta';
+    case 'LOW':
+      return 'Düşük';
+    default:
+      return priority;
+  }
 };
 
-const columns = (setServiceOperationsDialog: any): TableColumn[] => [
-  {
-    id: "issueNumber",
-    label: "Issue Number",
-    width: 150,
-    sortable: true,
-    filterable: true,
-    render: (value, row) => (
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <Avatar
-          sx={{
-            width: 32,
-            height: 32,
-            bgcolor: "primary.main",
-            fontSize: "0.75rem",
-          }}
-        >
-          <IssueIcon fontSize="small" />
-        </Avatar>
-        <Box sx={{ whiteSpace: "nowrap" }}>
-          <Typography variant="body2" fontWeight="bold">
-            {value}
-          </Typography>
-        </Box>
-      </Box>
-    ),
-  },
-  {
-    id: "products",
-    label: "Products",
-    width: 180,
-    sortable: false,
-    filterable: false,
-    render: (value, row) => (
-      <Box>
-        {row.products && row.products.length > 0 && (
-          <>
-            <Typography variant="body2" fontWeight="bold">
-              {row.products[0].name}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {row.products[0].serial}
-            </Typography>
-            {row.products.length > 1 && (
-              <Typography
-                variant="caption"
-                color="primary.main"
-                sx={{ display: "block" }}
-              >
-                +{row.products.length - 1} more
-              </Typography>
-            )}
-          </>
-        )}
-      </Box>
-    ),
-  },
-  {
-    id: "companyName",
-    label: "Company",
-    width: 140,
-    sortable: true,
-    filterable: true,
-    filterType: "select",
-    filterOptions: companyOptions.map((opt) => ({
-      value: opt.label,
-      label: opt.label,
-    })),
-    render: (value, row) => (
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <BusinessIcon fontSize="small" color="action" />
-        <Box>
-          <Typography variant="body2">{value}</Typography>
-        </Box>
-      </Box>
-    ),
-  },
-  {
-    id: "issueTypeName",
-    label: "Category",
-    width: 160,
-    sortable: true,
-    filterable: true,
-    filterType: "select",
-    filterOptions: getIssueTypeFilterOptions(),
-    render: (value) => (
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <SettingsIcon fontSize="small" color="action" />
-        <Box>
-          <Typography variant="body2" fontWeight="bold">
-            {value ? value.split(": ")[0] : "Unknown"}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {value ? value.split(": ")[1] : ""}
-          </Typography>
-        </Box>
-      </Box>
-    ),
-  },
-  {
-    id: "assignedTspName",
-    label: "Assigned TSP",
-    width: 120,
-    sortable: true,
-    filterable: true,
-    filterType: "select",
-    filterOptions: [
-      { value: "", label: "Unassigned" },
-      ...tspOptions.map((opt) => ({ value: opt.label, label: opt.label })),
-    ],
-    render: (value) =>
-      value ? (
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <PersonIcon fontSize="small" color="action" />
-          {value}
-        </Box>
-      ) : (
-        <Typography variant="body2" color="text.secondary">
-          Unassigned
-        </Typography>
-      ),
-  },
-  {
-    id: "status",
-    label: "Status",
-    width: 120,
-    sortable: true,
-    filterable: true,
-    filterType: "select",
-    filterOptions: statusOptions.map((opt) => ({
-      value: opt.value,
-      label: opt.label,
-    })),
-    render: (value) => (
-      <Chip
-        label={value ? value.replace("_", " ") : "Unknown"}
-        color={getStatusColor(value || "") as any}
-        size="small"
-      />
-    ),
-  },
-  {
-    id: "priority",
-    label: "Priority",
-    width: 100,
-    sortable: true,
-    filterable: true,
-    filterType: "select",
-    filterOptions: priorityOptions.map((opt) => ({
-      value: opt.value,
-      label: opt.label,
-    })),
-    render: (value) => (
-      <Chip
-        label={value}
-        color={getPriorityColor(value || "") as any}
-        size="small"
-      />
-    ),
-  },
-  {
-    id: "serviceOperations",
-    label: "Operations",
-    width: 120,
-    render: (value, row) => (
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-        <Badge
-          badgeContent={value?.length || 0}
-          color="primary"
-          sx={{
-            "& .MuiBadge-badge": {
-              right: -8,
-              top: -3,
-            },
-          }}
-        >
-          <ServiceIcon fontSize="small" color="action" />
-        </Badge>
-        <Button
-          size="small"
-          variant="outlined"
-          onClick={() => {
-            setServiceOperationsDialog({
-              open: true,
-              issue: row,
-              tabValue: 0,
-            });
-          }}
-          sx={{ minWidth: "auto", px: 1, ml: 2 }}
-        >
-          Manage
-        </Button>
-      </Box>
-    ),
-  },
-
-  {
-    id: "createdAt",
-    label: "Created",
-    width: 120,
-    sortable: true,
-    filterable: true,
-    filterType: "date",
-    format: (value) => new Date(value).toLocaleDateString(),
-  },
-];
+const getSourceLabel = (source: string) => {
+  switch (source) {
+    case 'CUSTOMER':
+      return 'Müşteri';
+    case 'TSP':
+      return 'TSP';
+    case 'FIRST_PRODUCTION':
+      return 'İlk Üretim';
+    default:
+      return source;
+  }
+};
 
 export default function IssuesPage() {
-  const auth = useAuthenticatedAuth();
+  const [issues, setIssues] = useState<Issue[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<IssueFilter>({});
+  const [openCreateDialog, setOpenCreateDialog] = useState(false);
+  const [openPreInspectionDialog, setOpenPreInspectionDialog] = useState(false);
+  const [openCompleteRepairDialog, setOpenCompleteRepairDialog] = useState(false);
+  const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
 
-  const [issues, setIssues] = useState(initialIssues);
-  const [deleteDialog, setDeleteDialog] = useState<{
-    open: boolean;
-    id: number | null;
-    number: string;
-  }>({ open: false, id: null, number: "" });
-  const [productSelectionModal, setProductSelectionModal] = useState<{
-    open: boolean;
-    selectedIds: number[];
-    onSelectionChange: (ids: number[]) => void;
-  }>({
-    open: false,
-    selectedIds: [],
-    onSelectionChange: () => {},
+  // Mock data - gerçek API'den gelecek
+  useEffect(() => {
+    const mockIssues: Issue[] = [
+      {
+        id: '1',
+        issueNumber: '250117-01',
+        source: 'CUSTOMER',
+        status: 'OPEN',
+        priority: 'HIGH',
+        customerDescription: 'Cihaz çalışmıyor, güç gelmiyor',
+        isUnderWarranty: true,
+        issueDate: '2025-01-17',
+        company: { name: 'ABC Şirketi' },
+        category: { name: 'Donanım Arızası' },
+        createdByUser: { firstName: 'Ahmet', lastName: 'Yılmaz' },
+      },
+      {
+        id: '2',
+        issueNumber: '250117-02',
+        source: 'FIRST_PRODUCTION',
+        status: 'IN_PROGRESS',
+        priority: 'MEDIUM',
+        technicianDescription: 'Fabrikasyon testinde başarısız',
+        isUnderWarranty: false,
+        estimatedCost: 500,
+        issueDate: '2025-01-17',
+        company: null,
+        category: { name: 'Test Hatası' },
+        createdByUser: { firstName: 'Mehmet', lastName: 'Kaya' },
+      },
+      {
+        id: '3',
+        issueNumber: '250116-03',
+        source: 'CUSTOMER',
+        status: 'REPAIRED',
+        priority: 'LOW',
+        customerDescription: 'Yazılım güncelleme gerekiyor',
+        technicianDescription: 'Yazılım güncellendi, test edildi',
+        isUnderWarranty: true,
+        actualCost: 0,
+        issueDate: '2025-01-16',
+        company: { name: 'XYZ Ltd.' },
+        category: { name: 'Yazılım Sorunu' },
+        createdByUser: { firstName: 'Fatma', lastName: 'Demir' },
+      },
+    ];
+
+    setTimeout(() => {
+      setIssues(mockIssues);
+      setLoading(false);
+    }, 1000);
+  }, []);
+
+  const handleCreateIssue = () => {
+    setOpenCreateDialog(true);
+  };
+
+  const handlePreInspection = (issue: Issue) => {
+    setSelectedIssue(issue);
+    setOpenPreInspectionDialog(true);
+  };
+
+  const handleCompleteRepair = (issue: Issue) => {
+    setSelectedIssue(issue);
+    setOpenCompleteRepairDialog(true);
+  };
+
+  const filteredIssues = issues.filter(issue => {
+    if (filter.status && issue.status !== filter.status) return false;
+    if (filter.source && issue.source !== filter.source) return false;
+    if (filter.priority && issue.priority !== filter.priority) return false;
+    if (filter.search) {
+      const search = filter.search.toLowerCase();
+      return (
+        issue.issueNumber.toLowerCase().includes(search) ||
+        issue.customerDescription?.toLowerCase().includes(search) ||
+        issue.technicianDescription?.toLowerCase().includes(search) ||
+        issue.company?.name.toLowerCase().includes(search)
+      );
+    }
+    return true;
   });
-  const [serviceOperationsDialog, setServiceOperationsDialog] = useState<{
-    open: boolean;
-    issue: any | null;
-    tabValue: number;
-  }>({ open: false, issue: null, tabValue: 0 });
-  const [operationDeleteDialog, setOperationDeleteDialog] = useState<{
-    open: boolean;
-    operationId: number | null;
-    operationType: string;
-  }>({ open: false, operationId: null, operationType: "" });
 
-  const [categoryMappingDialog, setCategoryMappingDialog] = useState<{
-    open: boolean;
-    tabValue: number;
-  }>({ open: false, tabValue: 0 });
-
-  const [viewDialog, setViewDialog] = useState<{
-    open: boolean;
-    issue: any | null;
-  }>({ open: false, issue: null });
-
-  const [categoryMappings, setCategoryMappings] = useState(
-    initialCategoryMappings
-  );
-  const [externalCategoriesState, setExternalCategoriesState] =
-    useState(externalCategories);
-  const [internalCategoriesState, setInternalCategoriesState] =
-    useState(internalCategories);
-
-  // Helper function to generate issue number
-  const generateIssueNumber = () => {
-    const currentYear = new Date().getFullYear();
-    const currentYearPrefix = `ARZ-${currentYear}`;
-
-    // Get all issue numbers for the current year
-    const existingNumbers = issues
-      .filter((issue) => {
-        const issueNumber = issue.issueNumber;
-        return issueNumber != null && issueNumber.startsWith(currentYearPrefix);
-      })
-      .map((issue) => {
-        const issueNumber = issue.issueNumber;
-        if (!issueNumber) return 0; // Extra safety check
-        const match = issueNumber.match(/ARZ-\d{4}-(\d{3})$/);
-        return match && match[1] ? parseInt(match[1]) : 0;
-      });
-
-    // Get the highest number for this year
-    const maxNumber =
-      existingNumbers.length > 0 ? Math.max(...existingNumbers) : 0;
-
-    // Generate next number with padding
-    const nextNumber = (maxNumber + 1).toString().padStart(3, "0");
-    return `${currentYearPrefix}-${nextNumber}`;
-  };
-
-  const handleAdd = (data: any) => {
-    // Find related names for display
-    const selectedProducts = (data.productIds || []).map(
-      (productId: number) => {
-        const product = productOptions.find((p) => p.value === productId);
-        return {
-          id: productId,
-          name: product?.label.split(" (")[0] || "Unknown",
-          serial: product?.label.match(/\((.*)\)$/)?.[1] || "Unknown",
-          warrantyStartDate: "2024-01-01T00:00:00Z", // Default values - should come from actual product data
-          warrantyPeriodMonths: 24,
-        };
-      }
-    );
-
-    const company = companyOptions.find(
-      (c) => c.value === parseInt(data.companyId)
-    );
-    const issueType = internalCategoriesState.find(
-      (it: any) => it.id === parseInt(data.issueTypeId)
-    );
-    const tsp = tspOptions.find(
-      (t) => t.value === parseInt(data.assignedTspId)
-    );
-
-    const newIssue = {
-      ...data,
-      id: Math.max(...issues.map((i) => i.id)) + 1,
-      issueNumber: generateIssueNumber(), // Auto-generate issue number
-      products: selectedProducts,
-      companyId: parseInt(data.companyId),
-      companyName: company?.label || "Unknown",
-      issueTypeId: parseInt(data.issueTypeId),
-      issueTypeName: issueType
-        ? `${issueType.code}: ${issueType.name}`
-        : "Unknown",
-      assignedTspId: data.assignedTspId ? parseInt(data.assignedTspId) : null,
-      assignedTspName: tsp?.label || null,
-      actualResolutionDate: null,
-      rootCause: null,
-      resolutionSummary: null,
-      customerSatisfaction: null,
-      followUpRequired: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      createdBy: "Current User",
-      lastUpdatedBy: "Current User",
-      attachments: [],
-      serviceOperations: [],
+  const getIssueStats = () => {
+    const stats = {
+      open: issues.filter(i => i.status === 'OPEN').length,
+      inProgress: issues.filter(i => i.status === 'IN_PROGRESS').length,
+      repaired: issues.filter(i => i.status === 'REPAIRED').length,
+      closed: issues.filter(i => i.status === 'CLOSED').length,
     };
-
-    setIssues([...issues, newIssue]);
+    return stats;
   };
 
-  const handleEdit = (id: string | number, data: any) => {
-    // Find related names for display
-    const selectedProducts = (data.productIds || []).map(
-      (productId: number) => {
-        const product = productOptions.find((p) => p.value === productId);
-        return {
-          id: productId,
-          name: product?.label.split(" (")[0] || "Unknown",
-          serial: product?.label.match(/\((.*)\)$/)?.[1] || "Unknown",
-          warrantyStartDate: "2024-01-01T00:00:00Z", // Default values - should come from actual product data
-          warrantyPeriodMonths: 24,
-        };
-      }
+  if (loading) {
+    return (
+      <Layout>
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+          <CircularProgress />
+        </Box>
+      </Layout>
     );
+  }
 
-    const company = companyOptions.find(
-      (c) => c.value === parseInt(data.companyId)
-    );
-    const issueType = internalCategoriesState.find(
-      (it: any) => it.id === parseInt(data.issueTypeId)
-    );
-    const tsp = tspOptions.find(
-      (t) => t.value === parseInt(data.assignedTspId)
-    );
-
-    setIssues(
-      issues.map((issue) =>
-        issue.id === Number(id)
-          ? {
-              ...issue,
-              ...data,
-              products: selectedProducts,
-              companyId: parseInt(data.companyId),
-              companyName: company?.label || "Unknown",
-              issueTypeId: parseInt(data.issueTypeId),
-              issueTypeName: issueType
-                ? `${issueType.code}: ${issueType.name}`
-                : "Unknown",
-              assignedTspId: data.assignedTspId
-                ? parseInt(data.assignedTspId)
-                : null,
-              assignedTspName: tsp?.label || null,
-              updatedAt: new Date().toISOString(),
-              lastUpdatedBy: "Current User",
-            }
-          : issue
-      )
-    );
-  };
-
-  const handleDeleteRequest = (id: string | number) => {
-    const issue = issues.find((i) => i.id === Number(id));
-    if (issue) {
-      setDeleteDialog({
-        open: true,
-        id: Number(id),
-        number: issue.issueNumber || "",
-      });
-    }
-  };
-
-  const handleDeleteConfirm = () => {
-    if (deleteDialog.id) {
-      setIssues(issues.filter((issue) => issue.id !== deleteDialog.id));
-    }
-    setDeleteDialog({ open: false, id: null, number: "" });
-  };
-
-  const handleDeleteCancel = () => {
-    setDeleteDialog({ open: false, id: null, number: "" });
-  };
-
-  const handleView = (id: string | number) => {
-    const issue = issues.find((i) => i.id === Number(id));
-    if (issue) {
-      setViewDialog({ open: true, issue });
-    }
-  };
-
-  const handleBulkDelete = (ids: (string | number)[]) => {
-    const numIds = ids.map((id) => Number(id));
-    setIssues(issues.filter((i) => !numIds.includes(i.id)));
-  };
-
-  const handleBulkStatusChange = (
-    ids: (string | number)[],
-    newStatus: string
-  ) => {
-    const numIds = ids.map((id) => Number(id));
-    const updateData: any = {
-      status: newStatus,
-      updatedAt: new Date().toISOString(),
-      lastUpdatedBy: "Current User",
-    };
-
-    // If marking as repaired/closed, set actual resolution date
-    if (newStatus === "REPAIRED" || newStatus === "CLOSED") {
-      updateData.actualResolutionDate = new Date().toISOString().split("T")[0];
-    }
-
-    setIssues(
-      issues.map((i) => (numIds.includes(i.id) ? { ...i, ...updateData } : i))
-    );
-  };
-
-  const handleBulkAssign = (ids: (string | number)[], tspId: string) => {
-    const numIds = ids.map((id) => Number(id));
-    const tsp = tspOptions.find((t) => t.value === parseInt(tspId));
-
-    setIssues(
-      issues.map((i) =>
-        numIds.includes(i.id)
-          ? {
-              ...i,
-              assignedTspId: parseInt(tspId),
-              assignedTspName: tsp?.label || "Unknown",
-              updatedAt: new Date().toISOString(),
-              lastUpdatedBy: "Current User",
-            }
-          : i
-      )
-    );
-  };
-
-  const openProductSelectionModal = (
-    currentProductIds: number[],
-    onSelectionChange: (ids: number[]) => void
-  ) => {
-    setProductSelectionModal({
-      open: true,
-      selectedIds: currentProductIds,
-      onSelectionChange: (ids) => {
-        onSelectionChange(ids);
-        setProductSelectionModal((prev) => ({ ...prev, open: false }));
-      },
-    });
-  };
-
-  const closeProductSelectionModal = () => {
-    setProductSelectionModal((prev) => ({ ...prev, open: false }));
-  };
-
-  const handleManageServiceOperations = (issue: any) => {
-    setServiceOperationsDialog({
-      open: true,
-      issue: issue,
-      tabValue: 0,
-    });
-  };
-
-  const closeServiceOperationsDialog = () => {
-    setServiceOperationsDialog({
-      open: false,
-      issue: null,
-      tabValue: 0,
-    });
-  };
-
-  const formFields: FormField[] = [
-    {
-      id: "issueNumber",
-      label: "Issue Number",
-      type: "text",
-      required: false,
-      showInCreateMode: false, // Hide in create mode since it's auto-generated
-      showInEditMode: true, // Show in edit mode
-      disabled: true, // Always disabled/read-only
-      layout: { row: 0, column: 0 }, // First row, first column
-    },
-    {
-      id: "issueTypeId",
-      label: "Issue Type",
-      type: "select",
-      required: true,
-      options: getIssueTypeOptions(internalCategoriesState),
-      layout: { row: 0, column: 1 }, // First row, second column
-    },
-    {
-      id: "status",
-      label: "Status",
-      type: "select",
-      required: true,
-      options: statusOptions,
-      layout: { row: 1, column: 0 },
-    },
-    {
-      id: "priority",
-      label: "Priority",
-      type: "select",
-      required: true,
-      options: priorityOptions,
-      layout: { row: 1, column: 1 },
-    },
-    {
-      id: "assignedTspId",
-      label: "Assign to TSP",
-      type: "autocomplete",
-      required: false,
-      options: tspOptions,
-      searchable: true,
-      helperText: "Leave empty to assign later",
-      layout: { row: 1, column: 2 },
-    },
-    {
-      id: "productIds",
-      label: "Products",
-      type: "custom",
-      required: true,
-      placeholder: "Click to select products...",
-      layout: { row: 2, column: 0 },
-      customDisplayValue: (value: any) => {
-        if (Array.isArray(value) && value.length > 0) {
-          return `${value.length} product${value.length > 1 ? "s" : ""} selected`;
-        }
-        return "Click to select products...";
-      },
-      onCustomClick: (
-        currentValue: any,
-        onSelectionChange: (value: any) => void
-      ) => {
-        openProductSelectionModal(currentValue || [], onSelectionChange);
-      },
-    },
-    {
-      id: "companyId",
-      label: "Company",
-      type: "autocomplete",
-      required: true,
-      options: companyOptions,
-      searchable: true,
-      layout: { row: 2, column: 1 },
-    },
-    {
-      id: "description",
-      label: "Detailed Description",
-      type: "text",
-      required: true,
-      placeholder: "Detailed description of the problem",
-      layout: { row: 3, column: 0 },
-    },
-  ];
-
-  const bulkActions: BulkAction[] = [
-    {
-      id: "delete",
-      label: "Delete Selected",
-      icon: <DeleteIcon />,
-      color: "error",
-      action: handleBulkDelete,
-      confirmMessage:
-        "Are you sure you want to delete the selected issues? This action cannot be undone.",
-    },
-    {
-      id: "mark-in-progress",
-      label: "Mark as In Progress",
-      action: (ids) => handleBulkStatusChange(ids, "IN_PROGRESS"),
-    },
-    {
-      id: "mark-waiting-parts",
-      label: "Mark as Waiting Parts",
-      action: (ids) => handleBulkStatusChange(ids, "WAITING_PARTS"),
-    },
-    {
-      id: "mark-repaired",
-      label: "Mark as Repaired",
-      action: (ids) => handleBulkStatusChange(ids, "REPAIRED"),
-      confirmMessage:
-        "Mark selected issues as repaired? This will set the actual resolution date to today.",
-    },
-    {
-      id: "mark-closed",
-      label: "Mark as Closed",
-      action: (ids) => handleBulkStatusChange(ids, "CLOSED"),
-      confirmMessage:
-        "Mark selected issues as closed? This will set the actual resolution date to today.",
-    },
-  ];
-
-  const handleExport = () => {
-    // Simple CSV export
-    const tableColumns = columns(setServiceOperationsDialog);
-    const headers = tableColumns.map((col) => col.label).join(",");
-    const rows = issues.map((issue) =>
-      tableColumns
-        .map((col) => {
-          const value = issue[col.id as keyof typeof issue];
-          return typeof value === "string" && value.includes(",")
-            ? `"${value}"`
-            : value;
-        })
-        .join(",")
-    );
-    const csv = [headers, ...rows].join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "issues.csv";
-    a.click();
-    window.URL.revokeObjectURL(url);
-  };
-
-  const getStatusCounts = () => {
-    const counts = issues.reduce(
-      (acc, issue) => {
-        acc[issue.status] = (acc[issue.status] || 0) + 1;
-        return acc;
-      },
-      {} as Record<string, number>
-    );
-    return counts;
-  };
-
-  const getPriorityCounts = () => {
-    const counts = issues.reduce(
-      (acc, issue) => {
-        acc[issue.priority] = (acc[issue.priority] || 0) + 1;
-        return acc;
-      },
-      {} as Record<string, number>
-    );
-    return counts;
-  };
-
-  const statusCounts = getStatusCounts();
-  const priorityCounts = getPriorityCounts();
-  const avgResolutionTime = issues.filter((i) => i.actualResolutionDate).length;
+  const stats = getIssueStats();
 
   return (
-    <Box sx={{ p: 3 }}>
-      {/* Quick Stats */}
-      <Box sx={{ mb: 3, display: "flex", gap: 2, flexWrap: "wrap" }}>
-        <Stack direction="row" spacing={2} sx={{ flex: 1, minWidth: 0 }}>
-          <Card sx={{ minWidth: 200 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Total Issues
-              </Typography>
-              <Typography variant="h4" color="primary">
-                {issues.length}
-              </Typography>
-            </CardContent>
-          </Card>
-          <Card sx={{ minWidth: 200 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Active Issues
-              </Typography>
-              <Typography variant="h4" color="warning.main">
-                {(statusCounts.OPEN || 0) + (statusCounts.IN_PROGRESS || 0)}
-              </Typography>
-            </CardContent>
-          </Card>
-          <Card sx={{ minWidth: 200 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Critical Priority
-              </Typography>
-              <Typography variant="h4" color="error.main">
-                {priorityCounts.CRITICAL || 0}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Stack>
-        {auth.user.role !== "customer" ? (
-          <Stack spacing={1} sx={{ minWidth: 200 }}>
-            <Button
-              variant="outlined"
-              startIcon={<CategoryIcon />}
-              fullWidth
-              onClick={() =>
-                setCategoryMappingDialog({ open: true, tabValue: 0 })
-              }
-            >
-              Manage Categories
-            </Button>
-          </Stack>
-        ) : null}
-      </Box>
-
-      {/* Issues DataTable */}
-      <DataTable
-        title="Issues"
-        columns={columns(setServiceOperationsDialog)}
-        data={issues}
-        formFields={formFields}
-        onAdd={handleAdd}
-        onEdit={handleEdit}
-        onView={handleView}
-        onDelete={handleDeleteRequest}
-        onExport={handleExport}
-        addButtonText="Create Issue"
-        selectable={true}
-        bulkActions={bulkActions}
-        pageSize={10}
-      />
-
-      <ConfirmDialog
-        open={deleteDialog.open}
-        title="Delete Issue"
-        message={`Are you sure you want to delete issue "${deleteDialog.number}"? This action cannot be undone and may affect related service records.`}
-        onConfirm={handleDeleteConfirm}
-        onCancel={handleDeleteCancel}
-        confirmText="Delete"
-      />
-
-      {/* Product Selection Modal */}
-      <ProductSelectionModal
-        open={productSelectionModal.open}
-        onClose={closeProductSelectionModal}
-        selectedProductIds={productSelectionModal.selectedIds}
-        onSelectionChange={productSelectionModal.onSelectionChange}
-        title="Select Products for Issue"
-      />
-
-      {/* Service Operations Management Dialog */}
-      <Dialog
-        open={serviceOperationsDialog.open}
-        onClose={closeServiceOperationsDialog}
-        maxWidth="lg"
-        fullWidth
-      >
-        <DialogTitle>
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
+    <Layout>
+      <Box sx={{ p: 3 }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+          <Typography variant="h4" component="h1">
+            Arıza Yönetimi
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleCreateIssue}
           >
-            <Typography variant="h6">
-              Service Operations - {serviceOperationsDialog.issue?.issueNumber}
-            </Typography>
-            <IconButton onClick={closeServiceOperationsDialog}>
-              <CloseIcon />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          {serviceOperationsDialog.issue && (
-            <Box sx={{ mt: 1 }}>
-              {/* Info Card */}
-              <Card variant="outlined" sx={{ mb: 3 }}>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>
-                    Issue Information
-                  </Typography>
-                  <Box
-                    sx={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: 2,
-                    }}
-                  >
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Issue Number
-                      </Typography>
-                      <Typography variant="body1">
-                        {serviceOperationsDialog.issue.issueNumber}
-                      </Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Customer
-                      </Typography>
-                      <Typography variant="body1">
-                        {serviceOperationsDialog.issue.customerName}
-                      </Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Status
-                      </Typography>
-                      <Chip
-                        label={serviceOperationsDialog.issue.status}
-                        color={getStatusColor(
-                          serviceOperationsDialog.issue.status
-                        )}
-                        size="small"
-                      />
-                    </Box>
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Products
-                      </Typography>
-                      <Typography variant="body1">
-                        {serviceOperationsDialog.issue.products
-                          .map((p: any) => p.name)
-                          .join(", ")}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
+            Yeni Arıza Kaydı
+          </Button>
+        </Box>
 
-              {/* Operations Management */}
-              <Box sx={{ mb: 2 }}>
-                <Tabs
-                  value={serviceOperationsDialog.tabValue}
-                  onChange={(e, newValue) =>
-                    setServiceOperationsDialog((prev) => ({
-                      ...prev,
-                      tabValue: newValue,
-                    }))
-                  }
-                >
-                  <Tab label="All Operations" />
-                  <Tab label="Initial Tests" />
-                  <Tab label="Repairs" />
-                  <Tab label="Final Tests" />
-                  <Tab label="Quality Checks" />
-                </Tabs>
-              </Box>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
 
-              {/* Operations List and Form */}
-              <ServiceOperationsManager
-                issue={serviceOperationsDialog.issue}
-                operations={
-                  serviceOperationsDialog.issue.serviceOperations || []
-                }
-                onOperationsChange={(updatedOps) => {
-                  // Update the issue with new operations
-                  setIssues((prev) =>
-                    prev.map((issue) =>
-                      issue.id === serviceOperationsDialog.issue?.id
-                        ? { ...issue, serviceOperations: updatedOps }
-                        : issue
-                    )
-                  );
-                  // Update the dialog state
-                  setServiceOperationsDialog((prev) => ({
-                    ...prev,
-                    issue: prev.issue
-                      ? { ...prev.issue, serviceOperations: updatedOps }
-                      : null,
-                  }));
-                }}
-                tabValue={serviceOperationsDialog.tabValue}
+        {/* İstatistikler */}
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Grid item xs={12} sm={3}>
+            <Paper sx={{ p: 2, textAlign: 'center' }}>
+              <Typography variant="h6" color="info.main">
+                {stats.open}
+              </Typography>
+              <Typography variant="body2">Açık Arızalar</Typography>
+            </Paper>
+          </Grid>
+          <Grid item xs={12} sm={3}>
+            <Paper sx={{ p: 2, textAlign: 'center' }}>
+              <Typography variant="h6" color="warning.main">
+                {stats.inProgress}
+              </Typography>
+              <Typography variant="body2">İşlemde</Typography>
+            </Paper>
+          </Grid>
+          <Grid item xs={12} sm={3}>
+            <Paper sx={{ p: 2, textAlign: 'center' }}>
+              <Typography variant="h6" color="success.main">
+                {stats.repaired}
+              </Typography>
+              <Typography variant="body2">Tamir Edildi</Typography>
+            </Paper>
+          </Grid>
+          <Grid item xs={12} sm={3}>
+            <Paper sx={{ p: 2, textAlign: 'center' }}>
+              <Typography variant="h6" color="text.secondary">
+                {stats.closed}
+              </Typography>
+              <Typography variant="body2">Kapalı</Typography>
+            </Paper>
+          </Grid>
+        </Grid>
+
+        {/* Filtreler */}
+        <Paper sx={{ p: 2, mb: 3 }}>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} sm={3}>
+              <TextField
+                fullWidth
+                label="Arama"
+                placeholder="Arıza numarası, açıklama..."
+                value={filter.search || ''}
+                onChange={(e) => setFilter({ ...filter, search: e.target.value })}
               />
-            </Box>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Category Mapping Dialog */}
-      <Dialog
-        open={categoryMappingDialog.open}
-        onClose={() => setCategoryMappingDialog({ open: false, tabValue: 0 })}
-        maxWidth="lg"
-        fullWidth
-      >
-        <DialogTitle>
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <Typography variant="h6">Issue Category Mapping</Typography>
-            <IconButton
-              onClick={() =>
-                setCategoryMappingDialog({ open: false, tabValue: 0 })
-              }
-            >
-              <CloseIcon />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 2 }}>
-            <Tabs
-              value={categoryMappingDialog.tabValue}
-              onChange={(e, newValue) =>
-                setCategoryMappingDialog((prev) => ({
-                  ...prev,
-                  tabValue: newValue,
-                }))
-              }
-              sx={{ mb: 3 }}
-            >
-              <Tab label="External Categories" />
-              <Tab label="Internal Categories" />
-              <Tab label="Category Mapping" />
-            </Tabs>
-
-            {/* External Categories Tab */}
-            {categoryMappingDialog.tabValue === 0 && (
-              <Box>
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  External categories are shown to customers when they create
-                  issues.
-                </Alert>
-                <DataTable
-                  title="External Categories"
-                  columns={[
-                    {
-                      id: "name",
-                      label: "Category Name",
-                      width: 200,
-                      sortable: true,
-                      filterable: true,
-                      render: (value) => (
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 1,
-                          }}
-                        >
-                          <CategoryIcon color="primary" />
-                          <Typography variant="body2" fontWeight="bold">
-                            {value}
-                          </Typography>
-                        </Box>
-                      ),
-                    },
-                    {
-                      id: "description",
-                      label: "Description",
-                      width: 300,
-                      sortable: true,
-                      filterable: true,
-                    },
-                  ]}
-                  data={externalCategoriesState}
-                  formFields={[
-                    {
-                      id: "name",
-                      label: "Category Name",
-                      type: "text",
-                      required: true,
-                    },
-                    {
-                      id: "description",
-                      label: "Description",
-                      type: "text",
-                    },
-                  ]}
-                  onAdd={(data) => {
-                    const newCategory = {
-                      id:
-                        Math.max(...externalCategoriesState.map((c) => c.id)) +
-                        1,
-                      name: data.name,
-                      description: data.description || "",
-                    };
-                    setExternalCategoriesState([
-                      ...externalCategoriesState,
-                      newCategory,
-                    ]);
-                  }}
-                  onEdit={(id, data) => {
-                    setExternalCategoriesState(
-                      externalCategoriesState.map((cat) =>
-                        cat.id === Number(id)
-                          ? {
-                              ...cat,
-                              name: data.name,
-                              description: data.description || "",
-                            }
-                          : cat
-                      )
-                    );
-                  }}
-                  onDelete={(id) => {
-                    setExternalCategoriesState(
-                      externalCategoriesState.filter(
-                        (cat) => cat.id !== Number(id)
-                      )
-                    );
-                    // Also remove any mappings that reference this external category
-                    setCategoryMappings(
-                      categoryMappings.filter(
-                        (m) => m.externalCategoryId !== Number(id)
-                      )
-                    );
-                  }}
-                  addButtonText="Add External Category"
-                  selectable={false}
-                  pageSize={10}
-                />
-              </Box>
-            )}
-
-            {/* Internal Categories Tab */}
-            {categoryMappingDialog.tabValue === 1 && (
-              <Box>
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  Internal categories are used by technicians to classify and
-                  prioritize work.
-                </Alert>
-                <DataTable
-                  title="Internal Categories"
-                  columns={[
-                    {
-                      id: "code",
-                      label: "Code",
-                      width: 120,
-                      sortable: true,
-                      filterable: true,
-                      render: (value) => (
-                        <Chip label={value} color="secondary" size="small" />
-                      ),
-                    },
-                    {
-                      id: "name",
-                      label: "Category Name",
-                      width: 200,
-                      sortable: true,
-                      filterable: true,
-                      render: (value) => (
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 1,
-                          }}
-                        >
-                          <SettingsIcon color="action" />
-                          <Typography variant="body2" fontWeight="bold">
-                            {value}
-                          </Typography>
-                        </Box>
-                      ),
-                    },
-                  ]}
-                  data={internalCategoriesState}
-                  formFields={[
-                    {
-                      id: "code",
-                      label: "Category Code",
-                      type: "text",
-                      required: true,
-                    },
-                    {
-                      id: "name",
-                      label: "Category Name",
-                      type: "text",
-                      required: true,
-                    },
-                  ]}
-                  onAdd={(data) => {
-                    const newCategory = {
-                      id:
-                        Math.max(...internalCategoriesState.map((c) => c.id)) +
-                        1,
-                      code: data.code,
-                      name: data.name,
-                      defaultPriority: data.defaultPriority,
-                      slaMinutes: Number(data.slaMinutes),
-                    };
-                    setInternalCategoriesState([
-                      ...internalCategoriesState,
-                      newCategory,
-                    ]);
-                  }}
-                  onEdit={(id, data) => {
-                    setInternalCategoriesState(
-                      internalCategoriesState.map((cat) =>
-                        cat.id === Number(id)
-                          ? {
-                              ...cat,
-                              code: data.code,
-                              name: data.name,
-                              defaultPriority: data.defaultPriority,
-                              slaMinutes: Number(data.slaMinutes),
-                            }
-                          : cat
-                      )
-                    );
-                    // Update any mappings that reference this internal category
-                    setCategoryMappings(
-                      categoryMappings.map((mapping) => ({
-                        ...mapping,
-                        internalCategories: mapping.internalCategories.map(
-                          (intCat) =>
-                            intCat.id === Number(id)
-                              ? {
-                                  ...intCat,
-                                  code: data.code,
-                                  name: data.name,
-                                }
-                              : intCat
-                        ),
-                      }))
-                    );
-                  }}
-                  onDelete={(id) => {
-                    setInternalCategoriesState(
-                      internalCategoriesState.filter(
-                        (cat) => cat.id !== Number(id)
-                      )
-                    );
-                    // Remove this internal category from any mappings
-                    setCategoryMappings(
-                      categoryMappings
-                        .map((mapping) => ({
-                          ...mapping,
-                          internalCategories: mapping.internalCategories.filter(
-                            (intCat) => intCat.id !== Number(id)
-                          ),
-                        }))
-                        .filter(
-                          (mapping) => mapping.internalCategories.length > 0
-                        )
-                    );
-                  }}
-                  addButtonText="Add Internal Category"
-                  selectable={false}
-                  pageSize={10}
-                />
-              </Box>
-            )}
-
-            {/* Category Mapping Tab */}
-            {categoryMappingDialog.tabValue === 2 && (
-              <Box>
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  Map customer-facing categories to internal technician
-                  categories.
-                </Alert>
-                <DataTable
-                  title="Category Mappings"
-                  columns={[
-                    {
-                      id: "externalCategoryName",
-                      label: "External Category",
-                      width: 200,
-                      sortable: true,
-                      filterable: true,
-                      render: (value) => (
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 1,
-                          }}
-                        >
-                          <CategoryIcon color="primary" />
-                          <Typography variant="body2" fontWeight="bold">
-                            {value}
-                          </Typography>
-                        </Box>
-                      ),
-                    },
-                    {
-                      id: "internalCategories",
-                      label: "Internal Categories",
-                      width: 400,
-                      render: (value: any[]) => (
-                        <Stack
-                          direction="row"
-                          spacing={1}
-                          flexWrap="wrap"
-                          gap={1}
-                        >
-                          {value.map((cat) => (
-                            <Chip
-                              key={cat.id}
-                              label={`${cat.code}: ${cat.name}`}
-                              color="secondary"
-                              size="small"
-                              icon={<SettingsIcon />}
-                            />
-                          ))}
-                        </Stack>
-                      ),
-                    },
-                    {
-                      id: "mappingCount",
-                      label: "Count",
-                      width: 100,
-                      sortable: true,
-                      render: (value, row) => (
-                        <Typography variant="body2" color="text.secondary">
-                          {row.internalCategories.length} mapped
-                        </Typography>
-                      ),
-                    },
-                  ]}
-                  data={categoryMappings}
-                  formFields={[
-                    {
-                      id: "externalCategoryId",
-                      label: "External Category",
-                      type: "select",
-                      options: externalCategoriesState
-                        .filter(
-                          (cat) =>
-                            !categoryMappings.some(
-                              (m) => m.externalCategoryId === cat.id
-                            )
-                        )
-                        .map((cat) => ({ value: cat.id, label: cat.name })),
-                      required: true,
-                    },
-                    {
-                      id: "internalCategoryIds",
-                      label: "Internal Categories",
-                      type: "multiselect",
-                      options: internalCategoriesState.map((cat) => ({
-                        value: cat.id,
-                        label: `${cat.code}: ${cat.name} (${cat.defaultPriority} - ${formatSLA(cat.slaMinutes)})`,
-                      })),
-                      required: true,
-                    },
-                  ]}
-                  onAdd={(data) => {
-                    const externalCategory = externalCategoriesState.find(
-                      (cat) => cat.id === data.externalCategoryId
-                    );
-                    const mappedInternals = internalCategoriesState.filter(
-                      (cat) => data.internalCategoryIds.includes(cat.id)
-                    );
-
-                    const newMapping = {
-                      id: Math.max(...categoryMappings.map((m) => m.id)) + 1,
-                      externalCategoryId: data.externalCategoryId,
-                      externalCategoryName: externalCategory?.name || "",
-                      internalCategories: mappedInternals.map((cat) => ({
-                        id: cat.id,
-                        code: cat.code,
-                        name: cat.name,
-                      })),
-                    };
-
-                    setCategoryMappings([...categoryMappings, newMapping]);
-                  }}
-                  onEdit={(id, data) => {
-                    const mappedInternals = internalCategoriesState.filter(
-                      (cat) => data.internalCategoryIds.includes(cat.id)
-                    );
-
-                    const existingMapping = categoryMappings.find(
-                      (m) => m.id === Number(id)
-                    );
-                    if (existingMapping) {
-                      const updatedMapping = {
-                        ...existingMapping,
-                        internalCategories: mappedInternals.map((cat) => ({
-                          id: cat.id,
-                          code: cat.code,
-                          name: cat.name,
-                        })),
-                      };
-
-                      setCategoryMappings(
-                        categoryMappings.map((m) =>
-                          m.id === Number(id) ? updatedMapping : m
-                        )
-                      );
-                    }
-                  }}
-                  onDelete={(id) => {
-                    setCategoryMappings(
-                      categoryMappings.filter((m) => m.id !== Number(id))
-                    );
-                  }}
-                  addButtonText="Add Mapping"
-                  selectable={false}
-                  pageSize={10}
-                />
-              </Box>
-            )}
-          </Box>
-        </DialogContent>
-      </Dialog>
-
-      {/* View Issue Dialog */}
-      <Dialog
-        open={viewDialog.open}
-        onClose={() => setViewDialog({ open: false, issue: null })}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>
-          <Stack
-            direction="row"
-            justifyContent="space-between"
-            alignItems="center"
-          >
-            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-              <Avatar sx={{ bgcolor: "primary.main" }}>
-                <IssueIcon />
-              </Avatar>
-              <Box>
-                <Typography variant="h6">Issue Details</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {viewDialog.issue?.issueNumber}
-                </Typography>
-              </Box>
-            </Box>
-            <IconButton
-              onClick={() => setViewDialog({ open: false, issue: null })}
-              size="small"
-            >
-              <CloseIcon />
-            </IconButton>
-          </Stack>
-        </DialogTitle>
-        <DialogContent>
-          {viewDialog.issue && (
-            <Box sx={{ pt: 1 }}>
-              {/* Basic Information */}
-              <Typography variant="h6" gutterBottom>
-                Basic Information
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 3, mb: 3 }}>
-                <Box sx={{ minWidth: 200 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 2,
-                    }}
-                  >
-                    <IssueIcon color="action" />
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Issue Number
-                      </Typography>
-                      <Typography variant="body1" fontWeight="medium">
-                        {viewDialog.issue.issueNumber}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-
-                <Box sx={{ minWidth: 200 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 2,
-                    }}
-                  >
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Title
-                      </Typography>
-                      <Typography variant="body1" fontWeight="medium">
-                        {viewDialog.issue.title}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-
-                <Box sx={{ minWidth: 150 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 2,
-                    }}
-                  >
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Status
-                      </Typography>
-                      <Chip
-                        label={viewDialog.issue.status.replace("_", " ")}
-                        color={getStatusColor(viewDialog.issue.status) as any}
-                        size="small"
-                      />
-                    </Box>
-                  </Box>
-                </Box>
-
-                <Box sx={{ minWidth: 150 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 2,
-                    }}
-                  >
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Priority
-                      </Typography>
-                      <Chip
-                        label={viewDialog.issue.priority}
-                        color={
-                          getPriorityColor(viewDialog.issue.priority) as any
-                        }
-                        size="small"
-                      />
-                    </Box>
-                  </Box>
-                </Box>
-
-                <Box sx={{ minWidth: 200 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 2,
-                    }}
-                  >
-                    <BusinessIcon color="action" />
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Company
-                      </Typography>
-                      <Typography variant="body1" fontWeight="medium">
-                        {viewDialog.issue.companyName}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-
-                <Box sx={{ minWidth: 200 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 2,
-                    }}
-                  >
-                    <CategoryIcon color="action" />
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Issue Type
-                      </Typography>
-                      <Typography variant="body1" fontWeight="medium">
-                        {viewDialog.issue.issueTypeName}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-              </Box>
-
-              {/* Description */}
-              {viewDialog.issue.description && (
-                <>
-                  <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                    Description
-                  </Typography>
-                  <Divider sx={{ mb: 2 }} />
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      gap: 1,
-                      mb: 3,
-                    }}
-                  >
-                    <DescriptionIcon color="action" sx={{ mt: 0.5 }} />
-                    <Typography variant="body1">
-                      {viewDialog.issue.description}
-                    </Typography>
-                  </Box>
-                </>
-              )}
-
-              {/* Assignment & Location */}
-              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                Assignment & Location
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 3, mb: 3 }}>
-                <Box sx={{ minWidth: 200 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 2,
-                    }}
-                  >
-                    <PersonIcon color="action" />
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Assigned To
-                      </Typography>
-                      <Typography variant="body1" fontWeight="medium">
-                        {viewDialog.issue.assignedTspName || "Unassigned"}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-
-                <Box sx={{ minWidth: 200 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 2,
-                    }}
-                  >
-                    <LocationIcon color="action" />
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Location
-                      </Typography>
-                      <Typography variant="body1" fontWeight="medium">
-                        {viewDialog.issue.location || "Not specified"}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-
-                <Box sx={{ minWidth: 150 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 2,
-                    }}
-                  >
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Urgency Level
-                      </Typography>
-                      <Typography variant="body1" fontWeight="medium">
-                        {viewDialog.issue.urgencyLevel || "Not specified"}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-
-                <Box sx={{ minWidth: 150 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 2,
-                    }}
-                  >
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Customer Impact
-                      </Typography>
-                      <Typography variant="body1" fontWeight="medium">
-                        {viewDialog.issue.customerImpact || "Not specified"}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-              </Box>
-
-              {/* Products */}
-              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                Products ({viewDialog.issue.products?.length || 0})
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              {viewDialog.issue.products &&
-              viewDialog.issue.products.length > 0 ? (
-                <List sx={{ py: 0 }}>
-                  {viewDialog.issue.products.map(
-                    (product: any, index: number) => (
-                      <ListItem key={index} sx={{ px: 0 }}>
-                        <ListItemIcon>
-                          <PartsIcon color="action" />
-                        </ListItemIcon>
-                        <ListItemText
-                          primary={product.name}
-                          secondary={`Serial: ${product.serial}`}
-                        />
-                      </ListItem>
-                    )
-                  )}
-                </List>
-              ) : (
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mb: 3 }}
+            </Grid>
+            <Grid item xs={12} sm={3}>
+              <FormControl fullWidth>
+                <InputLabel>Durum</InputLabel>
+                <Select
+                  value={filter.status || ''}
+                  label="Durum"
+                  onChange={(e) => setFilter({ ...filter, status: e.target.value })}
                 >
-                  No products associated with this issue.
-                </Typography>
-              )}
+                  <MenuItem value="">Tümü</MenuItem>
+                  <MenuItem value="OPEN">Açık</MenuItem>
+                  <MenuItem value="IN_PROGRESS">İşlemde</MenuItem>
+                  <MenuItem value="WAITING_CUSTOMER_APPROVAL">Müşteri Onayı Bekliyor</MenuItem>
+                  <MenuItem value="REPAIRED">Tamir Edildi</MenuItem>
+                  <MenuItem value="CLOSED">Kapalı</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={3}>
+              <FormControl fullWidth>
+                <InputLabel>Kaynak</InputLabel>
+                <Select
+                  value={filter.source || ''}
+                  label="Kaynak"
+                  onChange={(e) => setFilter({ ...filter, source: e.target.value })}
+                >
+                  <MenuItem value="">Tümü</MenuItem>
+                  <MenuItem value="CUSTOMER">Müşteri</MenuItem>
+                  <MenuItem value="TSP">TSP</MenuItem>
+                  <MenuItem value="FIRST_PRODUCTION">İlk Üretim</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={3}>
+              <FormControl fullWidth>
+                <InputLabel>Öncelik</InputLabel>
+                <Select
+                  value={filter.priority || ''}
+                  label="Öncelik"
+                  onChange={(e) => setFilter({ ...filter, priority: e.target.value })}
+                >
+                  <MenuItem value="">Tümü</MenuItem>
+                  <MenuItem value="CRITICAL">Kritik</MenuItem>
+                  <MenuItem value="HIGH">Yüksek</MenuItem>
+                  <MenuItem value="MEDIUM">Orta</MenuItem>
+                  <MenuItem value="LOW">Düşük</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
+        </Paper>
 
-              {/* Dates */}
-              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                Important Dates
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 3, mb: 3 }}>
-                <Box sx={{ minWidth: 200 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 2,
-                    }}
-                  >
-                    <CalendarIcon color="action" />
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Created At
-                      </Typography>
-                      <Typography variant="body1" fontWeight="medium">
-                        {new Date(viewDialog.issue.createdAt).toLocaleString()}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-
-                <Box sx={{ minWidth: 200 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 2,
-                    }}
-                  >
-                    <CalendarIcon color="action" />
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Last Updated
-                      </Typography>
-                      <Typography variant="body1" fontWeight="medium">
-                        {new Date(viewDialog.issue.updatedAt).toLocaleString()}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-
-                <Box sx={{ minWidth: 200 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 2,
-                    }}
-                  >
-                    <ScheduleIcon color="action" />
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Estimated Resolution
-                      </Typography>
-                      <Typography variant="body1" fontWeight="medium">
-                        {viewDialog.issue.estimatedResolutionDate
-                          ? new Date(
-                              viewDialog.issue.estimatedResolutionDate
-                            ).toLocaleDateString()
-                          : "Not specified"}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-
-                {viewDialog.issue.actualResolutionDate && (
-                  <Box sx={{ minWidth: 200 }}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1,
-                        mb: 2,
-                      }}
-                    >
-                      <CheckCircle color="success" />
-                      <Box>
-                        <Typography variant="body2" color="text.secondary">
-                          Actual Resolution
-                        </Typography>
-                        <Typography variant="body1" fontWeight="medium">
-                          {new Date(
-                            viewDialog.issue.actualResolutionDate
-                          ).toLocaleDateString()}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Box>
-                )}
-              </Box>
-
-              {/* Service Operations Summary */}
-              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                Service Operations
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 3, mb: 3 }}>
-                <Box sx={{ minWidth: 150 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 2,
-                    }}
-                  >
-                    <ServiceIcon color="action" />
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Total Operations
-                      </Typography>
-                      <Typography variant="body1" fontWeight="medium">
-                        {viewDialog.issue.serviceOperations?.length || 0}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-
-                <Box sx={{ minWidth: 200 }}>
-                  <Button
-                    variant="outlined"
-                    startIcon={<ServiceIcon />}
-                    onClick={() => {
-                      setViewDialog({ open: false, issue: null });
-                      handleManageServiceOperations(viewDialog.issue);
-                    }}
-                  >
-                    Manage Operations
-                  </Button>
-                </Box>
-              </Box>
-
-              {/* Attachments */}
-              {viewDialog.issue.attachments &&
-                viewDialog.issue.attachments.length > 0 && (
-                  <>
-                    <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                      Attachments
+        {/* Arıza Tablosu */}
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Arıza No</TableCell>
+                <TableCell>Kaynak</TableCell>
+                <TableCell>Müşteri</TableCell>
+                <TableCell>Durum</TableCell>
+                <TableCell>Öncelik</TableCell>
+                <TableCell>Garanti</TableCell>
+                <TableCell>Tahmini Maliyet</TableCell>
+                <TableCell>Tarih</TableCell>
+                <TableCell>İşlemler</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredIssues.map((issue) => (
+                <TableRow key={issue.id}>
+                  <TableCell>
+                    <Typography variant="body2" fontWeight="bold">
+                      {issue.issueNumber}
                     </Typography>
-                    <Divider sx={{ mb: 2 }} />
-                    <List sx={{ py: 0 }}>
-                      {viewDialog.issue.attachments.map(
-                        (attachment: string, index: number) => (
-                          <ListItem key={index} sx={{ px: 0 }}>
-                            <ListItemIcon>
-                              <AttachIcon color="action" />
-                            </ListItemIcon>
-                            <ListItemText primary={attachment} />
-                          </ListItem>
-                        )
-                      )}
-                    </List>
-                  </>
-                )}
-            </Box>
-          )}
-        </DialogContent>
-      </Dialog>
-    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={getSourceLabel(issue.source)}
+                      size="small"
+                      variant="outlined"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    {issue.company?.name || '-'}
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={getStatusLabel(issue.status)}
+                      color={getStatusColor(issue.status) as any}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={getPriorityLabel(issue.priority)}
+                      color={getPriorityColor(issue.priority) as any}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={issue.isUnderWarranty ? 'Garanti' : 'Ücretli'}
+                      color={issue.isUnderWarranty ? 'success' : 'warning'}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    {issue.estimatedCost ? `${issue.estimatedCost} TL` : '-'}
+                  </TableCell>
+                  <TableCell>
+                    {new Date(issue.issueDate).toLocaleDateString('tr-TR')}
+                  </TableCell>
+                  <TableCell>
+                    <IconButton
+                      size="small"
+                      onClick={() => handlePreInspection(issue)}
+                      disabled={issue.status !== 'OPEN'}
+                      title="Ön Muayene"
+                    >
+                      <InfoIcon />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleCompleteRepair(issue)}
+                      disabled={issue.status !== 'IN_PROGRESS'}
+                      title="Tamir Tamamla"
+                    >
+                      <CheckCircleIcon />
+                    </IconButton>
+                    <IconButton size="small" title="Görüntüle">
+                      <ViewIcon />
+                    </IconButton>
+                    <IconButton size="small" title="Düzenle">
+                      <EditIcon />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        {/* Yeni Arıza Kaydı Dialog */}
+        <Dialog open={openCreateDialog} onClose={() => setOpenCreateDialog(false)} maxWidth="md" fullWidth>
+          <DialogTitle>Yeni Arıza Kaydı</DialogTitle>
+          <DialogContent>
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Kaynak</InputLabel>
+                  <Select label="Kaynak">
+                    <MenuItem value="CUSTOMER">Müşteri</MenuItem>
+                    <MenuItem value="TSP">TSP</MenuItem>
+                    <MenuItem value="FIRST_PRODUCTION">İlk Üretim</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Öncelik</InputLabel>
+                  <Select label="Öncelik">
+                    <MenuItem value="LOW">Düşük</MenuItem>
+                    <MenuItem value="MEDIUM">Orta</MenuItem>
+                    <MenuItem value="HIGH">Yüksek</MenuItem>
+                    <MenuItem value="CRITICAL">Kritik</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Müşteri</InputLabel>
+                  <Select label="Müşteri">
+                    <MenuItem value="1">ABC Şirketi</MenuItem>
+                    <MenuItem value="2">XYZ Ltd.</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Arıza Kategorisi</InputLabel>
+                  <Select label="Arıza Kategorisi">
+                    <MenuItem value="1">Donanım Arızası</MenuItem>
+                    <MenuItem value="2">Yazılım Sorunu</MenuItem>
+                    <MenuItem value="3">Test Hatası</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Müşteri Açıklaması"
+                  multiline
+                  rows={3}
+                  placeholder="Arıza detaylarını açıklayın..."
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Tahmini Maliyet (TL)"
+                  type="number"
+                  inputProps={{ min: 0 }}
+                />
+              </Grid>
+            </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenCreateDialog(false)}>İptal</Button>
+            <Button variant="contained">Oluştur</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Ön Muayene Dialog */}
+        <Dialog open={openPreInspectionDialog} onClose={() => setOpenPreInspectionDialog(false)} maxWidth="md" fullWidth>
+          <DialogTitle>Ön Muayene</DialogTitle>
+          <DialogContent>
+            {selectedIssue && (
+              <Grid container spacing={2} sx={{ mt: 1 }}>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Arıza No: {selectedIssue.issueNumber}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Teknisyen Açıklaması"
+                    multiline
+                    rows={4}
+                    placeholder="Ön muayene bulgularını ve yapılacak işlemleri açıklayın..."
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Garanti Kapsamında mı?</InputLabel>
+                    <Select label="Garanti Kapsamında mı?">
+                      <MenuItem value="true">Evet</MenuItem>
+                      <MenuItem value="false">Hayır</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Tahmini Maliyet (TL)"
+                    type="number"
+                    inputProps={{ min: 0 }}
+                  />
+                </Grid>
+              </Grid>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenPreInspectionDialog(false)}>İptal</Button>
+            <Button variant="contained">Tamamla</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Tamir Tamamlama Dialog */}
+        <Dialog open={openCompleteRepairDialog} onClose={() => setOpenCompleteRepairDialog(false)} maxWidth="md" fullWidth>
+          <DialogTitle>Tamir Tamamlama</DialogTitle>
+          <DialogContent>
+            {selectedIssue && (
+              <Grid container spacing={2} sx={{ mt: 1 }}>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Arıza No: {selectedIssue.issueNumber}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Teknisyen Açıklaması"
+                    multiline
+                    rows={4}
+                    placeholder="Yapılan işlemleri ve sonuçları açıklayın..."
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Gerçek Maliyet (TL)"
+                    type="number"
+                    inputProps={{ min: 0 }}
+                  />
+                </Grid>
+              </Grid>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenCompleteRepairDialog(false)}>İptal</Button>
+            <Button variant="contained">Tamamla</Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
+    </Layout>
   );
 }

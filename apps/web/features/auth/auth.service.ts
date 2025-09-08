@@ -2,7 +2,7 @@ import { createAuthClient } from "better-auth/react";
 import { hybridFetch } from "../../lib/rpc";
 
 const authClient = createAuthClient({
-  baseURL: "http://localhost:3000/api/v1/auth",
+  baseURL: "http://localhost:3001/api/v1/auth",
   fetchOptions: {
     customFetchImpl: hybridFetch,
   },

@@ -1,1094 +1,557 @@
-"use client";
+'use client';
 
+import { useState, useEffect } from 'react';
 import {
-  Box,
-  Chip,
-  Avatar,
   Typography,
-  Card,
-  CardContent,
-  Stack,
+  Grid,
+  Paper,
+  Box,
   Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Chip,
+  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  Grid,
-  Divider,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-} from "@mui/material";
-import { Layout } from "../../../components/Layout";
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Alert,
+  CircularProgress,
+} from '@mui/material';
 import {
-  DataTable,
-  TableColumn,
-  FormField,
-  BulkAction,
-  ToolbarButton,
-} from "../../../components/DataTable";
-import { ConfirmDialog } from "../../../components/ConfirmDialog";
-import { ProductSelectionModal } from "../../../components/ProductSelectionModal";
-import { useState } from "react";
-import Link from "next/link";
-import {
+  Add as AddIcon,
+  Visibility as ViewIcon,
+  Edit as EditIcon,
   Delete as DeleteIcon,
   LocalShipping as ShippingIcon,
-  Business as BusinessIcon,
-  Inventory as InventoryIcon,
-  LocationOn as LocationIcon,
-  Add as AddIcon,
-  CheckBox as SelectIcon,
-  Close as CloseIcon,
-  CalendarToday as CalendarIcon,
-  Person as PersonIcon,
-  Notes as NotesIcon,
-  LocalShippingOutlined as CarrierIcon,
-} from "@mui/icons-material";
-import { useAuthenticatedAuth } from "../../../features/auth/useAuth";
+  Search as SearchIcon,
+} from '@mui/icons-material';
+import { Layout } from '../../../components/Layout';
+import { useAuth } from '../../../features/auth/useAuth';
 
-const initialShipments = [
-  {
-    id: 1,
-    shipmentNumber: "SHP-2024-001",
-    type: "SALES",
-    status: "SHIPPED",
-    estimatedDelivery: "2024-06-10",
-    actualDelivery: null,
-    companyId: 1,
-    companyName: "ABC Enerji",
-    productCount: 3,
-    trackingNumber: "TRK123456789",
-    carrier: "MNG Kargo",
-    notes: "Urgent delivery requested",
-    createdAt: "2024-06-05T10:30:00Z",
-    createdBy: "Mehmet Kurnaz",
-    shipmentItems: [
-      { productId: 1, productName: "Gateway-2000-001", quantity: 1 },
-      { productId: 2, productName: "EA-100-005", quantity: 1 },
-      { productId: 3, productName: "VR-500-012", quantity: 1 },
-    ],
-  },
-  {
-    id: 2,
-    shipmentNumber: "SHP-2024-002",
-    type: "SERVICE_RETURN",
-    status: "PREPARING",
-    estimatedDelivery: "2024-06-12",
-    actualDelivery: null,
-    companyId: 2,
-    companyName: "XYZ Elektrik",
-    productCount: 1,
-    trackingNumber: "TRK987654321",
-    carrier: "Yurtiçi Kargo",
-    notes: "Repair completed, returning to customer",
-    createdAt: "2024-06-06T14:20:00Z",
-    createdBy: "Ali Veli",
-    shipmentItems: [{ productId: 4, productName: "SM-300-003", quantity: 1 }],
-  },
-  {
-    id: 3,
-    shipmentNumber: "SHP-2024-003",
-    type: "SERVICE_SEND",
-    status: "DELIVERED",
-    estimatedDelivery: "2024-06-08",
-    actualDelivery: "2024-06-08",
-    companyId: 3,
-    companyName: "DEF Teknoloji",
-    productCount: 2,
-    trackingNumber: "TRK456789123",
-    carrier: "Aras Kargo",
-    notes: "Replacement units for defective products",
-    createdAt: "2024-06-03T09:15:00Z",
-    createdBy: "Fatma Özkan",
-    shipmentItems: [
-      { productId: 2, productName: "EA-100-005", quantity: 1 },
-      { productId: 3, productName: "VR-500-012", quantity: 1 },
-    ],
-  },
-];
+interface Shipment {
+  id: string;
+  shipmentNumber: string;
+  type: 'SALES' | 'SERVICE_RETURN' | 'SERVICE_SEND';
+  status: 'PREPARING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
+  company: {
+    id: string;
+    name: string;
+  };
+  trackingNumber?: string;
+  estimatedDelivery?: string;
+  actualDelivery?: string;
+  totalCost?: number;
+  itemCount: number;
+  createdBy: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
 
-// Mock data - these would typically come from API calls
-const typeOptions = [
-  { value: "SALES", label: "Sales Shipment" },
-  { value: "SERVICE_RETURN", label: "Service Return" },
-  { value: "SERVICE_SEND", label: "Service Send" },
-  { value: "REPLACEMENT", label: "Replacement" },
-  { value: "WARRANTY", label: "Warranty" },
-];
+interface ShipmentStats {
+  totalShipments: number;
+  preparingShipments: number;
+  shippedShipments: number;
+  deliveredShipments: number;
+  cancelledShipments: number;
+  salesShipments: number;
+  serviceShipments: number;
+}
 
-const statusOptions = [
-  { value: "PREPARING", label: "Preparing" },
-  { value: "SHIPPED", label: "Shipped" },
-  { value: "IN_TRANSIT", label: "In Transit" },
-  { value: "DELIVERED", label: "Delivered" },
-  { value: "RETURNED", label: "Returned" },
-  { value: "CANCELLED", label: "Cancelled" },
-];
-
-const companyOptions = [
-  { value: 1, label: "ABC Enerji" },
-  { value: 2, label: "XYZ Elektrik" },
-  { value: 3, label: "DEF Teknoloji" },
-  { value: 4, label: "GHI Enerji" },
-];
-
-const carrierOptions = [
-  { value: "MNG Kargo", label: "MNG Kargo" },
-  { value: "Yurtiçi Kargo", label: "Yurtiçi Kargo" },
-  { value: "Aras Kargo", label: "Aras Kargo" },
-  { value: "UPS", label: "UPS" },
-  { value: "DHL", label: "DHL" },
-];
-
-const productOptions = [
-  { value: 1, label: "Gateway-2000-001 (SN123456)" },
-  { value: 2, label: "EA-100-005 (SN654321)" },
-  { value: 3, label: "VR-500-012 (SN987654)" },
-  { value: 4, label: "SM-300-003 (SN456789)" },
-];
-
-const shippingOriginOptions = [
-  { value: 1, label: "Istanbul Warehouse (LOC-001)" },
-  { value: 2, label: "Ankara Service Center (LOC-002)" },
-  { value: 3, label: "Izmir Office (LOC-003)" },
-  { value: 4, label: "Bursa Warehouse (LOC-004)" },
-];
-
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case "DELIVERED":
-      return "success";
-    case "SHIPPED":
-    case "IN_TRANSIT":
-      return "info";
-    case "PREPARING":
-      return "warning";
-    case "RETURNED":
-      return "secondary";
-    case "CANCELLED":
-      return "error";
-    default:
-      return "default";
-  }
-};
-
-const getTypeColor = (type: string) => {
-  switch (type) {
-    case "SALES":
-      return "primary";
-    case "SERVICE_RETURN":
-      return "warning";
-    case "SERVICE_SEND":
-      return "info";
-    case "REPLACEMENT":
-      return "secondary";
-    case "WARRANTY":
-      return "success";
-    default:
-      return "default";
-  }
-};
-
-const columns: TableColumn[] = [
-  {
-    id: "shipmentNumber",
-    label: "Shipment",
-    width: 150,
-    sortable: true,
-    filterable: true,
-    render: (value, row) => (
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <Avatar
-          sx={{
-            width: 32,
-            height: 32,
-            bgcolor: "primary.main",
-            fontSize: "0.75rem",
-          }}
-        >
-          <ShippingIcon fontSize="small" />
-        </Avatar>
-        <Box>
-          <Typography variant="body2" fontWeight="bold">
-            {value}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {row.trackingNumber}
-          </Typography>
-        </Box>
-      </Box>
-    ),
-  },
-  {
-    id: "type",
-    label: "Type",
-    width: 140,
-    sortable: true,
-    filterable: true,
-    render: (value) => (
-      <Chip
-        label={value ? value.replace("_", " ") : "Unknown"}
-        color={getTypeColor(value || "") as any}
-        size="small"
-        variant="outlined"
-      />
-    ),
-  },
-  {
-    id: "companyName",
-    label: "Company",
-    width: 150,
-    sortable: true,
-    filterable: true,
-    render: (value) => (
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <BusinessIcon fontSize="small" color="action" />
-        {value}
-      </Box>
-    ),
-  },
-  {
-    id: "productCount",
-    label: "Items",
-    width: 80,
-    align: "center",
-    sortable: true,
-    filterable: true,
-    render: (value) => (
-      <Chip
-        label={value}
-        color="default"
-        size="small"
-        icon={<InventoryIcon />}
-      />
-    ),
-  },
-
-  {
-    id: "carrier",
-    label: "Carrier",
-    width: 120,
-    sortable: true,
-    filterable: true,
-  },
-  {
-    id: "status",
-    label: "Status",
-    width: 120,
-    sortable: true,
-    filterable: true,
-    render: (value) => (
-      <Chip
-        label={value.replace("_", " ")}
-        color={getStatusColor(value) as any}
-        size="small"
-      />
-    ),
-  },
-  {
-    id: "estimatedDelivery",
-    label: "Est. Delivery",
-    width: 120,
-    sortable: true,
-    filterable: true,
-    format: (value) => new Date(value).toLocaleDateString(),
-  },
-  {
-    id: "createdAt",
-    label: "Created",
-    width: 120,
-    sortable: true,
-    filterable: true,
-    format: (value) => new Date(value).toLocaleDateString(),
-  },
-];
-
-const getFormFields = (openProductSelectionModal: any): FormField[] => [
-  {
-    id: "shipmentNumber",
-    label: "Shipment Number",
-    type: "text",
-    required: true,
-    placeholder: "e.g., SHP-2024-001",
-    layout: { row: 0, column: 0 }, // First row, first column
-    validation: {
-      required: "Shipment number is required",
-      pattern: {
-        value: /^SHP-\d{4}-\d{3}$/,
-        message: "Shipment number format should be SHP-YYYY-XXX",
-      },
-    },
-  },
-  {
-    id: "type",
-    label: "Shipment Type",
-    type: "select",
-    required: true,
-    options: typeOptions,
-    layout: { row: 0, column: 1 }, // First row, second column
-  },
-  {
-    id: "status",
-    label: "Status",
-    type: "select",
-    required: true,
-    options: statusOptions,
-    layout: { row: 0, column: 2 }, // First row, third column
-  },
-  {
-    id: "companyId",
-    label: "Company",
-    type: "autocomplete",
-    required: true,
-    options: companyOptions,
-    searchable: true,
-    layout: { row: 1, column: 0 }, // Second row, first column
-  },
-  {
-    id: "shippingOriginId",
-    label: "Shipping Origin",
-    type: "autocomplete",
-    required: true,
-    options: shippingOriginOptions,
-    searchable: true,
-    helperText: "Select the shipping origin",
-    layout: { row: 1, column: 1 }, // Second row, second column
-  },
-  {
-    id: "carrier",
-    label: "Carrier",
-    type: "autocomplete",
-    required: true,
-    options: carrierOptions,
-    searchable: true,
-    layout: { row: 1, column: 2 }, // Second row, third column
-  },
-  {
-    id: "trackingNumber",
-    label: "Tracking Number",
-    type: "text",
-    required: false,
-    placeholder: "e.g., TRK123456789",
-    helperText: "Leave empty if not yet assigned",
-    layout: { row: 2, column: 1 }, // Third row, second column
-  },
-  {
-    id: "productIds",
-    label: "Products",
-    type: "custom",
-    required: true,
-    placeholder: "Click to select products...",
-    helperText: "Select one or more products for this shipment",
-    layout: { row: 3, column: 0 }, // Fourth row, full width
-    customDisplayValue: (value: any) => {
-      if (Array.isArray(value) && value.length > 0) {
-        return `${value.length} product${value.length > 1 ? "s" : ""} selected`;
-      }
-      return "Click to select products...";
-    },
-    onCustomClick: (
-      currentValue: any,
-      onSelectionChange: (value: any) => void
-    ) => {
-      openProductSelectionModal(currentValue || [], onSelectionChange);
-    },
-  },
-  {
-    id: "estimatedDelivery",
-    label: "Estimated Delivery",
-    type: "date",
-    required: true,
-    layout: { row: 4, column: 0 }, // Fifth row, first column
-  },
-  {
-    id: "actualDelivery",
-    label: "Actual Delivery",
-    type: "date",
-    required: false,
-    helperText: "Fill when shipment is delivered",
-    layout: { row: 4, column: 1 }, // Fifth row, second column
-  },
-  {
-    id: "notes",
-    label: "Notes",
-    type: "text",
-    required: false,
-    placeholder: "Additional notes about the shipment",
-    layout: { row: 5, column: 0 }, // Sixth row, full width
-  },
-];
-
-export default function ShipmentsPage() {
-  const auth = useAuthenticatedAuth();
-
-  const [shipments, setShipments] = useState(initialShipments);
-  const [deleteDialog, setDeleteDialog] = useState<{
-    open: boolean;
-    id: number | null;
-    number: string;
-  }>({ open: false, id: null, number: "" });
-  const [productSelectionModal, setProductSelectionModal] = useState({
-    open: false,
-    selectedProductIds: [] as number[],
-    onSelectionChange: (ids: number[]) => {},
+const ShipmentsPage = () => {
+  const { user } = useAuth();
+  const [shipments, setShipments] = useState<Shipment[]>([]);
+  const [stats, setStats] = useState<ShipmentStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [openCreateDialog, setOpenCreateDialog] = useState(false);
+  const [openViewDialog, setOpenViewDialog] = useState(false);
+  const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
+  const [filters, setFilters] = useState({
+    status: '',
+    type: '',
+    search: '',
   });
-  const [viewDialog, setViewDialog] = useState<{
-    open: boolean;
-    shipment: any | null;
-  }>({ open: false, shipment: null });
 
-  // Helper function to calculate shipment totals
-  const calculateShipmentTotals = (productIds: number[]) => {
-    const selectedProducts = productOptions.filter((p) =>
-      productIds.includes(p.value)
-    );
-    return {
-      productCount: selectedProducts.length,
-    };
-  };
-
-  const handleAdd = (data: any) => {
-    const company = companyOptions.find(
-      (c) => c.value === parseInt(data.companyId)
-    );
-    const shippingOrigin = shippingOriginOptions.find(
-      (l) => l.value === parseInt(data.shippingOriginId)
-    );
-    const { productCount } = calculateShipmentTotals(data.productIds || []);
-
-    // Create mock shipment items
-    const shipmentItems = (data.productIds || []).map((productId: number) => {
-      const product = productOptions.find((p) => p.value === productId);
-      return {
-        productId,
-        productName: product?.label.split(" (")[0] || "Unknown",
-        quantity: 1,
-      };
-    });
-
-    const newShipment = {
-      ...data,
-      id: Math.max(...shipments.map((s) => s.id)) + 1,
-      companyId: parseInt(data.companyId),
-      companyName: company?.label || "Unknown",
-      shippingOriginId: parseInt(data.shippingOriginId),
-      shippingOriginName: shippingOrigin?.label || "Unknown",
-      productCount,
-      shipmentItems,
-      actualDelivery: data.actualDelivery || null,
-      createdAt: new Date().toISOString(),
-      createdBy: "Current User", // Would come from auth context
-    };
-
-    // Remove productIds from the final object as it's not part of the data model
-    delete newShipment.productIds;
-
-    setShipments([...shipments, newShipment]);
-  };
-
-  const handleEdit = (id: string | number, data: any) => {
-    const company = companyOptions.find(
-      (c) => c.value === parseInt(data.companyId)
-    );
-    const shippingOrigin = shippingOriginOptions.find(
-      (l) => l.value === parseInt(data.shippingOriginId)
-    );
-    const { productCount } = calculateShipmentTotals(data.productIds || []);
-
-    // Create mock shipment items
-    const shipmentItems = (data.productIds || []).map((productId: number) => {
-      const product = productOptions.find((p) => p.value === productId);
-      return {
-        productId,
-        productName: product?.label.split(" (")[0] || "Unknown",
-        quantity: 1,
-      };
-    });
-
-    setShipments(
-      shipments.map((shipment) =>
-        shipment.id === Number(id)
-          ? {
-              ...shipment,
-              ...data,
-              companyId: parseInt(data.companyId),
-              companyName: company?.label || "Unknown",
-              shippingOriginId: parseInt(data.shippingOriginId),
-              shippingOriginName: shippingOrigin?.label || "Unknown",
-              productCount,
-              shipmentItems,
-              actualDelivery: data.actualDelivery || null,
-            }
-          : shipment
-      )
-    );
-  };
-
-  const handleDeleteRequest = (id: string | number) => {
-    const shipment = shipments.find((s) => s.id === Number(id));
-    if (shipment) {
-      setDeleteDialog({
-        open: true,
-        id: Number(id),
-        number: shipment.shipmentNumber,
-      });
-    }
-  };
-
-  const handleDeleteConfirm = () => {
-    if (deleteDialog.id) {
-      setShipments(
-        shipments.filter((shipment) => shipment.id !== deleteDialog.id)
-      );
-    }
-    setDeleteDialog({ open: false, id: null, number: "" });
-  };
-
-  const handleDeleteCancel = () => {
-    setDeleteDialog({ open: false, id: null, number: "" });
-  };
-
-  const handleBulkDelete = (ids: (string | number)[]) => {
-    const numIds = ids.map((id) => Number(id));
-    setShipments(shipments.filter((s) => !numIds.includes(s.id)));
-  };
-
-  const handleBulkStatusChange = (
-    ids: (string | number)[],
-    newStatus: string
-  ) => {
-    const numIds = ids.map((id) => Number(id));
-    const updateData: any = { status: newStatus };
-
-    // If marking as delivered, set actual delivery date
-    if (newStatus === "DELIVERED") {
-      updateData.actualDelivery = new Date().toISOString().split("T")[0];
-    }
-
-    setShipments(
-      shipments.map((s) =>
-        numIds.includes(s.id) ? { ...s, ...updateData } : s
-      )
-    );
-  };
-
-  const openProductSelectionModal = (
-    currentProductIds: number[],
-    onSelectionChange: (ids: number[]) => void
-  ) => {
-    setProductSelectionModal({
-      open: true,
-      selectedProductIds: currentProductIds,
-      onSelectionChange,
-    });
-  };
-
-  const closeProductSelectionModal = () => {
-    setProductSelectionModal({
-      open: false,
-      selectedProductIds: [],
-      onSelectionChange: () => {},
-    });
-  };
-
-  const handleView = (id: string | number) => {
-    const shipment = shipments.find((s) => s.id === Number(id));
-    if (shipment) {
-      setViewDialog({ open: true, shipment });
-    }
-  };
-
-  const handleViewClose = () => {
-    setViewDialog({ open: false, shipment: null });
-  };
-
-  const bulkActions: BulkAction[] = [
+  // Mock data for demonstration
+  const mockShipments: Shipment[] = [
     {
-      id: "delete",
-      label: "Delete Selected",
-      icon: <DeleteIcon />,
-      color: "error",
-      action: handleBulkDelete,
-      confirmMessage:
-        "Are you sure you want to delete the selected shipments? This action cannot be undone.",
+      id: '1',
+      shipmentNumber: '250602-01',
+      type: 'SALES',
+      status: 'SHIPPED',
+      company: { id: '1', name: 'ABC Elektrik Ltd.' },
+      trackingNumber: 'TRK123456789',
+      estimatedDelivery: '2025-06-05T10:00:00Z',
+      itemCount: 3,
+      createdBy: { id: '1', firstName: 'Ahmet', lastName: 'Yılmaz' },
+      createdAt: '2025-06-02T09:00:00Z',
+      updatedAt: '2025-06-02T14:30:00Z',
     },
     {
-      id: "mark-shipped",
-      label: "Mark as Shipped",
-      action: (ids) => handleBulkStatusChange(ids, "SHIPPED"),
+      id: '2',
+      shipmentNumber: '250602-02',
+      type: 'SERVICE_RETURN',
+      status: 'PREPARING',
+      company: { id: '2', name: 'XYZ Teknoloji A.Ş.' },
+      itemCount: 1,
+      createdBy: { id: '2', firstName: 'Mehmet', lastName: 'Kaya' },
+      createdAt: '2025-06-02T11:00:00Z',
+      updatedAt: '2025-06-02T11:00:00Z',
     },
     {
-      id: "mark-in-transit",
-      label: "Mark as In Transit",
-      action: (ids) => handleBulkStatusChange(ids, "IN_TRANSIT"),
-    },
-    {
-      id: "mark-delivered",
-      label: "Mark as Delivered",
-      action: (ids) => handleBulkStatusChange(ids, "DELIVERED"),
-      confirmMessage:
-        "Mark selected shipments as delivered? This will set the actual delivery date to today.",
+      id: '3',
+      shipmentNumber: '250602-03',
+      type: 'SERVICE_SEND',
+      status: 'DELIVERED',
+      company: { id: '3', name: 'Delta Enerji Ltd.' },
+      trackingNumber: 'TRK987654321',
+      estimatedDelivery: '2025-06-03T15:00:00Z',
+      actualDelivery: '2025-06-03T14:30:00Z',
+      itemCount: 2,
+      createdBy: { id: '1', firstName: 'Ahmet', lastName: 'Yılmaz' },
+      createdAt: '2025-06-02T13:00:00Z',
+      updatedAt: '2025-06-03T14:30:00Z',
     },
   ];
 
-  const handleExport = () => {
-    // Simple CSV export
-    const headers = columns.map((col) => col.label).join(",");
-    const rows = shipments.map((shipment) =>
-      columns
-        .map((col) => {
-          const value = shipment[col.id as keyof typeof shipment];
-          return typeof value === "string" && value.includes(",")
-            ? `"${value}"`
-            : value;
-        })
-        .join(",")
-    );
-    const csv = [headers, ...rows].join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "shipments.csv";
-    a.click();
-    window.URL.revokeObjectURL(url);
+  const mockStats: ShipmentStats = {
+    totalShipments: 3,
+    preparingShipments: 1,
+    shippedShipments: 1,
+    deliveredShipments: 1,
+    cancelledShipments: 0,
+    salesShipments: 1,
+    serviceShipments: 2,
   };
 
-  const getStatusCounts = () => {
-    const counts = shipments.reduce(
-      (acc, shipment) => {
-        acc[shipment.status] = (acc[shipment.status] || 0) + 1;
-        return acc;
-      },
-      {} as Record<string, number>
-    );
-    return counts;
+  useEffect(() => {
+    // Simulate API call
+    setTimeout(() => {
+      setShipments(mockShipments);
+      setStats(mockStats);
+      setLoading(false);
+    }, 1000);
+  }, []);
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'PREPARING':
+        return 'warning';
+      case 'SHIPPED':
+        return 'info';
+      case 'DELIVERED':
+        return 'success';
+      case 'CANCELLED':
+        return 'error';
+      default:
+        return 'default';
+    }
   };
 
-  const statusCounts = getStatusCounts();
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'PREPARING':
+        return 'Hazırlanıyor';
+      case 'SHIPPED':
+        return 'Sevk Edildi';
+      case 'DELIVERED':
+        return 'Teslim Edildi';
+      case 'CANCELLED':
+        return 'İptal Edildi';
+      default:
+        return status;
+    }
+  };
+
+  const getTypeText = (type: string) => {
+    switch (type) {
+      case 'SALES':
+        return 'Satış';
+      case 'SERVICE_RETURN':
+        return 'Servis Dönüş';
+      case 'SERVICE_SEND':
+        return 'Servis Gönderim';
+      default:
+        return type;
+    }
+  };
+
+  const handleViewShipment = (shipment: Shipment) => {
+    setSelectedShipment(shipment);
+    setOpenViewDialog(true);
+  };
+
+  const handleCreateShipment = () => {
+    setOpenCreateDialog(true);
+  };
+
+  const filteredShipments = shipments.filter((shipment) => {
+    if (filters.status && shipment.status !== filters.status) return false;
+    if (filters.type && shipment.type !== filters.type) return false;
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      return (
+        shipment.shipmentNumber.toLowerCase().includes(searchLower) ||
+        shipment.company.name.toLowerCase().includes(searchLower) ||
+        (shipment.trackingNumber && shipment.trackingNumber.toLowerCase().includes(searchLower))
+      );
+    }
+    return true;
+  });
+
+  if (loading) {
+    return (
+      <Layout>
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+          <CircularProgress />
+        </Box>
+      </Layout>
+    );
+  }
 
   return (
-    <Box sx={{ p: 3 }}>
-      {/* Quick Stats */}
-      <Box sx={{ mb: 3, display: "flex", gap: 2, flexWrap: "wrap" }}>
-        <Stack direction="row" spacing={2} sx={{ flex: 1, minWidth: 0 }}>
-          <Card sx={{ minWidth: 200 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Total Shipments
-              </Typography>
-              <Typography variant="h4" color="primary">
-                {shipments.length}
-              </Typography>
-            </CardContent>
-          </Card>
-          <Card sx={{ minWidth: 200 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Delivered
-              </Typography>
-              <Typography variant="h4" color="success.main">
-                {statusCounts.DELIVERED || 0}
-              </Typography>
-            </CardContent>
-          </Card>
-          <Card sx={{ minWidth: 200 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                In Transit
-              </Typography>
-              <Typography variant="h4" color="info.main">
-                {(statusCounts.SHIPPED || 0) + (statusCounts.IN_TRANSIT || 0)}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Stack>
-        {auth.user.role !== "customer" ? (
-          <Stack spacing={1} sx={{ minWidth: 200 }}>
-            <Link href="/dashboard/locations" passHref>
-              <Button variant="outlined" startIcon={<LocationIcon />} fullWidth>
-                Manage Locations
-              </Button>
-            </Link>
-          </Stack>
-        ) : null}
-      </Box>
-
-      {/* Shipments DataTable */}
-      <DataTable
-        title="Shipments"
-        columns={columns}
-        data={shipments}
-        formFields={getFormFields(openProductSelectionModal)}
-        {...(auth.user.role !== "customer"
-          ? {
-              onAdd: handleAdd,
-              onEdit: handleEdit,
-              onDelete: handleDeleteRequest,
-            }
-          : {})}
-        onView={handleView}
-        onExport={handleExport}
-        addButtonText="Create Shipment"
-        selectable={true}
-        bulkActions={bulkActions}
-        pageSize={10}
-      />
-
-      {/* Product Selection Modal */}
-      <ProductSelectionModal
-        open={productSelectionModal.open}
-        onClose={closeProductSelectionModal}
-        selectedProductIds={productSelectionModal.selectedProductIds}
-        onSelectionChange={productSelectionModal.onSelectionChange}
-        title="Select Products for Shipment"
-      />
-
-      <ConfirmDialog
-        open={deleteDialog.open}
-        title="Delete Shipment"
-        message={`Are you sure you want to delete shipment "${deleteDialog.number}"? This action cannot be undone and may affect tracking records.`}
-        onConfirm={handleDeleteConfirm}
-        onCancel={handleDeleteCancel}
-        confirmText="Delete"
-      />
-
-      {/* View Shipment Dialog */}
-      <Dialog
-        open={viewDialog.open}
-        onClose={handleViewClose}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 2,
-              justifyContent: "space-between",
-            }}
-          >
-            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-              <Avatar sx={{ bgcolor: "primary.main" }}>
-                <ShippingIcon />
-              </Avatar>
-              <Box>
-                <Typography variant="h6">Shipment Details</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {viewDialog.shipment?.shipmentNumber}
-                </Typography>
-              </Box>
-            </Box>
+    <Layout>
+      <Box sx={{ p: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Typography variant="h4" component="h1">
+            Sevkiyat Yönetimi
+          </Typography>
+          {(user?.role === 'TSP' || user?.role === 'ADMIN') && (
             <Button
-              onClick={handleViewClose}
-              sx={{ minWidth: "auto", p: 1, borderRadius: "50%" }}
-              color="inherit"
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={handleCreateShipment}
             >
-              <CloseIcon />
+              Yeni Sevkiyat
             </Button>
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          {viewDialog.shipment && (
-            <Box sx={{ pt: 1 }}>
-              {/* Basic Information */}
-              <Typography variant="h6" gutterBottom>
-                Basic Information
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 3, mb: 3 }}>
-                <Box sx={{ minWidth: 200 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 2,
-                    }}
-                  >
-                    <ShippingIcon color="action" />
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Shipment Number
-                      </Typography>
-                      <Typography variant="body1" fontWeight="medium">
-                        {viewDialog.shipment.shipmentNumber}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-
-                <Box sx={{ minWidth: 150 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 2,
-                    }}
-                  >
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Type
-                      </Typography>
-                      <Chip
-                        label={viewDialog.shipment.type.replace("_", " ")}
-                        color={getTypeColor(viewDialog.shipment.type) as any}
-                        size="small"
-                        variant="outlined"
-                      />
-                    </Box>
-                  </Box>
-                </Box>
-
-                <Box sx={{ minWidth: 150 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 2,
-                    }}
-                  >
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Status
-                      </Typography>
-                      <Chip
-                        label={viewDialog.shipment.status.replace("_", " ")}
-                        color={
-                          getStatusColor(viewDialog.shipment.status) as any
-                        }
-                        size="small"
-                      />
-                    </Box>
-                  </Box>
-                </Box>
-
-                <Box sx={{ minWidth: 200 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 2,
-                    }}
-                  >
-                    <BusinessIcon color="action" />
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Company
-                      </Typography>
-                      <Typography variant="body1" fontWeight="medium">
-                        {viewDialog.shipment.companyName}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-              </Box>
-
-              {/* Shipping Details */}
-              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                Shipping Details
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 3, mb: 3 }}>
-                <Box sx={{ minWidth: 150 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 2,
-                    }}
-                  >
-                    <ShippingIcon color="action" />
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Carrier
-                      </Typography>
-                      <Typography variant="body1" fontWeight="medium">
-                        {viewDialog.shipment.carrier}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-
-                <Box sx={{ minWidth: 200 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 2,
-                    }}
-                  >
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Tracking Number
-                      </Typography>
-                      <Typography variant="body1" fontWeight="medium">
-                        {viewDialog.shipment.trackingNumber || "Not assigned"}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-
-                <Box sx={{ minWidth: 150 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 2,
-                    }}
-                  >
-                    <CalendarIcon color="action" />
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Estimated Delivery
-                      </Typography>
-                      <Typography variant="body1" fontWeight="medium">
-                        {new Date(
-                          viewDialog.shipment.estimatedDelivery
-                        ).toLocaleDateString()}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-
-                <Box sx={{ minWidth: 150 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 2,
-                    }}
-                  >
-                    <CalendarIcon color="action" />
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Actual Delivery
-                      </Typography>
-                      <Typography variant="body1" fontWeight="medium">
-                        {viewDialog.shipment.actualDelivery
-                          ? new Date(
-                              viewDialog.shipment.actualDelivery
-                            ).toLocaleDateString()
-                          : "Not delivered yet"}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-              </Box>
-
-              {/* Products */}
-              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                Products ({viewDialog.shipment.productCount})
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              <List>
-                {viewDialog.shipment.shipmentItems?.map(
-                  (item: any, index: number) => (
-                    <ListItem key={index} sx={{ px: 0 }}>
-                      <ListItemIcon>
-                        <InventoryIcon color="action" />
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={item.productName}
-                        secondary={`Quantity: ${item.quantity}`}
-                      />
-                    </ListItem>
-                  )
-                )}
-              </List>
-
-              {/* Notes */}
-              {viewDialog.shipment.notes && (
-                <Box sx={{ mt: 2 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      gap: 1,
-                      mb: 2,
-                    }}
-                  >
-                    <NotesIcon color="action" sx={{ mt: 0.5 }} />
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Notes
-                      </Typography>
-                      <Typography variant="body1">
-                        {viewDialog.shipment.notes}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-              )}
-
-              {/* Metadata */}
-              <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>
-                Metadata
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
-                <Box sx={{ minWidth: 200 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 2,
-                    }}
-                  >
-                    <CalendarIcon color="action" />
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Created At
-                      </Typography>
-                      <Typography variant="body1" fontWeight="medium">
-                        {new Date(
-                          viewDialog.shipment.createdAt
-                        ).toLocaleString()}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-
-                <Box sx={{ minWidth: 150 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 2,
-                    }}
-                  >
-                    <PersonIcon color="action" />
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Created By
-                      </Typography>
-                      <Typography variant="body1" fontWeight="medium">
-                        {viewDialog.shipment.createdBy}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-              </Box>
-            </Box>
           )}
-        </DialogContent>
-      </Dialog>
-    </Box>
+        </Box>
+
+        {error && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {error}
+          </Alert>
+        )}
+
+        {/* İstatistikler */}
+        {stats && (
+          <Grid container spacing={3} sx={{ mb: 4 }}>
+            <Grid item xs={12} sm={6} md={3}>
+              <Paper sx={{ p: 2, textAlign: 'center' }}>
+                <Typography variant="h6">Toplam Sevkiyat</Typography>
+                <Typography variant="h4">{stats.totalShipments}</Typography>
+              </Paper>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Paper sx={{ p: 2, textAlign: 'center' }}>
+                <Typography variant="h6">Hazırlanan</Typography>
+                <Typography variant="h4">{stats.preparingShipments}</Typography>
+              </Paper>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Paper sx={{ p: 2, textAlign: 'center' }}>
+                <Typography variant="h6">Sevk Edilen</Typography>
+                <Typography variant="h4">{stats.shippedShipments}</Typography>
+              </Paper>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Paper sx={{ p: 2, textAlign: 'center' }}>
+                <Typography variant="h6">Teslim Edilen</Typography>
+                <Typography variant="h4">{stats.deliveredShipments}</Typography>
+              </Paper>
+            </Grid>
+          </Grid>
+        )}
+
+        {/* Filtreler */}
+        <Paper sx={{ p: 2, mb: 3 }}>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} sm={6} md={3}>
+              <TextField
+                fullWidth
+                label="Arama"
+                value={filters.search}
+                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                InputProps={{
+                  startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Durum</InputLabel>
+                <Select
+                  value={filters.status}
+                  label="Durum"
+                  onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                >
+                  <MenuItem value="">Tümü</MenuItem>
+                  <MenuItem value="PREPARING">Hazırlanıyor</MenuItem>
+                  <MenuItem value="SHIPPED">Sevk Edildi</MenuItem>
+                  <MenuItem value="DELIVERED">Teslim Edildi</MenuItem>
+                  <MenuItem value="CANCELLED">İptal Edildi</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Tür</InputLabel>
+                <Select
+                  value={filters.type}
+                  label="Tür"
+                  onChange={(e) => setFilters({ ...filters, type: e.target.value })}
+                >
+                  <MenuItem value="">Tümü</MenuItem>
+                  <MenuItem value="SALES">Satış</MenuItem>
+                  <MenuItem value="SERVICE_RETURN">Servis Dönüş</MenuItem>
+                  <MenuItem value="SERVICE_SEND">Servis Gönderim</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
+        </Paper>
+
+        {/* Sevkiyat Tablosu */}
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Sevkiyat No</TableCell>
+                <TableCell>Tür</TableCell>
+                <TableCell>Durum</TableCell>
+                <TableCell>Müşteri</TableCell>
+                <TableCell>Kargo Takip</TableCell>
+                <TableCell>Ürün Sayısı</TableCell>
+                <TableCell>Tahmini Teslimat</TableCell>
+                <TableCell>Oluşturan</TableCell>
+                <TableCell>İşlemler</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredShipments.map((shipment) => (
+                <TableRow key={shipment.id}>
+                  <TableCell>
+                    <Typography variant="body2" fontWeight="bold">
+                      {shipment.shipmentNumber}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={getTypeText(shipment.type)}
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={getStatusText(shipment.status)}
+                      size="small"
+                      color={getStatusColor(shipment.status) as any}
+                    />
+                  </TableCell>
+                  <TableCell>{shipment.company.name}</TableCell>
+                  <TableCell>
+                    {shipment.trackingNumber ? (
+                      <Typography variant="body2" color="primary">
+                        {shipment.trackingNumber}
+                      </Typography>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        -
+                      </Typography>
+                    )}
+                  </TableCell>
+                  <TableCell>{shipment.itemCount}</TableCell>
+                  <TableCell>
+                    {shipment.estimatedDelivery ? (
+                      new Date(shipment.estimatedDelivery).toLocaleDateString('tr-TR')
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        -
+                      </Typography>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {shipment.createdBy.firstName} {shipment.createdBy.lastName}
+                  </TableCell>
+                  <TableCell>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleViewShipment(shipment)}
+                      title="Görüntüle"
+                    >
+                      <ViewIcon />
+                    </IconButton>
+                    {(user?.role === 'TSP' || user?.role === 'ADMIN') && (
+                      <>
+                        <IconButton size="small" title="Düzenle">
+                          <EditIcon />
+                        </IconButton>
+                        {user?.role === 'ADMIN' && (
+                          <IconButton size="small" title="Sil" color="error">
+                            <DeleteIcon />
+                          </IconButton>
+                        )}
+                      </>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        {/* Sevkiyat Detay Dialog */}
+        <Dialog
+          open={openViewDialog}
+          onClose={() => setOpenViewDialog(false)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>
+            Sevkiyat Detayı - {selectedShipment?.shipmentNumber}
+          </DialogTitle>
+          <DialogContent>
+            {selectedShipment && (
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Sevkiyat Numarası
+                  </Typography>
+                  <Typography variant="body1">{selectedShipment.shipmentNumber}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Tür
+                  </Typography>
+                  <Chip
+                    label={getTypeText(selectedShipment.type)}
+                    size="small"
+                    color="primary"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Durum
+                  </Typography>
+                  <Chip
+                    label={getStatusText(selectedShipment.status)}
+                    size="small"
+                    color={getStatusColor(selectedShipment.status) as any}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Müşteri
+                  </Typography>
+                  <Typography variant="body1">{selectedShipment.company.name}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Kargo Takip No
+                  </Typography>
+                  <Typography variant="body1">
+                    {selectedShipment.trackingNumber || '-'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Ürün Sayısı
+                  </Typography>
+                  <Typography variant="body1">{selectedShipment.itemCount}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Tahmini Teslimat
+                  </Typography>
+                  <Typography variant="body1">
+                    {selectedShipment.estimatedDelivery
+                      ? new Date(selectedShipment.estimatedDelivery).toLocaleDateString('tr-TR')
+                      : '-'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Gerçek Teslimat
+                  </Typography>
+                  <Typography variant="body1">
+                    {selectedShipment.actualDelivery
+                      ? new Date(selectedShipment.actualDelivery).toLocaleDateString('tr-TR')
+                      : '-'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Toplam Maliyet
+                  </Typography>
+                  <Typography variant="body1">
+                    {selectedShipment.totalCost
+                      ? `${selectedShipment.totalCost.toLocaleString('tr-TR')} ₺`
+                      : '-'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Oluşturan
+                  </Typography>
+                  <Typography variant="body1">
+                    {selectedShipment.createdBy.firstName} {selectedShipment.createdBy.lastName}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Oluşturma Tarihi
+                  </Typography>
+                  <Typography variant="body1">
+                    {new Date(selectedShipment.createdAt).toLocaleDateString('tr-TR')}
+                  </Typography>
+                </Grid>
+              </Grid>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenViewDialog(false)}>Kapat</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Yeni Sevkiyat Dialog */}
+        <Dialog
+          open={openCreateDialog}
+          onClose={() => setOpenCreateDialog(false)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>Yeni Sevkiyat Oluştur</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Bu özellik henüz geliştirme aşamasındadır.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenCreateDialog(false)}>İptal</Button>
+            <Button variant="contained" disabled>
+              Oluştur
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
+    </Layout>
   );
-}
+};
+
+export default ShipmentsPage;

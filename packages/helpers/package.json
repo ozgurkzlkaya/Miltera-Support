@@ -18,8 +18,8 @@
     "react-dom": "18.3.1"
   },
   "devDependencies": {
-    "@miltera/eslint-config": "workspace:*",
-    "@miltera/typescript-config": "workspace:*",
+    "@miltera/eslint-config": "file:../eslint-config",
+    "@miltera/typescript-config": "file:../typescript-config",
     "@types/node": "^22.15.3",
     "@types/react": "18.3.1",
     "@types/react-dom": "18.3.1",
