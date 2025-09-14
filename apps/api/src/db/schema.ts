@@ -41,6 +41,11 @@ export const shipmentTypeEnum = ['SALES', 'SERVICE_RETURN', 'SERVICE_SEND'] as c
 export const shipmentStatusEnum = ['PREPARING', 'SHIPPED', 'DELIVERED', 'CANCELLED'] as const;
 export const serviceOperationStatusEnum = ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'] as const;
 export const warrantyStatusEnum = ['IN_WARRANTY', 'OUT_OF_WARRANTY', 'PENDING'] as const;
+
+// Notification enums
+export const notificationTypeEnum = ['success', 'error', 'warning', 'info', 'critical'] as const;
+export const notificationPriorityEnum = ['low', 'medium', 'high', 'critical'] as const;
+export const notificationCategoryEnum = ['system', 'issue', 'product', 'shipment', 'user', 'security', 'performance', 'maintenance'] as const;
     
 const timestamps = {
 	createdAt: timestamp("created_at")
@@ -70,13 +75,13 @@ export const companies = pgTable('companies', {
 // Users table - Kullanıcı Yönetimi
 export const users = pgTable('users', {
     id: uuid('id').primaryKey().defaultRandom(),
-    firstName: text('first_name').notNull(),         // Ad
-    lastName: text('last_name').notNull(),           // Soyad
+    firstName: text('first_name'),                   // Ad - Better-auth uyumluluğu için nullable
+    lastName: text('last_name'),                     // Soyad - Better-auth uyumluluğu için nullable
     name: text('name'),                              // Full name for search
     email: text('email').notNull().unique(),         // E-posta (Kullanıcı Adı)
     emailVerified: boolean("email_verified").default(false).notNull(),
     image: text("image"),
-    role: text('role').notNull(),                    // ADMIN, TSP, CUSTOMER
+    role: text('role'),                              // ADMIN, TSP, CUSTOMER - Better-auth uyumluluğu için nullable
     companyId: uuid('company_id').references(() => companies.id), // Müşteri firması (CUSTOMER için)
     isActive: boolean('is_active').default(true).notNull(),
     mustChangePassword: boolean('must_change_password').default(false).notNull(),
@@ -490,6 +495,37 @@ export const fileAttachments = pgTable('file_attachments', {
 export const fileAttachmentsRelations = relations(fileAttachments, ({ one }) => ({
     uploadedBy: one(users, {
         fields: [fileAttachments.uploadedBy],
+        references: [users.id],
+    }),
+}));
+
+// Notifications table
+export const notifications = pgTable('notifications', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    title: text('title').notNull(),
+    message: text('message').notNull(),
+    type: text('type', { enum: notificationTypeEnum }).notNull(),
+    priority: text('priority', { enum: notificationPriorityEnum }).notNull(),
+    category: text('category', { enum: notificationCategoryEnum }).notNull(),
+    description: text('description'),
+    source: text('source').notNull().default('system'),
+    channels: jsonb('channels').notNull().default(['in-app']),
+    tags: jsonb('tags').default([]),
+    read: boolean('read').notNull().default(false),
+    readAt: timestamp('read_at'),
+    expiresAt: timestamp('expires_at'),
+    userId: uuid('user_id').references(() => users.id).notNull(),
+    createdBy: uuid('created_by').references(() => users.id).notNull(),
+    ...timestamps
+});
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+    user: one(users, {
+        fields: [notifications.userId],
+        references: [users.id],
+    }),
+    creator: one(users, {
+        fields: [notifications.createdBy],
         references: [users.id],
     }),
 }));

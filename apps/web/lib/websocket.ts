@@ -9,6 +9,7 @@ export interface NotificationEvent {
   data?: any;
   timestamp: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
+  read?: boolean;
 }
 
 // WebSocket store
@@ -34,7 +35,7 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
   unreadCount: 0,
 
   connect: (token: string) => {
-    const socket = io(process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3000', {
+    const socket = io(process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3001', {
       auth: {
         token: `Bearer ${token}`
       },
@@ -198,8 +199,10 @@ export const requestNotificationPermission = async () => {
 
 // Initialize WebSocket connection
 export const initializeWebSocket = (token: string) => {
-  const { connect } = useWebSocketStore.getState();
-  connect(token);
+  // WebSocket geçici olarak devre dışı - API sunucusunda Socket.IO yok
+  console.log('WebSocket initialization skipped - API server does not support Socket.IO yet');
+  // const { connect } = useWebSocketStore.getState();
+  // connect(token);
 };
 
 // Cleanup WebSocket connection

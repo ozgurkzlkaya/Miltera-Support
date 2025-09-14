@@ -85,6 +85,45 @@ class ApiClient {
     return data;
   }
 
+  // Generic HTTP methods
+  async get<T>(endpoint: string, options?: { params?: Record<string, any> }): Promise<{ data: T }> {
+    let url = endpoint;
+    if (options?.params) {
+      const searchParams = new URLSearchParams();
+      Object.entries(options.params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          if (Array.isArray(value)) {
+            value.forEach(v => searchParams.append(key, v.toString()));
+          } else {
+            searchParams.append(key, value.toString());
+          }
+        }
+      });
+      url += `?${searchParams.toString()}`;
+    }
+    return this.request<{ data: T }>(url);
+  }
+
+  async post<T>(endpoint: string, data?: any): Promise<{ data: T }> {
+    return this.request<{ data: T }>(endpoint, {
+      method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
+    });
+  }
+
+  async put<T>(endpoint: string, data?: any): Promise<{ data: T }> {
+    return this.request<{ data: T }>(endpoint, {
+      method: 'PUT',
+      body: data ? JSON.stringify(data) : undefined,
+    });
+  }
+
+  async delete<T>(endpoint: string): Promise<{ data: T }> {
+    return this.request<{ data: T }>(endpoint, {
+      method: 'DELETE',
+    });
+  }
+
   // Dashboard API methods
   async getDashboardStats() {
     const response = await this.request<{ success: boolean; data: any }>('/reports/dashboard');

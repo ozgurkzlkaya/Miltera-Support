@@ -64,7 +64,7 @@ services:
       dockerfile: Dockerfile
     container_name: miltera-web
     ports:
-      - "3000:3000"
+      - "3002:3002"
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:3001
       NODE_ENV: development

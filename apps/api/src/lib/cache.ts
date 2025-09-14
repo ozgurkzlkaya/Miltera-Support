@@ -20,11 +20,15 @@ export const cacheMiddleware = (ttl: number = CACHE_CONFIG.defaultTTL) => {
     const cacheKey = `${CACHE_CONFIG.prefix}${c.req.url}`;
     
     try {
-      // Try to get cached response
-      const cached = await redisClient.get(cacheKey);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        return c.json(parsed.data, parsed.status, parsed.headers);
+      // Try to get cached response (only if Redis is available)
+      if (redisClient) {
+        const cached = await redisClient.get(cacheKey);
+        if (cached) {
+          const parsed = JSON.par
+          
+          se(cached);
+          return c.json(parsed.data, parsed.status, parsed.headers);
+        }
       }
       
       // Store original json method
@@ -32,8 +36,8 @@ export const cacheMiddleware = (ttl: number = CACHE_CONFIG.defaultTTL) => {
       
       // Override json method to cache response
       c.json = (data: any, status?: number, headers?: Record<string, string>) => {
-        // Cache successful responses
-        if (status && status >= 200 && status < 300) {
+        // Cache successful responses (only if Redis is available)
+        if (status && status >= 200 && status < 300 && redisClient) {
           const cacheData = {
             data,
             status,
@@ -59,12 +63,14 @@ export const cacheMiddleware = (ttl: number = CACHE_CONFIG.defaultTTL) => {
 export const cacheUtils = {
   // Set cache value
   set: async (key: string, value: any, ttl: number = CACHE_CONFIG.defaultTTL) => {
+    if (!redisClient) return;
     const fullKey = `${CACHE_CONFIG.prefix}${key}`;
     await redisClient.set(fullKey, JSON.stringify(value), "EX", ttl);
   },
   
   // Get cache value
   get: async <T>(key: string): Promise<T | null> => {
+    if (!redisClient) return null;
     const fullKey = `${CACHE_CONFIG.prefix}${key}`;
     const value = await redisClient.get(fullKey);
     return value ? JSON.parse(value) : null;
@@ -72,12 +78,14 @@ export const cacheUtils = {
   
   // Delete cache value
   delete: async (key: string) => {
+    if (!redisClient) return;
     const fullKey = `${CACHE_CONFIG.prefix}${key}`;
     await redisClient.del(fullKey);
   },
   
   // Clear all cache
   clear: async () => {
+    if (!redisClient) return;
     const keys = await redisClient.keys(`${CACHE_CONFIG.prefix}*`);
     if (keys.length > 0) {
       await redisClient.del(...keys);
@@ -86,6 +94,7 @@ export const cacheUtils = {
   
   // Invalidate cache by pattern
   invalidatePattern: async (pattern: string) => {
+    if (!redisClient) return;
     const keys = await redisClient.keys(`${CACHE_CONFIG.prefix}${pattern}`);
     if (keys.length > 0) {
       await redisClient.del(...keys);
@@ -94,6 +103,7 @@ export const cacheUtils = {
   
   // Get cache statistics
   getStats: async () => {
+    if (!redisClient) return { totalKeys: 0, memoryUsage: 0 };
     const keys = await redisClient.keys(`${CACHE_CONFIG.prefix}*`);
     return {
       totalKeys: keys.length,

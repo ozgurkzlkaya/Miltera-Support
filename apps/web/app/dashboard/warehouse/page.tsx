@@ -33,10 +33,12 @@ import {
   ListItem,
   ListItemText,
   Divider,
+  Snackbar,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Edit as EditIcon,
+  Delete as DeleteIcon,
   Visibility as ViewIcon,
   Inventory as InventoryIcon,
   LocationOn as LocationIcon,
@@ -131,8 +133,24 @@ export default function WarehousePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [openLocationDialog, setOpenLocationDialog] = useState(false);
+  const [openEditDialog, setOpenEditDialog] = useState(false);
   const [openInventoryDialog, setOpenInventoryDialog] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
+  
+  // Form data state
+  const [formData, setFormData] = useState({
+    name: '',
+    type: '',
+    address: '',
+    notes: ''
+  });
+  
+  // Notification state
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error' | 'warning' | 'info'
+  });
 
   // Gerçek API'den veri çekme
   useEffect(() => {
@@ -257,7 +275,92 @@ export default function WarehousePage() {
   }, []);
 
   const handleCreateLocation = () => {
+    setFormData({
+      name: '',
+      type: '',
+      address: '',
+      notes: ''
+    });
     setOpenLocationDialog(true);
+  };
+
+  const handleEditLocation = (location: Location) => {
+    setSelectedLocation(location);
+    setFormData({
+      name: location.name,
+      type: location.type,
+      address: location.address || '',
+      notes: location.notes || ''
+    });
+    setOpenEditDialog(true);
+  };
+
+  const handleDeleteLocation = (locationId: string) => {
+    if (window.confirm('Bu konumu silmek istediğinizden emin misiniz?')) {
+      setLocations(prev => prev.filter(loc => loc.id !== locationId));
+      setSnackbar({
+        open: true,
+        message: 'Konum başarıyla silindi',
+        severity: 'success'
+      });
+    }
+  };
+
+  const handleSaveLocation = () => {
+    if (!formData.name || !formData.type) {
+      setSnackbar({
+        open: true,
+        message: 'Lütfen tüm gerekli alanları doldurun',
+        severity: 'error'
+      });
+      return;
+    }
+
+    const newLocation: Location = {
+      id: Date.now().toString(),
+      name: formData.name,
+      type: formData.type,
+      address: formData.address || undefined,
+      notes: formData.notes || undefined
+    };
+
+    setLocations(prev => [newLocation, ...prev]);
+    setOpenLocationDialog(false);
+    setSnackbar({
+      open: true,
+      message: `Konum "${newLocation.name}" başarıyla eklendi`,
+      severity: 'success'
+    });
+  };
+
+  const handleUpdateLocation = () => {
+    if (!selectedLocation || !formData.name || !formData.type) {
+      setSnackbar({
+        open: true,
+        message: 'Lütfen tüm gerekli alanları doldurun',
+        severity: 'error'
+      });
+      return;
+    }
+
+    const updatedLocation: Location = {
+      ...selectedLocation,
+      name: formData.name,
+      type: formData.type,
+      address: formData.address || undefined,
+      notes: formData.notes || undefined
+    };
+
+    setLocations(prev => prev.map(loc => 
+      loc.id === selectedLocation.id ? updatedLocation : loc
+    ));
+    setOpenEditDialog(false);
+    setSelectedLocation(null);
+    setSnackbar({
+      open: true,
+      message: `Konum "${updatedLocation.name}" başarıyla güncellendi`,
+      severity: 'success'
+    });
   };
 
   const handleViewInventory = (location: Location) => {
@@ -411,8 +514,20 @@ export default function WarehousePage() {
                       >
                         <InventoryIcon />
                       </IconButton>
-                      <IconButton size="small" title="Düzenle">
+                      <IconButton 
+                        size="small" 
+                        title="Düzenle"
+                        onClick={() => handleEditLocation(location)}
+                      >
                         <EditIcon />
+                      </IconButton>
+                      <IconButton 
+                        size="small" 
+                        title="Sil"
+                        onClick={() => handleDeleteLocation(location.id)}
+                        sx={{ color: 'error.main' }}
+                      >
+                        <DeleteIcon />
                       </IconButton>
                     </TableCell>
                   </TableRow>
@@ -483,14 +598,20 @@ export default function WarehousePage() {
               <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  label="Konum Adı"
+                  label="Konum Adı *"
                   required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 />
               </Grid>
               <Grid item xs={12}>
                 <FormControl fullWidth>
-                  <InputLabel>Konum Türü</InputLabel>
-                  <Select label="Konum Türü">
+                  <InputLabel>Konum Türü *</InputLabel>
+                  <Select 
+                    label="Konum Türü *"
+                    value={formData.type}
+                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                  >
                     <MenuItem value="WAREHOUSE">Depo</MenuItem>
                     <MenuItem value="SHELF">Raf</MenuItem>
                     <MenuItem value="SERVICE_AREA">Servis Alanı</MenuItem>
@@ -505,6 +626,8 @@ export default function WarehousePage() {
                   label="Adres"
                   multiline
                   rows={2}
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                 />
               </Grid>
               <Grid item xs={12}>
@@ -513,13 +636,73 @@ export default function WarehousePage() {
                   label="Notlar"
                   multiline
                   rows={3}
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 />
               </Grid>
             </Grid>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setOpenLocationDialog(false)}>İptal</Button>
-            <Button variant="contained">Ekle</Button>
+            <Button variant="contained" onClick={handleSaveLocation}>Ekle</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Konum Düzenleme Dialog */}
+        <Dialog open={openEditDialog} onClose={() => setOpenEditDialog(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>Konum Düzenle - {selectedLocation?.name}</DialogTitle>
+          <DialogContent>
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Konum Adı *"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <FormControl fullWidth>
+                  <InputLabel>Konum Türü *</InputLabel>
+                  <Select 
+                    label="Konum Türü *"
+                    value={formData.type}
+                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                  >
+                    <MenuItem value="WAREHOUSE">Depo</MenuItem>
+                    <MenuItem value="SHELF">Raf</MenuItem>
+                    <MenuItem value="SERVICE_AREA">Servis Alanı</MenuItem>
+                    <MenuItem value="TESTING_AREA">Test Alanı</MenuItem>
+                    <MenuItem value="SHIPPING_AREA">Sevkiyat Alanı</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Adres"
+                  multiline
+                  rows={2}
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Notlar"
+                  multiline
+                  rows={3}
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                />
+              </Grid>
+            </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenEditDialog(false)}>İptal</Button>
+            <Button variant="contained" onClick={handleUpdateLocation}>Kaydet</Button>
           </DialogActions>
         </Dialog>
 
@@ -563,6 +746,22 @@ export default function WarehousePage() {
             <Button onClick={() => setOpenInventoryDialog(false)}>Kapat</Button>
           </DialogActions>
         </Dialog>
+
+        {/* Snackbar for notifications */}
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={4000}
+          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        >
+          <Alert 
+            onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} 
+            severity={snackbar.severity}
+            sx={{ borderRadius: 2 }}
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
       </Box>
     </Layout>
   );

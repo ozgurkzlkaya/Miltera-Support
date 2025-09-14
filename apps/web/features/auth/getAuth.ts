@@ -1,26 +1,22 @@
-import { authClient } from "./auth.service";
-import { getMaybeNextHeaders } from "../../utils/next";
+import { getSession } from "./auth.service";
 import type { Auth } from "./AuthProvider";
 
 const getAuth = async () => {
-  // supports both server and client calls
-  const maybeNextHeaders = await getMaybeNextHeaders();
-
-  const { data } = await authClient.getSession({
-    fetchOptions: {
-      headers: maybeNextHeaders,
-    },
-  });
-
-  const isAuthenticated = data !== null;
-  const session = data?.session || null;
-  const user = data?.user || null;
-
-  return {
-    isAuthenticated,
-    session,
-    user,
-  } as Auth & { isLoading: false };
+  try {
+    const session = await getSession();
+    
+    return {
+      isAuthenticated: session.user !== null,
+      session: null, // Session artık kullanmıyoruz
+      user: session.user,
+    } as Auth & { isLoading: false };
+  } catch (error) {
+    return {
+      isAuthenticated: false,
+      session: null,
+      user: null,
+    } as Auth & { isLoading: false };
+  }
 };
 
 export { getAuth };

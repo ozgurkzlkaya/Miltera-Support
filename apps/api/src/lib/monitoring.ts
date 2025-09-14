@@ -63,40 +63,57 @@ class PerformanceMonitor {
   public recordApiMetric(metric: PerformanceMetrics): void {
     this.metrics.push(metric);
     
-    // Store in Redis for real-time monitoring
-    const key = `metrics:api:${Date.now()}`;
-    redisClient.set(key, JSON.stringify(metric), 'EX', 3600); // 1 hour TTL
+    // Store in Redis for real-time monitoring (only if Redis is available)
+    if (redisClient) {
+      const key = `metrics:api:${Date.now()}`;
+      redisClient.set(key, JSON.stringify(metric), 'EX', 3600); // 1 hour TTL
+    }
   }
 
   // Record error metrics
   public recordError(metric: ErrorMetrics): void {
     this.errors.push(metric);
     
-    // Store in Redis for real-time monitoring
-    const key = `metrics:error:${Date.now()}`;
-    redisClient.set(key, JSON.stringify(metric), 'EX', 3600);
+    // Store in Redis for real-time monitoring (only if Redis is available)
+    if (redisClient) {
+      const key = `metrics:error:${Date.now()}`;
+      redisClient.set(key, JSON.stringify(metric), 'EX', 3600);
+    }
   }
 
   // Record database metrics
   public recordDbMetric(metric: DatabaseMetrics): void {
     this.dbMetrics.push(metric);
     
-    // Store in Redis for real-time monitoring
-    const key = `metrics:db:${Date.now()}`;
-    redisClient.set(key, JSON.stringify(metric), 'EX', 3600);
+    // Store in Redis for real-time monitoring (only if Redis is available)
+    if (redisClient) {
+      const key = `metrics:db:${Date.now()}`;
+      redisClient.set(key, JSON.stringify(metric), 'EX', 3600);
+    }
   }
 
   // Record cache metrics
   public recordCacheMetric(metric: CacheMetrics): void {
     this.cacheMetrics.push(metric);
     
-    // Store in Redis for real-time monitoring
-    const key = `metrics:cache:${Date.now()}`;
-    redisClient.set(key, JSON.stringify(metric), 'EX', 3600);
+    // Store in Redis for real-time monitoring (only if Redis is available)
+    if (redisClient) {
+      const key = `metrics:cache:${Date.now()}`;
+      redisClient.set(key, JSON.stringify(metric), 'EX', 3600);
+    }
   }
 
   // Get performance statistics
   public async getPerformanceStats(): Promise<any> {
+    if (!redisClient) {
+      return {
+        api: this.metrics.length,
+        errors: this.errors.length,
+        db: this.dbMetrics.length,
+        cache: this.cacheMetrics.length,
+      };
+    }
+    
     const apiKeys = await redisClient.keys('metrics:api:*');
     const errorKeys = await redisClient.keys('metrics:error:*');
     const dbKeys = await redisClient.keys('metrics:db:*');

@@ -37,6 +37,7 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  Snackbar,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -173,6 +174,25 @@ export default function ServiceOperationsPage() {
   const [openOperationDialog, setOpenOperationDialog] = useState(false);
   const [openWorkflowDialog, setOpenWorkflowDialog] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
+  
+  // Form data state
+  const [formData, setFormData] = useState({
+    operationType: '',
+    issueId: '',
+    description: '',
+    findings: '',
+    actionsTaken: '',
+    duration: '',
+    cost: '',
+    isUnderWarranty: true
+  });
+  
+  // Notification state
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error' | 'warning' | 'info'
+  });
 
   // Mock data - gerçek API'den gelecek
   useEffect(() => {
@@ -323,7 +343,65 @@ export default function ServiceOperationsPage() {
   }, []);
 
   const handleCreateOperation = () => {
+    setFormData({
+      operationType: '',
+      issueId: '',
+      description: '',
+      findings: '',
+      actionsTaken: '',
+      duration: '',
+      cost: '',
+      isUnderWarranty: true
+    });
     setOpenOperationDialog(true);
+  };
+
+  const handleSaveOperation = () => {
+    if (!formData.operationType || !formData.issueId || !formData.description) {
+      setSnackbar({
+        open: true,
+        message: 'Lütfen tüm gerekli alanları doldurun',
+        severity: 'error'
+      });
+      return;
+    }
+
+    const selectedIssueData = issues.find(issue => issue.id === formData.issueId);
+    
+    const newOperation: ServiceOperation = {
+      id: Date.now().toString(),
+      operationType: formData.operationType,
+      status: 'PENDING',
+      description: formData.description,
+      findings: formData.findings,
+      actionsTaken: formData.actionsTaken,
+      isUnderWarranty: formData.isUnderWarranty,
+      duration: formData.duration ? parseInt(formData.duration) : undefined,
+      cost: formData.cost ? parseFloat(formData.cost) : undefined,
+      operationDate: new Date().toISOString(),
+      issue: selectedIssueData ? {
+        id: selectedIssueData.id,
+        issueNumber: selectedIssueData.issueNumber,
+        status: selectedIssueData.status
+      } : {
+        id: formData.issueId,
+        issueNumber: 'Bilinmeyen',
+        status: 'UNKNOWN'
+      },
+      performedBy: {
+        id: '1',
+        firstName: 'Ahmet',
+        lastName: 'Yılmaz'
+      }
+    };
+
+    setOperations(prev => [newOperation, ...prev]);
+    setOpenOperationDialog(false);
+    setSnackbar({
+      open: true,
+      message: `Yeni operasyon başarıyla oluşturuldu`,
+      severity: 'success'
+    });
   };
 
   const handleCreateWorkflow = (issue: Issue) => {
@@ -567,7 +645,11 @@ export default function ServiceOperationsPage() {
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth>
                   <InputLabel>Operasyon Türü</InputLabel>
-                  <Select label="Operasyon Türü">
+                  <Select 
+                    label="Operasyon Türü"
+                    value={formData.operationType || ''}
+                    onChange={(e) => setFormData({ ...formData, operationType: e.target.value })}
+                  >
                     <MenuItem value="HARDWARE_VERIFICATION">Donanım Doğrulama</MenuItem>
                     <MenuItem value="CONFIGURATION">Konfigürasyon</MenuItem>
                     <MenuItem value="PRE_TEST">Ön Test</MenuItem>
@@ -580,7 +662,11 @@ export default function ServiceOperationsPage() {
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth>
                   <InputLabel>Arıza Kaydı</InputLabel>
-                  <Select label="Arıza Kaydı">
+                  <Select 
+                    label="Arıza Kaydı"
+                    value={formData.issueId || ''}
+                    onChange={(e) => setFormData({ ...formData, issueId: e.target.value })}
+                  >
                     {issues.map((issue) => (
                       <MenuItem key={issue.id} value={issue.id}>
                         {issue.issueNumber} - {issue.company.name}
@@ -592,10 +678,12 @@ export default function ServiceOperationsPage() {
               <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  label="Açıklama"
+                  label="Açıklama *"
                   multiline
                   rows={3}
                   required
+                  value={formData.description || ''}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 />
               </Grid>
               <Grid item xs={12}>
@@ -604,6 +692,8 @@ export default function ServiceOperationsPage() {
                   label="Bulgular"
                   multiline
                   rows={2}
+                  value={formData.findings || ''}
+                  onChange={(e) => setFormData({ ...formData, findings: e.target.value })}
                 />
               </Grid>
               <Grid item xs={12}>
@@ -612,6 +702,8 @@ export default function ServiceOperationsPage() {
                   label="Yapılan İşlemler"
                   multiline
                   rows={2}
+                  value={formData.actionsTaken || ''}
+                  onChange={(e) => setFormData({ ...formData, actionsTaken: e.target.value })}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -619,6 +711,8 @@ export default function ServiceOperationsPage() {
                   fullWidth
                   label="Süre (dakika)"
                   type="number"
+                  value={formData.duration || ''}
+                  onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -626,13 +720,15 @@ export default function ServiceOperationsPage() {
                   fullWidth
                   label="Maliyet (₺)"
                   type="number"
+                  value={formData.cost || ''}
+                  onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
                 />
               </Grid>
             </Grid>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setOpenOperationDialog(false)}>İptal</Button>
-            <Button variant="contained">Oluştur</Button>
+            <Button variant="contained" onClick={handleSaveOperation}>Oluştur</Button>
           </DialogActions>
         </Dialog>
 
@@ -686,6 +782,22 @@ export default function ServiceOperationsPage() {
             <Button variant="contained">İş Akışını Başlat</Button>
           </DialogActions>
         </Dialog>
+
+        {/* Snackbar for notifications */}
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={4000}
+          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        >
+          <Alert 
+            onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} 
+            severity={snackbar.severity}
+            sx={{ borderRadius: 2 }}
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
       </Box>
     </Layout>
   );

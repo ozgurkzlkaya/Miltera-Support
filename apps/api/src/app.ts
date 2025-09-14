@@ -18,6 +18,7 @@ import reportsRoute from "./routes/reports.routes";
 import websocketRoute from "./routes/websocket.routes";
 import fileUploadRoute from "./routes/file-upload.routes";
 import searchRoute from "./routes/search.routes";
+import notificationsRoute from "./routes/notifications.routes";
 
 // Yeni controller'lar
 import { productController } from "./controllers/product.controller";
@@ -42,12 +43,26 @@ async function initializeApp() {
   let app = createHonoApp<HonoEnv>()
     .basePath("/api/v1")
     .use("*", securityHeadersMiddleware)
-    .use("*", rateLimitMiddleware)
-    .use("*", requestLoggingMiddleware)
-    .use("*", performanceMonitoringMiddleware)
-    .use("*", fileUploadMiddleware())
+    .use("*", async (c, next) => {
+      // CORS middleware
+      c.header("Access-Control-Allow-Origin", "http://localhost:3002");
+      c.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+      c.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+      c.header("Access-Control-Allow-Credentials", "true");
+      
+      if (c.req.method === "OPTIONS") {
+        return c.text("", 200);
+      }
+      
+      await next();
+    })
+    // .use("*", rateLimitMiddleware)
+    // .use("*", requestLoggingMiddleware)
+    // .use("*", performanceMonitoringMiddleware)
+    // .use("*", fileUploadMiddleware())
     // .get("/test", (c) => c.json(JSON.stringify(c.get("session") ?? {})))
     .get("/health", (c) => c.json({ status: "ok", timestamp: new Date().toISOString() }))
+    .get("/test", (c) => c.json({ message: "Test endpoint working" }))
     .route("/auth", authRoute)
     .route("/users", usersRoute)
     .route("/product-types", productTypesRoute)
@@ -63,6 +78,7 @@ async function initializeApp() {
     .route("/websocket", websocketRoute)
     .route("/file-upload", fileUploadRoute)
     .route("/search", searchRoute)
+    .route("/notifications", notificationsRoute)
     // Yeni API endpoint'leri
     .route("/products", productController)
     .route("/issues", issueController);

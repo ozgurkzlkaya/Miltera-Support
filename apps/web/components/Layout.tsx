@@ -27,6 +27,7 @@ import {
   Settings,
   Logout,
   CorporateFare,
+  TrendingUp as TrendingUpIcon,
 } from "@mui/icons-material";
 import {
   Dashboard as DashboardIcon,
@@ -91,22 +92,23 @@ export const Layout = ({ title, children }: LayoutProps) => {
     handleAvatarClose();
   };
 
-  if (auth.isLoading || !auth.isAuthenticated) {
-    return (
-      <Container
-        maxWidth="sm"
-        sx={{
-          minHeight: "100vh",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          flexDirection: "column",
-        }}
-      >
-        <CircularProgress />
-      </Container>
-    );
-  }
+  // Auth kontrolünü kaldır - dashboard'a erişimi engelleme
+  // if (auth.isLoading || !auth.isAuthenticated) {
+  //   return (
+  //     <Container
+  //       maxWidth="sm"
+  //       sx={{
+  //         minHeight: "100vh",
+  //         display: "flex",
+  //         justifyContent: "center",
+  //         alignItems: "center",
+  //         flexDirection: "column",
+  //       }}
+  //     >
+  //       <CircularProgress />
+  //     </Container>
+  //   );
+  // }
 
   const menuItems = [
     {
@@ -144,8 +146,13 @@ export const Layout = ({ title, children }: LayoutProps) => {
       text: "Reports",
       path: "/dashboard/reports",
     },
+    {
+      icon: <TrendingUpIcon />,
+      text: "Analytics",
+      path: "/dashboard/analytics",
+    },
 
-    ...(auth.user.role !== "CUSTOMER"
+    ...(auth?.user?.role !== "CUSTOMER"
       ? [
           {
             icon: <BusinessIcon />,
@@ -179,8 +186,9 @@ export const Layout = ({ title, children }: LayoutProps) => {
             width={150}
             height={26}
             style={{
-              maxWidth: "100%",
+              width: "auto",
               height: "auto",
+              maxWidth: "100%",
             }}
             priority
           />
@@ -234,11 +242,11 @@ export const Layout = ({ title, children }: LayoutProps) => {
                 variant="body2"
                 sx={{ display: { xs: "none", sm: "block" } }}
               >
-                {auth.user.name}
+                {auth?.user?.name || "User"}
               </Typography>
               <IconButton onClick={handleAvatarClick} sx={{ p: 0 }}>
                 <Avatar
-                  alt={auth.user.name}
+                  alt={auth?.user?.name || "User"}
                   sx={{
                     width: 32,
                     height: 32,
@@ -283,10 +291,10 @@ export const Layout = ({ title, children }: LayoutProps) => {
                 <MenuItem onClick={handleAvatarClose}>
                   <Box>
                     <Typography variant="body2" fontWeight="bold">
-                      {auth.user.name || "User"}
+                      {auth?.user?.name || "User"}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {auth.user.email || "user@example.com"}
+                      {auth?.user?.email || "user@example.com"}
                     </Typography>
                   </Box>
                 </MenuItem>

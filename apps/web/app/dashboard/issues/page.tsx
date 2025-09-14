@@ -1,18 +1,14 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Box,
   Typography,
   Paper,
   Grid,
   Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
+  Card,
+  CardContent,
   Chip,
   IconButton,
   Dialog,
@@ -25,51 +21,147 @@ import {
   Select,
   MenuItem,
   Alert,
-  CircularProgress,
-  Badge,
+  Avatar,
+  Tooltip,
+  Snackbar,
+  Divider,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon
 } from '@mui/material';
 import {
   Add as AddIcon,
   Edit as EditIcon,
   Visibility as ViewIcon,
+  Delete as DeleteIcon,
   Build as BuildIcon,
   CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
   Error as ErrorIcon,
   Info as InfoIcon,
+  Search as SearchIcon,
+  FilterList as FilterIcon,
+  Person as PersonIcon,
+  Business as BusinessIcon,
+  CalendarToday as CalendarIcon,
+  AttachMoney as MoneyIcon,
+  Description as DescriptionIcon
 } from '@mui/icons-material';
-import { Layout } from '../../../components/Layout';
 
+// Mock data interface
 interface Issue {
   id: string;
   issueNumber: string;
-  source: string;
-  status: string;
-  priority: string;
+  source: 'CUSTOMER' | 'TSP' | 'FIRST_PRODUCTION';
+  status: 'OPEN' | 'IN_PROGRESS' | 'WAITING_CUSTOMER_APPROVAL' | 'REPAIRED' | 'CLOSED' | 'CANCELLED';
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   customerDescription?: string;
   technicianDescription?: string;
   isUnderWarranty: boolean;
   estimatedCost?: number;
   actualCost?: number;
   issueDate: string;
-  company: {
+  preInspectionDate?: string;
+  repairDate?: string;
+  company?: {
+    id: string;
     name: string;
-  } | null;
-  category: {
+  };
+  category?: {
+    id: string;
     name: string;
-  } | null;
-  createdByUser: {
+  };
+  createdByUser?: {
+    id: string;
     firstName: string;
     lastName: string;
   };
 }
 
-interface IssueFilter {
-  status?: string;
-  source?: string;
-  priority?: string;
-  search?: string;
-}
+// Mock data
+const initialMockIssues: Issue[] = [
+  {
+    id: '1',
+    issueNumber: '250117-01',
+    source: 'CUSTOMER',
+    status: 'OPEN',
+    priority: 'HIGH',
+    customerDescription: 'Cihaz çalışmıyor, güç gelmiyor',
+    isUnderWarranty: true,
+    estimatedCost: 500,
+    issueDate: '2025-01-17',
+    company: { id: '1', name: 'ABC Şirketi' },
+    category: { id: '1', name: 'Donanım Arızası' },
+    createdByUser: { id: '1', firstName: 'Ahmet', lastName: 'Yılmaz' }
+  },
+  {
+    id: '2',
+    issueNumber: '250117-02',
+    source: 'TSP',
+    status: 'IN_PROGRESS',
+    priority: 'MEDIUM',
+    customerDescription: 'Ekran görüntüsü bozuk',
+    technicianDescription: 'Ekran sürücü problemi tespit edildi',
+    isUnderWarranty: false,
+    estimatedCost: 1200,
+    actualCost: 1100,
+    issueDate: '2025-01-16',
+    company: { id: '2', name: 'XYZ Ltd.' },
+    category: { id: '2', name: 'Yazılım Sorunu' },
+    createdByUser: { id: '2', firstName: 'Mehmet', lastName: 'Demir' }
+  },
+  {
+    id: '3',
+    issueNumber: '250117-03',
+    source: 'FIRST_PRODUCTION',
+    status: 'REPAIRED',
+    priority: 'CRITICAL',
+    customerDescription: 'İlk test sırasında hata',
+    technicianDescription: 'Test hatası düzeltildi',
+    isUnderWarranty: true,
+    estimatedCost: 800,
+    actualCost: 750,
+    issueDate: '2025-01-15',
+    company: { id: '3', name: 'Tech Solutions' },
+    category: { id: '3', name: 'Test Hatası' },
+    createdByUser: { id: '3', firstName: 'Ayşe', lastName: 'Kaya' }
+  },
+  {
+    id: '4',
+    issueNumber: '250117-04',
+    source: 'CUSTOMER',
+    status: 'CLOSED',
+    priority: 'LOW',
+    customerDescription: 'Küçük yazılım güncellemesi',
+    technicianDescription: 'Yazılım güncellendi',
+    isUnderWarranty: true,
+    estimatedCost: 200,
+    actualCost: 0,
+    issueDate: '2025-01-14',
+    company: { id: '4', name: 'Modern Corp' },
+    category: { id: '2', name: 'Yazılım Sorunu' },
+    createdByUser: { id: '1', firstName: 'Ahmet', lastName: 'Yılmaz' }
+  }
+];
+
+// Mock companies and categories
+const mockCompanies = [
+  { id: '1', name: 'ABC Şirketi' },
+  { id: '2', name: 'XYZ Ltd.' },
+  { id: '3', name: 'Tech Solutions' },
+  { id: '4', name: 'Modern Corp' },
+  { id: '5', name: 'Digital Systems' },
+  { id: '6', name: 'Innovation Tech' }
+];
+
+const mockCategories = [
+  { id: '1', name: 'Donanım Arızası' },
+  { id: '2', name: 'Yazılım Sorunu' },
+  { id: '3', name: 'Test Hatası' },
+  { id: '4', name: 'Kalite Kontrol' },
+  { id: '5', name: 'Montaj Hatası' }
+];
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -152,215 +244,364 @@ const getSourceLabel = (source: string) => {
   }
 };
 
+const getSourceIcon = (source: string) => {
+  switch (source) {
+    case 'CUSTOMER':
+      return <ErrorIcon />;
+    case 'TSP':
+      return <BuildIcon />;
+    case 'FIRST_PRODUCTION':
+      return <InfoIcon />;
+    default:
+      return <WarningIcon />;
+  }
+};
+
 export default function IssuesPage() {
-  const [issues, setIssues] = useState<Issue[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<IssueFilter>({});
+  const [issues, setIssues] = useState<Issue[]>(initialMockIssues);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [sourceFilter, setSourceFilter] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState('');
+  
+  // Dialog states
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
-  const [openPreInspectionDialog, setOpenPreInspectionDialog] = useState(false);
-  const [openCompleteRepairDialog, setOpenCompleteRepairDialog] = useState(false);
+  const [openEditDialog, setOpenEditDialog] = useState(false);
+  const [openViewDialog, setOpenViewDialog] = useState(false);
+  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
+  
+  // Form states
+  const [formData, setFormData] = useState({
+    source: '',
+    priority: '',
+    customerDescription: '',
+    technicianDescription: '',
+    isUnderWarranty: true,
+    estimatedCost: '',
+    actualCost: '',
+    companyId: '',
+    categoryId: ''
+  });
+  
+  // Notification state
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error' | 'warning' | 'info'
+  });
 
-  // Mock data - gerçek API'den gelecek
-  useEffect(() => {
-    const mockIssues: Issue[] = [
-      {
-        id: '1',
-        issueNumber: '250117-01',
-        source: 'CUSTOMER',
-        status: 'OPEN',
-        priority: 'HIGH',
-        customerDescription: 'Cihaz çalışmıyor, güç gelmiyor',
-        isUnderWarranty: true,
-        issueDate: '2025-01-17',
-        company: { name: 'ABC Şirketi' },
-        category: { name: 'Donanım Arızası' },
-        createdByUser: { firstName: 'Ahmet', lastName: 'Yılmaz' },
-      },
-      {
-        id: '2',
-        issueNumber: '250117-02',
-        source: 'FIRST_PRODUCTION',
-        status: 'IN_PROGRESS',
-        priority: 'MEDIUM',
-        technicianDescription: 'Fabrikasyon testinde başarısız',
-        isUnderWarranty: false,
-        estimatedCost: 500,
-        issueDate: '2025-01-17',
-        company: null,
-        category: { name: 'Test Hatası' },
-        createdByUser: { firstName: 'Mehmet', lastName: 'Kaya' },
-      },
-      {
-        id: '3',
-        issueNumber: '250116-03',
-        source: 'CUSTOMER',
-        status: 'REPAIRED',
-        priority: 'LOW',
-        customerDescription: 'Yazılım güncelleme gerekiyor',
-        technicianDescription: 'Yazılım güncellendi, test edildi',
-        isUnderWarranty: true,
-        actualCost: 0,
-        issueDate: '2025-01-16',
-        company: { name: 'XYZ Ltd.' },
-        category: { name: 'Yazılım Sorunu' },
-        createdByUser: { firstName: 'Fatma', lastName: 'Demir' },
-      },
-    ];
-
-    setTimeout(() => {
-      setIssues(mockIssues);
-      setLoading(false);
-    }, 1000);
-  }, []);
+  // Generate new issue number
+  const generateIssueNumber = () => {
+    const today = new Date();
+    const year = today.getFullYear().toString().slice(-2);
+    const month = (today.getMonth() + 1).toString().padStart(2, '0');
+    const day = today.getDate().toString().padStart(2, '0');
+    const existingCount = issues.filter(issue => 
+      issue.issueNumber.startsWith(`${year}${month}${day}`)
+    ).length + 1;
+    return `${year}${month}${day}-${existingCount.toString().padStart(2, '0')}`;
+  };
 
   const handleCreateIssue = () => {
+    setFormData({
+      source: '',
+      priority: '',
+      customerDescription: '',
+      technicianDescription: '',
+      isUnderWarranty: true,
+      estimatedCost: '',
+      actualCost: '',
+      companyId: '',
+      categoryId: ''
+    });
     setOpenCreateDialog(true);
   };
 
-  const handlePreInspection = (issue: Issue) => {
+  const handleEditIssue = (issue: Issue) => {
     setSelectedIssue(issue);
-    setOpenPreInspectionDialog(true);
+    setFormData({
+      source: issue.source,
+      priority: issue.priority,
+      customerDescription: issue.customerDescription || '',
+      technicianDescription: issue.technicianDescription || '',
+      isUnderWarranty: issue.isUnderWarranty,
+      estimatedCost: issue.estimatedCost?.toString() || '',
+      actualCost: issue.actualCost?.toString() || '',
+      companyId: issue.company?.id || '',
+      categoryId: issue.category?.id || ''
+    });
+    setOpenEditDialog(true);
   };
 
-  const handleCompleteRepair = (issue: Issue) => {
+  const handleViewIssue = (issue: Issue) => {
     setSelectedIssue(issue);
-    setOpenCompleteRepairDialog(true);
+    setOpenViewDialog(true);
+  };
+
+  const handleDeleteIssue = (issue: Issue) => {
+    setSelectedIssue(issue);
+    setOpenDeleteDialog(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (selectedIssue) {
+      setIssues(prev => prev.filter(issue => issue.id !== selectedIssue.id));
+      setSnackbar({
+        open: true,
+        message: `Arıza ${selectedIssue.issueNumber} başarıyla silindi`,
+        severity: 'success'
+      });
+      setOpenDeleteDialog(false);
+      setSelectedIssue(null);
+    }
+  };
+
+  const handleSaveCreate = () => {
+    if (!formData.source || !formData.priority || !formData.customerDescription) {
+      setSnackbar({
+        open: true,
+        message: 'Lütfen tüm gerekli alanları doldurun',
+        severity: 'error'
+      });
+      return;
+    }
+
+    const newIssue: Issue = {
+      id: Date.now().toString(),
+      issueNumber: generateIssueNumber(),
+      source: formData.source as any,
+      status: 'OPEN',
+      priority: formData.priority as any,
+      customerDescription: formData.customerDescription,
+      technicianDescription: formData.technicianDescription,
+      isUnderWarranty: formData.isUnderWarranty,
+      estimatedCost: formData.estimatedCost ? parseFloat(formData.estimatedCost) : undefined,
+      actualCost: formData.actualCost ? parseFloat(formData.actualCost) : undefined,
+      issueDate: new Date().toISOString().split('T')[0],
+      company: mockCompanies.find(c => c.id === formData.companyId),
+      category: mockCategories.find(c => c.id === formData.categoryId),
+      createdByUser: { id: '1', firstName: 'Ahmet', lastName: 'Yılmaz' }
+    };
+
+    setIssues(prev => [newIssue, ...prev]);
+    setOpenCreateDialog(false);
+    setSnackbar({
+      open: true,
+      message: `Yeni arıza ${newIssue.issueNumber} başarıyla oluşturuldu`,
+      severity: 'success'
+    });
+  };
+
+  const handleSaveEdit = () => {
+    if (!selectedIssue) return;
+
+    const updatedIssue: Issue = {
+      ...selectedIssue,
+      source: formData.source as any,
+      priority: formData.priority as any,
+      customerDescription: formData.customerDescription,
+      technicianDescription: formData.technicianDescription,
+      isUnderWarranty: formData.isUnderWarranty,
+      estimatedCost: formData.estimatedCost ? parseFloat(formData.estimatedCost) : undefined,
+      actualCost: formData.actualCost ? parseFloat(formData.actualCost) : undefined,
+      company: mockCompanies.find(c => c.id === formData.companyId),
+      category: mockCategories.find(c => c.id === formData.categoryId)
+    };
+
+    setIssues(prev => prev.map(issue => 
+      issue.id === selectedIssue.id ? updatedIssue : issue
+    ));
+    setOpenEditDialog(false);
+    setSelectedIssue(null);
+    setSnackbar({
+      open: true,
+      message: `Arıza ${selectedIssue.issueNumber} başarıyla güncellendi`,
+      severity: 'success'
+    });
+  };
+
+  const handleUpdateStatus = (issueId: string, newStatus: string) => {
+    setIssues(prev => prev.map(issue => 
+      issue.id === issueId ? { 
+        ...issue, 
+        status: newStatus as any,
+        repairDate: newStatus === 'REPAIRED' ? new Date().toISOString().split('T')[0] : issue.repairDate
+      } : issue
+    ));
+    setSnackbar({
+      open: true,
+      message: 'Arıza durumu başarıyla güncellendi',
+      severity: 'success'
+    });
   };
 
   const filteredIssues = issues.filter(issue => {
-    if (filter.status && issue.status !== filter.status) return false;
-    if (filter.source && issue.source !== filter.source) return false;
-    if (filter.priority && issue.priority !== filter.priority) return false;
-    if (filter.search) {
-      const search = filter.search.toLowerCase();
-      return (
-        issue.issueNumber.toLowerCase().includes(search) ||
-        issue.customerDescription?.toLowerCase().includes(search) ||
-        issue.technicianDescription?.toLowerCase().includes(search) ||
-        issue.company?.name.toLowerCase().includes(search)
-      );
-    }
-    return true;
+    const matchesSearch = !searchTerm || 
+      issue.issueNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      issue.customerDescription?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      issue.company?.name.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStatus = !statusFilter || issue.status === statusFilter;
+    const matchesSource = !sourceFilter || issue.source === sourceFilter;
+    const matchesPriority = !priorityFilter || issue.priority === priorityFilter;
+    
+    return matchesSearch && matchesStatus && matchesSource && matchesPriority;
   });
 
   const getIssueStats = () => {
-    const stats = {
+    return {
       open: issues.filter(i => i.status === 'OPEN').length,
       inProgress: issues.filter(i => i.status === 'IN_PROGRESS').length,
       repaired: issues.filter(i => i.status === 'REPAIRED').length,
       closed: issues.filter(i => i.status === 'CLOSED').length,
     };
-    return stats;
   };
-
-  if (loading) {
-    return (
-      <Layout>
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-          <CircularProgress />
-        </Box>
-      </Layout>
-    );
-  }
 
   const stats = getIssueStats();
 
   return (
-    <Layout>
-      <Box sx={{ p: 3 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-          <Typography variant="h4" component="h1">
-            Arıza Yönetimi
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={handleCreateIssue}
-          >
-            Yeni Arıza Kaydı
-          </Button>
-        </Box>
+    <Box sx={{ p: 3 }}>
+      {/* Header */}
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+        <Typography variant="h4" component="h1" sx={{ fontWeight: 700 }}>
+          Arıza Yönetimi
+        </Typography>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={handleCreateIssue}
+          sx={{ borderRadius: 2 }}
+        >
+          Yeni Arıza Kaydı
+        </Button>
+      </Box>
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-
-        {/* İstatistikler */}
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid item xs={12} sm={3}>
-            <Paper sx={{ p: 2, textAlign: 'center' }}>
-              <Typography variant="h6" color="info.main">
-                {stats.open}
-              </Typography>
-              <Typography variant="body2">Açık Arızalar</Typography>
-            </Paper>
-          </Grid>
-          <Grid item xs={12} sm={3}>
-            <Paper sx={{ p: 2, textAlign: 'center' }}>
-              <Typography variant="h6" color="warning.main">
-                {stats.inProgress}
-              </Typography>
-              <Typography variant="body2">İşlemde</Typography>
-            </Paper>
-          </Grid>
-          <Grid item xs={12} sm={3}>
-            <Paper sx={{ p: 2, textAlign: 'center' }}>
-              <Typography variant="h6" color="success.main">
-                {stats.repaired}
-              </Typography>
-              <Typography variant="body2">Tamir Edildi</Typography>
-            </Paper>
-          </Grid>
-          <Grid item xs={12} sm={3}>
-            <Paper sx={{ p: 2, textAlign: 'center' }}>
-              <Typography variant="h6" color="text.secondary">
-                {stats.closed}
-              </Typography>
-              <Typography variant="body2">Kapalı</Typography>
-            </Paper>
-          </Grid>
+      {/* Stats Cards */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ borderRadius: 2, boxShadow: 1 }}>
+            <CardContent>
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <Box>
+                  <Typography color="textSecondary" gutterBottom>
+                    Açık Arızalar
+                  </Typography>
+                  <Typography variant="h5" component="div" color="info.main">
+                    {stats.open}
+                  </Typography>
+                </Box>
+                <Avatar sx={{ bgcolor: "info.main" }}>
+                  <ErrorIcon />
+                </Avatar>
+              </Box>
+            </CardContent>
+          </Card>
         </Grid>
+        
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ borderRadius: 2, boxShadow: 1 }}>
+            <CardContent>
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <Box>
+                  <Typography color="textSecondary" gutterBottom>
+                    İşlemde
+                  </Typography>
+                  <Typography variant="h5" component="div" color="warning.main">
+                    {stats.inProgress}
+                  </Typography>
+                </Box>
+                <Avatar sx={{ bgcolor: "warning.main" }}>
+                  <BuildIcon />
+                </Avatar>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ borderRadius: 2, boxShadow: 1 }}>
+            <CardContent>
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <Box>
+                  <Typography color="textSecondary" gutterBottom>
+                    Tamir Edildi
+                  </Typography>
+                  <Typography variant="h5" component="div" color="success.main">
+                    {stats.repaired}
+                  </Typography>
+                </Box>
+                <Avatar sx={{ bgcolor: "success.main" }}>
+                  <CheckCircleIcon />
+                </Avatar>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ borderRadius: 2, boxShadow: 1 }}>
+            <CardContent>
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <Box>
+                  <Typography color="textSecondary" gutterBottom>
+                    Kapalı
+                  </Typography>
+                  <Typography variant="h5" component="div" color="text.secondary">
+                    {stats.closed}
+                  </Typography>
+                </Box>
+                <Avatar sx={{ bgcolor: "grey.500" }}>
+                  <CheckCircleIcon />
+                </Avatar>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
-        {/* Filtreler */}
-        <Paper sx={{ p: 2, mb: 3 }}>
+      {/* Search and Filter */}
+      <Card sx={{ borderRadius: 2, boxShadow: 1, mb: 3 }}>
+        <CardContent sx={{ p: 2 }}>
           <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={3}>
-              <TextField
-                fullWidth
-                label="Arama"
-                placeholder="Arıza numarası, açıklama..."
-                value={filter.search || ''}
-                onChange={(e) => setFilter({ ...filter, search: e.target.value })}
-              />
+            <Grid item xs={12} md={4}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <SearchIcon sx={{ color: "text.secondary" }} />
+                <TextField
+                  fullWidth
+                  placeholder="Arıza numarası, açıklama, müşteri ara..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  variant="outlined"
+                  size="small"
+                />
+              </Box>
             </Grid>
-            <Grid item xs={12} sm={3}>
-              <FormControl fullWidth>
+            
+            <Grid item xs={12} md={2}>
+              <FormControl fullWidth size="small">
                 <InputLabel>Durum</InputLabel>
                 <Select
-                  value={filter.status || ''}
+                  value={statusFilter}
                   label="Durum"
-                  onChange={(e) => setFilter({ ...filter, status: e.target.value })}
+                  onChange={(e) => setStatusFilter(e.target.value)}
                 >
                   <MenuItem value="">Tümü</MenuItem>
                   <MenuItem value="OPEN">Açık</MenuItem>
                   <MenuItem value="IN_PROGRESS">İşlemde</MenuItem>
-                  <MenuItem value="WAITING_CUSTOMER_APPROVAL">Müşteri Onayı Bekliyor</MenuItem>
                   <MenuItem value="REPAIRED">Tamir Edildi</MenuItem>
                   <MenuItem value="CLOSED">Kapalı</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={3}>
-              <FormControl fullWidth>
+            
+            <Grid item xs={12} md={2}>
+              <FormControl fullWidth size="small">
                 <InputLabel>Kaynak</InputLabel>
                 <Select
-                  value={filter.source || ''}
+                  value={sourceFilter}
                   label="Kaynak"
-                  onChange={(e) => setFilter({ ...filter, source: e.target.value })}
+                  onChange={(e) => setSourceFilter(e.target.value)}
                 >
                   <MenuItem value="">Tümü</MenuItem>
                   <MenuItem value="CUSTOMER">Müşteri</MenuItem>
@@ -369,13 +610,14 @@ export default function IssuesPage() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={3}>
-              <FormControl fullWidth>
+            
+            <Grid item xs={12} md={2}>
+              <FormControl fullWidth size="small">
                 <InputLabel>Öncelik</InputLabel>
                 <Select
-                  value={filter.priority || ''}
+                  value={priorityFilter}
                   label="Öncelik"
-                  onChange={(e) => setFilter({ ...filter, priority: e.target.value })}
+                  onChange={(e) => setPriorityFilter(e.target.value)}
                 >
                   <MenuItem value="">Tümü</MenuItem>
                   <MenuItem value="CRITICAL">Kritik</MenuItem>
@@ -385,253 +627,657 @@ export default function IssuesPage() {
                 </Select>
               </FormControl>
             </Grid>
+            
+            <Grid item xs={12} md={2}>
+              <Button
+                fullWidth
+                variant="outlined"
+                startIcon={<FilterIcon />}
+                onClick={() => {
+                  setSearchTerm('');
+                  setStatusFilter('');
+                  setSourceFilter('');
+                  setPriorityFilter('');
+                }}
+              >
+                Temizle
+              </Button>
+            </Grid>
           </Grid>
-        </Paper>
+        </CardContent>
+      </Card>
 
-        {/* Arıza Tablosu */}
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Arıza No</TableCell>
-                <TableCell>Kaynak</TableCell>
-                <TableCell>Müşteri</TableCell>
-                <TableCell>Durum</TableCell>
-                <TableCell>Öncelik</TableCell>
-                <TableCell>Garanti</TableCell>
-                <TableCell>Tahmini Maliyet</TableCell>
-                <TableCell>Tarih</TableCell>
-                <TableCell>İşlemler</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredIssues.map((issue) => (
-                <TableRow key={issue.id}>
-                  <TableCell>
-                    <Typography variant="body2" fontWeight="bold">
-                      {issue.issueNumber}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={getSourceLabel(issue.source)}
-                      size="small"
-                      variant="outlined"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {issue.company?.name || '-'}
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={getStatusLabel(issue.status)}
+      {/* Issues List */}
+      <Grid container spacing={3}>
+        {filteredIssues.map((issue) => (
+          <Grid item xs={12} md={6} lg={4} key={issue.id}>
+            <Card 
+              sx={{ 
+                borderRadius: 2, 
+                boxShadow: 1,
+                border: "1px solid",
+                borderColor: "divider",
+                height: "100%",
+                "&:hover": {
+                  boxShadow: 3,
+                  borderColor: "primary.main"
+                }
+              }}
+            >
+              <CardContent sx={{ p: 3 }}>
+                <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", mb: 2 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                    <Avatar sx={{ bgcolor: "primary.main" }}>
+                      {getSourceIcon(issue.source)}
+                    </Avatar>
+                    
+                    <Box>
+                      <Typography variant="h6" component="div" sx={{ fontWeight: 600 }}>
+                        {issue.issueNumber}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {issue.company?.name || "Müşteri bilgisi yok"}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  
+                  <Box sx={{ display: "flex", gap: 1 }}>
+                    <Tooltip title="Görüntüle">
+                      <IconButton 
+                        size="small" 
+                        onClick={() => handleViewIssue(issue)}
+                        sx={{ color: "primary.main" }}
+                      >
+                        <ViewIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    
+                    <Tooltip title="Düzenle">
+                      <IconButton 
+                        size="small" 
+                        onClick={() => handleEditIssue(issue)}
+                        sx={{ color: "warning.main" }}
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    
+                    <Tooltip title="Sil">
+                      <IconButton 
+                        size="small" 
+                        onClick={() => handleDeleteIssue(issue)}
+                        sx={{ color: "error.main" }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                </Box>
+                
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    {issue.customerDescription || "Açıklama yok"}
+                  </Typography>
+                  
+                  <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 1 }}>
+                    <Chip 
+                      label={getStatusLabel(issue.status)} 
                       color={getStatusColor(issue.status) as any}
                       size="small"
+                      onClick={() => {
+                        const statuses = ['OPEN', 'IN_PROGRESS', 'REPAIRED', 'CLOSED'];
+                        const currentIndex = statuses.indexOf(issue.status);
+                        const nextStatus = statuses[(currentIndex + 1) % statuses.length];
+                        handleUpdateStatus(issue.id, nextStatus);
+                      }}
+                      sx={{ cursor: 'pointer' }}
                     />
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={getPriorityLabel(issue.priority)}
+                    <Chip 
+                      label={getPriorityLabel(issue.priority)} 
                       color={getPriorityColor(issue.priority) as any}
                       size="small"
                     />
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={issue.isUnderWarranty ? 'Garanti' : 'Ücretli'}
-                      color={issue.isUnderWarranty ? 'success' : 'warning'}
+                    <Chip 
+                      label={issue.isUnderWarranty ? "Garanti" : "Ücretli"} 
+                      color={issue.isUnderWarranty ? "success" : "warning"}
                       size="small"
+                      variant="outlined"
                     />
-                  </TableCell>
-                  <TableCell>
-                    {issue.estimatedCost ? `${issue.estimatedCost} TL` : '-'}
-                  </TableCell>
-                  <TableCell>
+                  </Box>
+                </Box>
+                
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <Typography variant="body2" color="text.secondary">
                     {new Date(issue.issueDate).toLocaleDateString('tr-TR')}
-                  </TableCell>
-                  <TableCell>
-                    <IconButton
-                      size="small"
-                      onClick={() => handlePreInspection(issue)}
-                      disabled={issue.status !== 'OPEN'}
-                      title="Ön Muayene"
-                    >
-                      <InfoIcon />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleCompleteRepair(issue)}
-                      disabled={issue.status !== 'IN_PROGRESS'}
-                      title="Tamir Tamamla"
-                    >
-                      <CheckCircleIcon />
-                    </IconButton>
-                    <IconButton size="small" title="Görüntüle">
-                      <ViewIcon />
-                    </IconButton>
-                    <IconButton size="small" title="Düzenle">
-                      <EditIcon />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                  </Typography>
+                  
+                  {issue.estimatedCost && (
+                    <Typography variant="body2" color="text.secondary">
+                      {issue.estimatedCost} TL
+                    </Typography>
+                  )}
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
 
-        {/* Yeni Arıza Kaydı Dialog */}
-        <Dialog open={openCreateDialog} onClose={() => setOpenCreateDialog(false)} maxWidth="md" fullWidth>
-          <DialogTitle>Yeni Arıza Kaydı</DialogTitle>
-          <DialogContent>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Kaynak</InputLabel>
-                  <Select label="Kaynak">
-                    <MenuItem value="CUSTOMER">Müşteri</MenuItem>
-                    <MenuItem value="TSP">TSP</MenuItem>
-                    <MenuItem value="FIRST_PRODUCTION">İlk Üretim</MenuItem>
-                  </Select>
-                </FormControl>
+      {filteredIssues.length === 0 && (
+        <Card sx={{ borderRadius: 2, textAlign: "center", p: 4 }}>
+          <Typography variant="h6" color="textSecondary">
+            Arama kriterlerinize uygun arıza bulunamadı
+          </Typography>
+        </Card>
+      )}
+
+      {/* Create Issue Dialog */}
+      <Dialog 
+        open={openCreateDialog} 
+        onClose={() => setOpenCreateDialog(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: 2 }
+        }}
+      >
+        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Yeni Arıza Kaydı
+          </Typography>
+        </DialogTitle>
+        
+        <DialogContent sx={{ p: 3 }}>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth required>
+                <InputLabel>Kaynak *</InputLabel>
+                <Select 
+                  label="Kaynak *"
+                  value={formData.source}
+                  onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+                >
+                  <MenuItem value="CUSTOMER">Müşteri</MenuItem>
+                  <MenuItem value="TSP">TSP</MenuItem>
+                  <MenuItem value="FIRST_PRODUCTION">İlk Üretim</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth required>
+                <InputLabel>Öncelik *</InputLabel>
+                <Select 
+                  label="Öncelik *"
+                  value={formData.priority}
+                  onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+                >
+                  <MenuItem value="LOW">Düşük</MenuItem>
+                  <MenuItem value="MEDIUM">Orta</MenuItem>
+                  <MenuItem value="HIGH">Yüksek</MenuItem>
+                  <MenuItem value="CRITICAL">Kritik</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Müşteri</InputLabel>
+                <Select 
+                  label="Müşteri"
+                  value={formData.companyId}
+                  onChange={(e) => setFormData({ ...formData, companyId: e.target.value })}
+                >
+                  {mockCompanies.map(company => (
+                    <MenuItem key={company.id} value={company.id}>
+                      {company.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Arıza Kategorisi</InputLabel>
+                <Select 
+                  label="Arıza Kategorisi"
+                  value={formData.categoryId}
+                  onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
+                >
+                  {mockCategories.map(category => (
+                    <MenuItem key={category.id} value={category.id}>
+                      {category.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                required
+                label="Müşteri Açıklaması *"
+                multiline
+                rows={3}
+                placeholder="Arıza detaylarını açıklayın..."
+                value={formData.customerDescription}
+                onChange={(e) => setFormData({ ...formData, customerDescription: e.target.value })}
+              />
+            </Grid>
+            
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Teknisyen Açıklaması"
+                multiline
+                rows={2}
+                placeholder="Teknisyen notları..."
+                value={formData.technicianDescription}
+                onChange={(e) => setFormData({ ...formData, technicianDescription: e.target.value })}
+              />
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Garanti Durumu</InputLabel>
+                <Select 
+                  label="Garanti Durumu"
+                  value={formData.isUnderWarranty ? 'true' : 'false'}
+                  onChange={(e) => setFormData({ ...formData, isUnderWarranty: e.target.value === 'true' })}
+                >
+                  <MenuItem value="true">Garanti Kapsamında</MenuItem>
+                  <MenuItem value="false">Garanti Dışı</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Tahmini Maliyet (TL)"
+                type="number"
+                inputProps={{ min: 0 }}
+                value={formData.estimatedCost}
+                onChange={(e) => setFormData({ ...formData, estimatedCost: e.target.value })}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        
+        <DialogActions sx={{ p: 3, pt: 0 }}>
+          <Button onClick={() => setOpenCreateDialog(false)} color="inherit">
+            İptal
+          </Button>
+          <Button 
+            variant="contained"
+            onClick={handleSaveCreate}
+            sx={{ borderRadius: 2 }}
+          >
+            Oluştur
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Issue Dialog */}
+      <Dialog 
+        open={openEditDialog} 
+        onClose={() => setOpenEditDialog(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: 2 }
+        }}
+      >
+        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Arıza Düzenle - {selectedIssue?.issueNumber}
+          </Typography>
+        </DialogTitle>
+        
+        <DialogContent sx={{ p: 3 }}>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Durum</InputLabel>
+                <Select 
+                  label="Durum"
+                  value={selectedIssue?.status || ''}
+                  onChange={(e) => {
+                    if (selectedIssue) {
+                      handleUpdateStatus(selectedIssue.id, e.target.value);
+                    }
+                  }}
+                >
+                  <MenuItem value="OPEN">Açık</MenuItem>
+                  <MenuItem value="IN_PROGRESS">İşlemde</MenuItem>
+                  <MenuItem value="REPAIRED">Tamir Edildi</MenuItem>
+                  <MenuItem value="CLOSED">Kapalı</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Kaynak</InputLabel>
+                <Select 
+                  label="Kaynak"
+                  value={formData.source}
+                  onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+                >
+                  <MenuItem value="CUSTOMER">Müşteri</MenuItem>
+                  <MenuItem value="TSP">TSP</MenuItem>
+                  <MenuItem value="FIRST_PRODUCTION">İlk Üretim</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Öncelik</InputLabel>
+                <Select 
+                  label="Öncelik"
+                  value={formData.priority}
+                  onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+                >
+                  <MenuItem value="LOW">Düşük</MenuItem>
+                  <MenuItem value="MEDIUM">Orta</MenuItem>
+                  <MenuItem value="HIGH">Yüksek</MenuItem>
+                  <MenuItem value="CRITICAL">Kritik</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Müşteri</InputLabel>
+                <Select 
+                  label="Müşteri"
+                  value={formData.companyId}
+                  onChange={(e) => setFormData({ ...formData, companyId: e.target.value })}
+                >
+                  {mockCompanies.map(company => (
+                    <MenuItem key={company.id} value={company.id}>
+                      {company.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Müşteri Açıklaması"
+                multiline
+                rows={3}
+                value={formData.customerDescription}
+                onChange={(e) => setFormData({ ...formData, customerDescription: e.target.value })}
+              />
+            </Grid>
+            
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Teknisyen Açıklaması"
+                multiline
+                rows={3}
+                value={formData.technicianDescription}
+                onChange={(e) => setFormData({ ...formData, technicianDescription: e.target.value })}
+              />
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Tahmini Maliyet (TL)"
+                type="number"
+                inputProps={{ min: 0 }}
+                value={formData.estimatedCost}
+                onChange={(e) => setFormData({ ...formData, estimatedCost: e.target.value })}
+              />
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Gerçek Maliyet (TL)"
+                type="number"
+                inputProps={{ min: 0 }}
+                value={formData.actualCost}
+                onChange={(e) => setFormData({ ...formData, actualCost: e.target.value })}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        
+        <DialogActions sx={{ p: 3, pt: 0 }}>
+          <Button onClick={() => setOpenEditDialog(false)} color="inherit">
+            İptal
+          </Button>
+          <Button 
+            variant="contained"
+            onClick={handleSaveEdit}
+            sx={{ borderRadius: 2 }}
+          >
+            Kaydet
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* View Issue Dialog */}
+      <Dialog 
+        open={openViewDialog} 
+        onClose={() => setOpenViewDialog(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: 2 }
+        }}
+      >
+        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Arıza Detayları - {selectedIssue?.issueNumber}
+          </Typography>
+        </DialogTitle>
+        
+        <DialogContent sx={{ p: 3 }}>
+          {selectedIssue && (
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={6}>
+                <List>
+                  <ListItem>
+                    <ListItemIcon>
+                      <InfoIcon />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Arıza Numarası" 
+                      secondary={selectedIssue.issueNumber} 
+                    />
+                  </ListItem>
+                  
+                  <ListItem>
+                    <ListItemIcon>
+                      <BusinessIcon />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Müşteri" 
+                      secondary={selectedIssue.company?.name || "Belirtilmemiş"} 
+                    />
+                  </ListItem>
+                  
+                  <ListItem>
+                    <ListItemIcon>
+                      <BuildIcon />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Kaynak" 
+                      secondary={getSourceLabel(selectedIssue.source)} 
+                    />
+                  </ListItem>
+                  
+                  <ListItem>
+                    <ListItemIcon>
+                      <CalendarIcon />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Arıza Tarihi" 
+                      secondary={new Date(selectedIssue.issueDate).toLocaleDateString('tr-TR')} 
+                    />
+                  </ListItem>
+                </List>
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Öncelik</InputLabel>
-                  <Select label="Öncelik">
-                    <MenuItem value="LOW">Düşük</MenuItem>
-                    <MenuItem value="MEDIUM">Orta</MenuItem>
-                    <MenuItem value="HIGH">Yüksek</MenuItem>
-                    <MenuItem value="CRITICAL">Kritik</MenuItem>
-                  </Select>
-                </FormControl>
+              
+              <Grid item xs={12} md={6}>
+                <List>
+                  <ListItem>
+                    <ListItemIcon>
+                      <Chip 
+                        label={getStatusLabel(selectedIssue.status)} 
+                        color={getStatusColor(selectedIssue.status) as any}
+                        size="small"
+                      />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Durum" 
+                      secondary={getStatusLabel(selectedIssue.status)} 
+                    />
+                  </ListItem>
+                  
+                  <ListItem>
+                    <ListItemIcon>
+                      <Chip 
+                        label={getPriorityLabel(selectedIssue.priority)} 
+                        color={getPriorityColor(selectedIssue.priority) as any}
+                        size="small"
+                      />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Öncelik" 
+                      secondary={getPriorityLabel(selectedIssue.priority)} 
+                    />
+                  </ListItem>
+                  
+                  <ListItem>
+                    <ListItemIcon>
+                      <MoneyIcon />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Tahmini Maliyet" 
+                      secondary={selectedIssue.estimatedCost ? `${selectedIssue.estimatedCost} TL` : "Belirtilmemiş"} 
+                    />
+                  </ListItem>
+                  
+                  <ListItem>
+                    <ListItemIcon>
+                      <PersonIcon />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Oluşturan" 
+                      secondary={selectedIssue.createdByUser ? `${selectedIssue.createdByUser.firstName} ${selectedIssue.createdByUser.lastName}` : "Belirtilmemiş"} 
+                    />
+                  </ListItem>
+                </List>
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Müşteri</InputLabel>
-                  <Select label="Müşteri">
-                    <MenuItem value="1">ABC Şirketi</MenuItem>
-                    <MenuItem value="2">XYZ Ltd.</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Arıza Kategorisi</InputLabel>
-                  <Select label="Arıza Kategorisi">
-                    <MenuItem value="1">Donanım Arızası</MenuItem>
-                    <MenuItem value="2">Yazılım Sorunu</MenuItem>
-                    <MenuItem value="3">Test Hatası</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
+              
               <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Müşteri Açıklaması"
-                  multiline
-                  rows={3}
-                  placeholder="Arıza detaylarını açıklayın..."
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Tahmini Maliyet (TL)"
-                  type="number"
-                  inputProps={{ min: 0 }}
-                />
+                <Divider sx={{ my: 2 }} />
+                <Typography variant="h6" gutterBottom>
+                  Müşteri Açıklaması
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {selectedIssue.customerDescription || "Açıklama yok"}
+                </Typography>
+                
+                {selectedIssue.technicianDescription && (
+                  <>
+                    <Typography variant="h6" gutterBottom>
+                      Teknisyen Açıklaması
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {selectedIssue.technicianDescription}
+                    </Typography>
+                  </>
+                )}
               </Grid>
             </Grid>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setOpenCreateDialog(false)}>İptal</Button>
-            <Button variant="contained">Oluştur</Button>
-          </DialogActions>
-        </Dialog>
+          )}
+        </DialogContent>
+        
+        <DialogActions sx={{ p: 3, pt: 0 }}>
+          <Button onClick={() => setOpenViewDialog(false)} color="inherit">
+            Kapat
+          </Button>
+          <Button 
+            variant="contained"
+            onClick={() => {
+              setOpenViewDialog(false);
+              if (selectedIssue) {
+                handleEditIssue(selectedIssue);
+              }
+            }}
+            sx={{ borderRadius: 2 }}
+          >
+            Düzenle
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-        {/* Ön Muayene Dialog */}
-        <Dialog open={openPreInspectionDialog} onClose={() => setOpenPreInspectionDialog(false)} maxWidth="md" fullWidth>
-          <DialogTitle>Ön Muayene</DialogTitle>
-          <DialogContent>
-            {selectedIssue && (
-              <Grid container spacing={2} sx={{ mt: 1 }}>
-                <Grid item xs={12}>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    Arıza No: {selectedIssue.issueNumber}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="Teknisyen Açıklaması"
-                    multiline
-                    rows={4}
-                    placeholder="Ön muayene bulgularını ve yapılacak işlemleri açıklayın..."
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>Garanti Kapsamında mı?</InputLabel>
-                    <Select label="Garanti Kapsamında mı?">
-                      <MenuItem value="true">Evet</MenuItem>
-                      <MenuItem value="false">Hayır</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Tahmini Maliyet (TL)"
-                    type="number"
-                    inputProps={{ min: 0 }}
-                  />
-                </Grid>
-              </Grid>
-            )}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setOpenPreInspectionDialog(false)}>İptal</Button>
-            <Button variant="contained">Tamamla</Button>
-          </DialogActions>
-        </Dialog>
+      {/* Delete Confirmation Dialog */}
+      <Dialog 
+        open={openDeleteDialog} 
+        onClose={() => setOpenDeleteDialog(false)}
+        PaperProps={{
+          sx: { borderRadius: 2 }
+        }}
+      >
+        <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <ErrorIcon color="error" />
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Arıza Silme Onayı
+          </Typography>
+        </DialogTitle>
+        
+        <DialogContent sx={{ p: 3 }}>
+          <Typography variant="body1">
+            <strong>{selectedIssue?.issueNumber}</strong> numaralı arıza kaydını silmek istediğinizden emin misiniz?
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            Bu işlem geri alınamaz.
+          </Typography>
+        </DialogContent>
+        
+        <DialogActions sx={{ p: 3, pt: 0 }}>
+          <Button onClick={() => setOpenDeleteDialog(false)} color="inherit">
+            İptal
+          </Button>
+          <Button 
+            variant="contained"
+            color="error"
+            onClick={handleConfirmDelete}
+            sx={{ borderRadius: 2 }}
+          >
+            Sil
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-        {/* Tamir Tamamlama Dialog */}
-        <Dialog open={openCompleteRepairDialog} onClose={() => setOpenCompleteRepairDialog(false)} maxWidth="md" fullWidth>
-          <DialogTitle>Tamir Tamamlama</DialogTitle>
-          <DialogContent>
-            {selectedIssue && (
-              <Grid container spacing={2} sx={{ mt: 1 }}>
-                <Grid item xs={12}>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    Arıza No: {selectedIssue.issueNumber}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="Teknisyen Açıklaması"
-                    multiline
-                    rows={4}
-                    placeholder="Yapılan işlemleri ve sonuçları açıklayın..."
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Gerçek Maliyet (TL)"
-                    type="number"
-                    inputProps={{ min: 0 }}
-                  />
-                </Grid>
-              </Grid>
-            )}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setOpenCompleteRepairDialog(false)}>İptal</Button>
-            <Button variant="contained">Tamamla</Button>
-          </DialogActions>
-        </Dialog>
-      </Box>
-    </Layout>
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} 
+          severity={snackbar.severity}
+          sx={{ borderRadius: 2 }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </Box>
   );
 }

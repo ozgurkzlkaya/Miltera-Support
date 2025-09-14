@@ -29,8 +29,9 @@ const AuthLayout = ({ children }: { children: React.ReactNode }) => {
               width={150}
               height={26}
               style={{
-                maxWidth: "100%",
+                width: "auto",
                 height: "auto",
+                maxWidth: "100%",
               }}
               priority
             />

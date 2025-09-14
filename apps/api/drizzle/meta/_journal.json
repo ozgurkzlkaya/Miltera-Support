@@ -15,6 +15,13 @@
       "when": 1756132646428,
       "tag": "0001_safe_lady_bullseye",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1757893242965,
+      "tag": "0002_clumsy_alex_wilder",
+      "breakpoints": true
     }
   ]
 }
