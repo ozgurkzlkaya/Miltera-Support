@@ -1,5 +1,5 @@
 import { createControllerAction } from "./base.controller";
-import { ServiceOperationsService } from "../services/service-operations.service";
+import { serviceOperationsService } from "../services/service-operations.service";
 import { createSuccessResponse, createErrorResponse } from "../helpers/response.helpers";
 import type { HonoEnv } from "../config/env";
 import type { 
@@ -8,8 +8,6 @@ import type {
   ServiceWorkflow, 
   RepairSummary 
 } from "../dtos/service-operations.dto";
-
-const serviceOperationsService = new ServiceOperationsService();
 
 const ServiceOperationsController = {
   // Basic CRUD Operations
@@ -23,114 +21,111 @@ const ServiceOperationsController = {
       return c.responseJSON(createSuccessResponse(result));
     } catch (error) {
       console.error('Error listing service operations:', error);
-      return c.responseJSON(createErrorResponse(500, 'Internal server error'));
+      return c.responseJSON(createErrorResponse('INTERNAL_SERVER_ERROR', 'Internal server error', 500));
     }
   }),
 
   show: createControllerAction(async (c) => {
     try {
-      const { id } = c.req.param();
+      const id = c.req.param('id');
+      if (!id) {
+        return c.responseJSON(createErrorResponse('BAD_REQUEST', 'ID parameter is required', 400));
+      }
       const operation = await serviceOperationsService.getServiceOperationById(id);
       
       if (!operation) {
-        return c.responseJSON(createErrorResponse(404, 'Service operation not found'));
+        return c.responseJSON(createErrorResponse('NOT_FOUND', 'Service operation not found', 404));
       }
       
       return c.responseJSON(createSuccessResponse(operation));
     } catch (error) {
       console.error('Error showing service operation:', error);
-      return c.responseJSON(createErrorResponse(500, 'Internal server error'));
+      return c.responseJSON(createErrorResponse('INTERNAL_SERVER_ERROR', 'Internal server error', 500));
     }
   }),
 
   create: createControllerAction(async (c) => {
     try {
       const body = await c.req.json() as ServiceOperationCreate;
+      console.log('Creating service operation with body:', body);
+      
       const operation = await serviceOperationsService.createServiceOperation(body);
       return c.responseJSON(createSuccessResponse(operation));
     } catch (error) {
       console.error('Error creating service operation:', error);
-      return c.responseJSON(createErrorResponse(500, 'Internal server error'));
+      return c.responseJSON(createErrorResponse('INTERNAL_SERVER_ERROR', 'Internal server error', 500));
     }
   }),
 
   update: createControllerAction(async (c) => {
     try {
-      const { id } = c.req.param();
+      const id = c.req.param('id');
+      if (!id) {
+        return c.responseJSON(createErrorResponse('BAD_REQUEST', 'ID parameter is required', 400));
+      }
+      
       const body = await c.req.json() as ServiceOperationUpdate;
       const operation = await serviceOperationsService.updateServiceOperation({
         operationId: id,
         ...body
       });
       
-      if (!operation) {
-        return c.responseJSON(createErrorResponse(404, 'Service operation not found'));
-      }
-      
       return c.responseJSON(createSuccessResponse(operation));
     } catch (error) {
       console.error('Error updating service operation:', error);
-      return c.responseJSON(createErrorResponse(500, 'Internal server error'));
+      return c.responseJSON(createErrorResponse('INTERNAL_SERVER_ERROR', 'Internal server error', 500));
     }
   }),
 
-  // Workflow Operations
-  createWorkflow: createControllerAction(async (c) => {
+  delete: createControllerAction(async (c) => {
     try {
-      const body = await c.req.json() as ServiceWorkflow;
-      const result = await serviceOperationsService.createServiceWorkflow(body);
-      return c.responseJSON(createSuccessResponse(result));
+      const id = c.req.param('id');
+      if (!id) {
+        return c.responseJSON(createErrorResponse('BAD_REQUEST', 'ID parameter is required', 400));
+      }
+      
+      const operation = await serviceOperationsService.deleteServiceOperation(id);
+      return c.responseJSON(createSuccessResponse(operation));
     } catch (error) {
-      console.error('Error creating service workflow:', error);
-      return c.responseJSON(createErrorResponse(500, 'Internal server error'));
+      console.error('Error deleting service operation:', error);
+      return c.responseJSON(createErrorResponse('INTERNAL_SERVER_ERROR', 'Internal server error', 500));
     }
   }),
 
-  createRepairSummary: createControllerAction(async (c) => {
-    try {
-      const body = await c.req.json() as RepairSummary;
-      const result = await serviceOperationsService.createRepairSummary(body);
-      return c.responseJSON(createSuccessResponse(result));
-    } catch (error) {
-      console.error('Error creating repair summary:', error);
-      return c.responseJSON(createErrorResponse(500, 'Internal server error'));
-    }
-  }),
-
-  // Statistics and Reports
-  getStats: createControllerAction(async (c) => {
-    try {
-      const stats = await serviceOperationsService.getServiceOperationStats();
-      return c.responseJSON(createSuccessResponse(stats));
-    } catch (error) {
-      console.error('Error getting service operation stats:', error);
-      return c.responseJSON(createErrorResponse(500, 'Internal server error'));
-    }
-  }),
-
+  // Advanced Operations
   getTechnicianPerformance: createControllerAction(async (c) => {
     try {
+      const technicianId = c.req.param('technicianId');
       const query = c.req.query();
       const dateFrom = query.dateFrom ? new Date(query.dateFrom) : undefined;
       const dateTo = query.dateTo ? new Date(query.dateTo) : undefined;
       
-      const report = await serviceOperationsService.getTechnicianPerformanceReport(dateFrom, dateTo);
-      return c.responseJSON(createSuccessResponse(report));
+      const performance = await serviceOperationsService.getTechnicianPerformance(
+        technicianId!, 
+        dateFrom, 
+        dateTo
+      );
+      
+      return c.responseJSON(createSuccessResponse(performance));
     } catch (error) {
-      console.error('Error getting technician performance:', error);
-      return c.responseJSON(createErrorResponse(500, 'Internal server error'));
+      console.error('Error fetching technician performance:', error);
+      return c.responseJSON(createErrorResponse('INTERNAL_SERVER_ERROR', 'Internal server error', 500));
     }
   }),
 
   getNonWarrantyOperations: createControllerAction(async (c) => {
     try {
-      const operations = await serviceOperationsService.getNonWarrantyOperations();
+      const query = c.req.query();
+      const dateFrom = query.dateFrom ? new Date(query.dateFrom) : undefined;
+      const dateTo = query.dateTo ? new Date(query.dateTo) : undefined;
+      
+      const operations = await serviceOperationsService.getNonWarrantyOperations(dateFrom, dateTo);
       return c.responseJSON(createSuccessResponse(operations));
     } catch (error) {
-      console.error('Error getting non-warranty operations:', error);
-      return c.responseJSON(createErrorResponse(500, 'Internal server error'));
+      console.error('Error fetching non-warranty operations:', error);
+      return c.responseJSON(createErrorResponse('INTERNAL_SERVER_ERROR', 'Internal server error', 500));
     }
-  }),
+  })
 };
 
 export default ServiceOperationsController;

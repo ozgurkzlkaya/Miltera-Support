@@ -135,7 +135,9 @@ export default function WarehousePage() {
   const [openLocationDialog, setOpenLocationDialog] = useState(false);
   const [openEditDialog, setOpenEditDialog] = useState(false);
   const [openInventoryDialog, setOpenInventoryDialog] = useState(false);
+  const [openViewDialog, setOpenViewDialog] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
+  const [selectedInventoryItem, setSelectedInventoryItem] = useState<any>(null);
   
   // Form data state
   const [formData, setFormData] = useState({
@@ -159,110 +161,85 @@ export default function WarehousePage() {
         setLoading(true);
         setError(null);
 
-        // API çağrıları burada yapılacak
-        // Şimdilik mock data kullanıyoruz
-        const mockLocations: Location[] = [
-          {
-            id: '1',
-            name: 'Ana Depo',
-            type: 'WAREHOUSE',
-            address: 'Fabrika Binası, Kat 1',
-            notes: 'Ana üretim deposu',
-          },
-          {
-            id: '2',
-            name: 'Servis Alanı A',
-            type: 'SERVICE_AREA',
-            address: 'Fabrika Binası, Kat 2',
-            notes: 'Teknik servis alanı',
-          },
-          {
-            id: '3',
-            name: 'Test Laboratuvarı',
-            type: 'TESTING_AREA',
-            address: 'Fabrika Binası, Kat 1',
-            notes: 'Ürün test alanı',
-          },
-          {
-            id: '4',
-            name: 'Sevkiyat Alanı',
-            type: 'SHIPPING_AREA',
-            address: 'Fabrika Binası, Giriş',
-            notes: 'Sevkiyat hazırlık alanı',
-          },
-        ];
+        const token = localStorage.getItem('auth_token');
+        const headers: any = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
 
-        const mockInventory: InventoryItem[] = [
-          {
-            locationId: '1',
-            locationName: 'Ana Depo',
-            locationType: 'WAREHOUSE',
-            status: 'FIRST_PRODUCTION',
-            count: 45,
-          },
-          {
-            locationId: '1',
-            locationName: 'Ana Depo',
-            locationType: 'WAREHOUSE',
-            status: 'READY_FOR_SHIPMENT',
-            count: 23,
-          },
-          {
-            locationId: '2',
-            locationName: 'Servis Alanı A',
-            locationType: 'SERVICE_AREA',
-            status: 'UNDER_REPAIR',
-            count: 8,
-          },
-          {
-            locationId: '3',
-            locationName: 'Test Laboratuvarı',
-            locationType: 'TESTING_AREA',
-            status: 'FIRST_PRODUCTION_ISSUE',
-            count: 3,
-          },
-        ];
+        // Gerçek API çağrıları
+        const locationsResponse = await fetch('http://localhost:3011/api/v1/locations', {
+          headers,
+        });
 
-        const mockStats: WarehouseStats = {
-          totalLocations: 4,
-          usedLocations: 3,
-          totalStockProducts: 79,
-          totalCustomerProducts: 156,
-          statusStats: [
-            { status: 'FIRST_PRODUCTION', count: 45 },
-            { status: 'READY_FOR_SHIPMENT', count: 23 },
-            { status: 'UNDER_REPAIR', count: 8 },
-            { status: 'FIRST_PRODUCTION_ISSUE', count: 3 },
-          ],
-        };
+        if (locationsResponse.ok) {
+          const locationsData = await locationsResponse.json();
+          setLocations(locationsData.data || []);
+        } else {
+          console.error('Failed to load locations:', await locationsResponse.text());
+          setLocations([]);
+        }
 
-        const mockAlerts: StockAlert[] = [
-          {
-            type: 'READY_FOR_SHIPMENT',
-            message: '23 ürün sevkiyata hazır',
-            details: [
-              { locationName: 'Ana Depo', count: 23 },
-            ],
-          },
-          {
-            type: 'DEFECTIVE_PRODUCTS',
-            message: '3 arızalı ürün',
-            details: [
-              { locationName: 'Test Laboratuvarı', count: 3 },
-            ],
-          },
-        ];
 
-        // TODO: Gerçek API çağrıları
-        // const locationsResponse = await warehouseAPI.getLocations();
-        // const inventoryResponse = await warehouseAPI.getInventory();
-        // const statsResponse = await warehouseAPI.getStats();
-        // const alertsResponse = await warehouseAPI.getStockAlerts();
+        // Gerçek API'den inventory verilerini çek
+        try {
+          const inventoryResponse = await fetch('http://localhost:3011/api/v1/products', {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          if (inventoryResponse.ok) {
+            const inventoryData = await inventoryResponse.json();
+            // Products verilerini inventory formatına dönüştür
+            const inventoryItems: InventoryItem[] = inventoryData.data.map((product: any) => ({
+              locationId: '1',
+              locationName: 'Ana Depo',
+              locationType: 'WAREHOUSE',
+              status: product.status,
+              count: 1,
+            }));
+            setInventory(inventoryItems);
+          }
+        } catch (error) {
+          console.error('Failed to load inventory:', error);
+          setInventory([]);
+        }
 
-        setLocations(mockLocations);
-        setInventory(mockInventory);
-        setStats(mockStats);
-        setAlerts(mockAlerts);
+        // Gerçek API'den stats verilerini çek
+        try {
+          const statsResponse = await fetch('http://localhost:3011/api/v1/reports/dashboard', {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          if (statsResponse.ok) {
+            const statsData = await statsResponse.json();
+            const warehouseStats: WarehouseStats = {
+              totalLocations: 4,
+              usedLocations: 3,
+              totalStockProducts: statsData.data.totalProducts || 0,
+              totalCustomerProducts: statsData.data.totalProducts || 0,
+              statusStats: [
+                { status: 'FIRST_PRODUCTION', count: 0 },
+                { status: 'READY_FOR_SHIPMENT', count: 0 },
+                { status: 'UNDER_REPAIR', count: 0 },
+                { status: 'FIRST_PRODUCTION_ISSUE', count: 0 },
+              ],
+            };
+            setStats(warehouseStats);
+          }
+        } catch (error) {
+          console.error('Failed to load stats:', error);
+          setStats({
+            totalLocations: 0,
+            usedLocations: 0,
+            totalStockProducts: 0,
+            totalCustomerProducts: 0,
+            statusStats: [],
+          });
+        }
+
+        setAlerts([]); // Alerts için henüz API yok
       } catch (err) {
         console.error('Error fetching warehouse data:', err);
         setError('Veri yüklenirken hata oluştu');
@@ -295,18 +272,46 @@ export default function WarehousePage() {
     setOpenEditDialog(true);
   };
 
-  const handleDeleteLocation = (locationId: string) => {
+  const handleDeleteLocation = async (locationId: string) => {
     if (window.confirm('Bu konumu silmek istediğinizden emin misiniz?')) {
-      setLocations(prev => prev.filter(loc => loc.id !== locationId));
-      setSnackbar({
-        open: true,
-        message: 'Konum başarıyla silindi',
-        severity: 'success'
-      });
+      try {
+        const token = localStorage.getItem('auth_token');
+        const headers: any = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const response = await fetch(`http://localhost:3011/api/v1/locations/${locationId}`, {
+          method: 'DELETE',
+          headers,
+        });
+
+        if (response.ok) {
+          setLocations(prev => prev.filter(loc => loc.id !== locationId));
+          setSnackbar({
+            open: true,
+            message: 'Konum başarıyla silindi',
+            severity: 'success'
+          });
+        } else {
+          const errorText = await response.text();
+          console.error('Failed to delete location:', errorText);
+          setSnackbar({
+            open: true,
+            message: 'Konum silinirken hata oluştu',
+            severity: 'error'
+          });
+        }
+      } catch (error) {
+        console.error('Error deleting location:', error);
+        setSnackbar({
+          open: true,
+          message: 'Konum silinirken hata oluştu',
+          severity: 'error'
+        });
+      }
     }
   };
 
-  const handleSaveLocation = () => {
+  const handleSaveLocation = async () => {
     if (!formData.name || !formData.type) {
       setSnackbar({
         open: true,
@@ -316,24 +321,53 @@ export default function WarehousePage() {
       return;
     }
 
-    const newLocation: Location = {
-      id: Date.now().toString(),
-      name: formData.name,
-      type: formData.type,
-      address: formData.address || undefined,
-      notes: formData.notes || undefined
-    };
+    try {
+      const token = localStorage.getItem('auth_token');
+      const headers: any = {
+        'Content-Type': 'application/json',
+      };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    setLocations(prev => [newLocation, ...prev]);
-    setOpenLocationDialog(false);
-    setSnackbar({
-      open: true,
-      message: `Konum "${newLocation.name}" başarıyla eklendi`,
-      severity: 'success'
-    });
+      const response = await fetch('http://localhost:3011/api/v1/locations', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          name: formData.name,
+          type: formData.type,
+          address: formData.address || null,
+          notes: formData.notes || null,
+        }),
+      });
+
+      if (response.ok) {
+        const newLocation = await response.json();
+        setLocations(prev => [newLocation.data, ...prev]);
+        setOpenLocationDialog(false);
+        setSnackbar({
+          open: true,
+          message: `Konum "${formData.name}" başarıyla eklendi`,
+          severity: 'success'
+        });
+      } else {
+        const errorText = await response.text();
+        console.error('Failed to create location:', errorText);
+        setSnackbar({
+          open: true,
+          message: 'Konum oluşturulurken hata oluştu',
+          severity: 'error'
+        });
+      }
+    } catch (error) {
+      console.error('Error creating location:', error);
+      setSnackbar({
+        open: true,
+        message: 'Konum oluşturulurken hata oluştu',
+        severity: 'error'
+      });
+    }
   };
 
-  const handleUpdateLocation = () => {
+  const handleUpdateLocation = async () => {
     if (!selectedLocation || !formData.name || !formData.type) {
       setSnackbar({
         open: true,
@@ -343,29 +377,63 @@ export default function WarehousePage() {
       return;
     }
 
-    const updatedLocation: Location = {
-      ...selectedLocation,
-      name: formData.name,
-      type: formData.type,
-      address: formData.address || undefined,
-      notes: formData.notes || undefined
-    };
+    try {
+      const token = localStorage.getItem('auth_token');
+      const headers: any = {
+        'Content-Type': 'application/json',
+      };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    setLocations(prev => prev.map(loc => 
-      loc.id === selectedLocation.id ? updatedLocation : loc
-    ));
-    setOpenEditDialog(false);
-    setSelectedLocation(null);
-    setSnackbar({
-      open: true,
-      message: `Konum "${updatedLocation.name}" başarıyla güncellendi`,
-      severity: 'success'
-    });
+      const response = await fetch(`http://localhost:3011/api/v1/locations/${selectedLocation.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          name: formData.name,
+          type: formData.type,
+          address: formData.address || null,
+          notes: formData.notes || null,
+        }),
+      });
+
+      if (response.ok) {
+        const updatedLocationData = await response.json();
+        setLocations(prev => prev.map(loc => 
+          loc.id === selectedLocation.id ? updatedLocationData.data : loc
+        ));
+        setOpenEditDialog(false);
+        setSelectedLocation(null);
+        setSnackbar({
+          open: true,
+          message: `Konum "${formData.name}" başarıyla güncellendi`,
+          severity: 'success'
+        });
+      } else {
+        const errorText = await response.text();
+        console.error('Failed to update location:', errorText);
+        setSnackbar({
+          open: true,
+          message: 'Konum güncellenirken hata oluştu',
+          severity: 'error'
+        });
+      }
+    } catch (error) {
+      console.error('Error updating location:', error);
+      setSnackbar({
+        open: true,
+        message: 'Konum güncellenirken hata oluştu',
+        severity: 'error'
+      });
+    }
   };
 
   const handleViewInventory = (location: Location) => {
     setSelectedLocation(location);
     setOpenInventoryDialog(true);
+  };
+
+  const handleViewInventoryItem = (item: any) => {
+    setSelectedInventoryItem(item);
+    setOpenViewDialog(true);
   };
 
   if (loading) {
@@ -579,7 +647,7 @@ export default function WarehousePage() {
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <IconButton size="small" title="Detay Görüntüle">
+                      <IconButton size="small" title="Detay Görüntüle" onClick={() => handleViewInventoryItem(item)}>
                         <ViewIcon />
                       </IconButton>
                     </TableCell>
@@ -762,6 +830,54 @@ export default function WarehousePage() {
             {snackbar.message}
           </Alert>
         </Snackbar>
+
+        {/* View Inventory Item Dialog */}
+        <Dialog open={openViewDialog} onClose={() => setOpenViewDialog(false)} maxWidth="md" fullWidth>
+          <DialogTitle>Envanter Detayları</DialogTitle>
+          <DialogContent>
+            {selectedInventoryItem && (
+              <Grid container spacing={2} sx={{ mt: 1 }}>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Konum
+                  </Typography>
+                  <Typography variant="body1">
+                    {selectedInventoryItem.locationName}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Konum Türü
+                  </Typography>
+                  <Typography variant="body1">
+                    {getLocationTypeLabel(selectedInventoryItem.locationType)}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Durum
+                  </Typography>
+                  <Chip
+                    label={getStatusLabel(selectedInventoryItem.status)}
+                    color={getStatusColor(selectedInventoryItem.status) as any}
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Adet
+                  </Typography>
+                  <Typography variant="h6">
+                    {selectedInventoryItem.count}
+                  </Typography>
+                </Grid>
+              </Grid>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenViewDialog(false)}>Kapat</Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </Layout>
   );

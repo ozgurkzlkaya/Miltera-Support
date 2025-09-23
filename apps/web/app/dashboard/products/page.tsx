@@ -44,18 +44,23 @@ interface Product {
   productionDate: string;
   warrantyStatus: string;
   productModel: {
+    id: string;
     name: string;
   };
   productType: {
+    id: string;
     name: string;
   };
   manufacturer: {
+    id: string;
     name: string;
   };
   location: {
+    id: string;
     name: string;
   } | null;
   owner: {
+    id: string;
     name: string;
   } | null;
 }
@@ -129,58 +134,204 @@ export default function ProductsPage() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<ProductFilter>({});
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
+  const [openEditDialog, setOpenEditDialog] = useState(false);
+  const [openViewDialog, setOpenViewDialog] = useState(false);
   const [openHardwareDialog, setOpenHardwareDialog] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
-  // Mock data - gerçek API'den gelecek
+  // NEW: create form state and options
+  const [createForm, setCreateForm] = useState({
+    productModelId: '',
+    quantity: 1,
+    productionDate: '',
+    locationId: '',
+  });
+  const [models, setModels] = useState<Array<{ id: string; name: string }>>([]);
+  const [locations, setLocations] = useState<Array<{ id: string; name: string }>>([]);
+
+  // Load options from API
   useEffect(() => {
-    const mockProducts: Product[] = [
-      {
-        id: '1',
-        serialNumber: 'SN001',
-        status: 'FIRST_PRODUCTION',
-        productionDate: '2025-01-15',
-        warrantyStatus: 'PENDING',
-        productModel: { name: 'Gateway-2000' },
-        productType: { name: 'Ağ Geçidi' },
-        manufacturer: { name: 'Miltera' },
-        location: { name: 'Depo A' },
-        owner: null,
-      },
-      {
-        id: '2',
-        serialNumber: 'SN002',
-        status: 'READY_FOR_SHIPMENT',
-        productionDate: '2025-01-10',
-        warrantyStatus: 'IN_WARRANTY',
-        productModel: { name: 'Energy Analyzer' },
-        productType: { name: 'Enerji Analizörü' },
-        manufacturer: { name: 'Miltera' },
-        location: { name: 'Depo B' },
-        owner: null,
-      },
-      {
-        id: '3',
-        serialNumber: 'SN003',
-        status: 'SHIPPED',
-        productionDate: '2025-01-05',
-        warrantyStatus: 'IN_WARRANTY',
-        productModel: { name: 'VPN Router' },
-        productType: { name: 'VPN Router' },
-        manufacturer: { name: 'Miltera' },
-        location: null,
-        owner: { name: 'ABC Şirketi' },
-      },
-    ];
+    const loadOptions = async () => {
+      try {
+        const token = localStorage.getItem('auth_token');
+        const headers: any = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    setTimeout(() => {
-      setProducts(mockProducts);
-      setLoading(false);
-    }, 1000);
+        // product models
+        try {
+          const res = await fetch('http://localhost:3011/api/v1/product-models', { headers });
+          if (res.ok) {
+            const data = await res.json();
+            setModels((data?.data ?? []).map((m: any) => ({ id: m.id, name: m.name })));
+          }
+        } catch {}
+
+        // locations
+        try {
+          const res = await fetch('http://localhost:3011/api/v1/locations', { headers });
+          if (res.ok) {
+            const data = await res.json();
+            setLocations((data?.data ?? []).map((l: any) => ({ id: l.id, name: l.name })));
+          }
+        } catch {}
+      } catch {}
+    };
+    loadOptions();
+  }, []);
+
+  // Load products from API
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        const token = localStorage.getItem('auth_token');
+        const headers: any = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const res = await fetch('http://localhost:3011/api/v1/products', {
+          headers,
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setProducts(data.data || []);
+        } else {
+          console.error('Failed to load products:', await res.text());
+          // API başarısız olduğunda boş veri
+          setProducts([]);
+        }
+      } catch (error) {
+        console.error('Error loading products:', error);
+        setProducts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProducts();
   }, []);
 
   const handleCreateProduct = () => {
     setOpenCreateDialog(true);
+  };
+
+  const handleViewProduct = (product: Product) => {
+    setSelectedProduct(product);
+    setOpenViewDialog(true);
+  };
+
+  // NEW: save handler
+  const handleSubmitCreate = async () => {
+    try {
+      if (!createForm.productModelId || !createForm.productionDate) {
+        setError('Lütfen zorunlu alanları doldurun');
+        return;
+      }
+      const token = localStorage.getItem('auth_token');
+      const headers: any = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const payload = {
+        productModelId: createForm.productModelId,
+        quantity: Number(createForm.quantity) || 1,
+        productionDate: createForm.productionDate,
+        locationId: createForm.locationId || undefined,
+        createdBy: 'ce2a6761-82e3-48ba-af33-2f49b4b73e35', // Admin user ID
+      };
+
+      const res = await fetch('http://localhost:3011/api/v1/products', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        console.error('Product creation error:', errorData);
+        throw new Error(errorData.error?.message || errorData.message || 'Ürün oluşturulamadı');
+      }
+
+      // Refresh the product list
+      setOpenCreateDialog(false);
+      setCreateForm({ productModelId: '', quantity: 1, productionDate: '', locationId: '' });
+      setError(null);
+      
+      // Reload products from API
+      const refreshToken = localStorage.getItem('auth_token');
+      const refreshHeaders: any = {};
+      if (refreshToken) refreshHeaders['Authorization'] = `Bearer ${refreshToken}`;
+
+      const refreshRes = await fetch('http://localhost:3011/api/v1/products', {
+        headers: refreshHeaders,
+      });
+
+      if (refreshRes.ok) {
+        const refreshData = await refreshRes.json();
+        setProducts(refreshData.data || []);
+      } else {
+        console.error('Failed to refresh products:', await refreshRes.text());
+      }
+    } catch (e: any) {
+      setError(e?.message || 'Ürün kaydedilirken hata oluştu');
+    }
+  };
+
+  const handleEditProduct = (product: Product) => {
+    setEditingProduct(product);
+    setCreateForm({
+      productModelId: product.productModel?.id || '',
+      quantity: 1,
+      productionDate: product.productionDate,
+      locationId: product.location?.id || '',
+    });
+    setOpenEditDialog(true);
+  };
+
+  const handleSubmitEdit = async () => {
+    if (!editingProduct) return;
+    
+    try {
+      const token = localStorage.getItem('auth_token');
+      const headers: any = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const payload = {
+        productModelId: createForm.productModelId,
+        productionDate: createForm.productionDate,
+        locationId: createForm.locationId || undefined,
+        updatedBy: 'ce2a6761-82e3-48ba-af33-2f49b4b73e35', // Admin user ID
+      };
+
+      const res = await fetch(`http://localhost:3011/api/v1/products/${editingProduct.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        console.error('Product update error:', errorData);
+        throw new Error(errorData.error?.message || errorData.message || 'Ürün güncellenemedi');
+      }
+
+      setOpenEditDialog(false);
+      setEditingProduct(null);
+      setError(null);
+      
+      // Reload products from API
+      const refreshRes = await fetch('http://localhost:3011/api/v1/products', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (refreshRes.ok) {
+        const refreshData = await refreshRes.json();
+        setProducts(refreshData.data || []);
+      } else {
+        console.error('Failed to refresh products after edit:', await refreshRes.text());
+      }
+    } catch (e: any) {
+      setError(e?.message || 'Ürün güncellenirken hata oluştu');
+    }
   };
 
   const handleHardwareVerification = (product: Product) => {
@@ -315,10 +466,10 @@ export default function ProductsPage() {
                     >
                       <CheckCircleIcon />
                     </IconButton>
-                    <IconButton size="small" title="Görüntüle">
+                    <IconButton size="small" title="Görüntüle" onClick={() => handleViewProduct(product)}>
                       <ViewIcon />
                     </IconButton>
-                    <IconButton size="small" title="Düzenle">
+                    <IconButton size="small" title="Düzenle" onClick={() => handleEditProduct(product)}>
                       <EditIcon />
                     </IconButton>
                   </TableCell>
@@ -336,10 +487,17 @@ export default function ProductsPage() {
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth>
                   <InputLabel>Ürün Modeli</InputLabel>
-                  <Select label="Ürün Modeli">
-                    <MenuItem value="1">Gateway-2000</MenuItem>
-                    <MenuItem value="2">Energy Analyzer</MenuItem>
-                    <MenuItem value="3">VPN Router</MenuItem>
+                  <Select
+                    label="Ürün Modeli"
+                    value={createForm.productModelId}
+                    onChange={(e) => setCreateForm((s) => ({ ...s, productModelId: String(e.target.value) }))}
+                  >
+                    {models.length === 0 && (
+                      <MenuItem value="1">Gateway-2000</MenuItem>
+                    )}
+                    {models.map((m) => (
+                      <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
               </Grid>
@@ -348,6 +506,8 @@ export default function ProductsPage() {
                   fullWidth
                   label="Adet"
                   type="number"
+                  value={createForm.quantity}
+                  onChange={(e) => setCreateForm((s) => ({ ...s, quantity: Number(e.target.value) }))}
                   inputProps={{ min: 1, max: 100 }}
                 />
               </Grid>
@@ -356,16 +516,25 @@ export default function ProductsPage() {
                   fullWidth
                   label="Üretim Tarihi"
                   type="date"
+                  value={createForm.productionDate}
+                  onChange={(e) => setCreateForm((s) => ({ ...s, productionDate: e.target.value }))}
                   InputLabelProps={{ shrink: true }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth>
                   <InputLabel>Konum</InputLabel>
-                  <Select label="Konum">
-                    <MenuItem value="1">Depo A</MenuItem>
-                    <MenuItem value="2">Depo B</MenuItem>
-                    <MenuItem value="3">Depo C</MenuItem>
+                  <Select
+                    label="Konum"
+                    value={createForm.locationId}
+                    onChange={(e) => setCreateForm((s) => ({ ...s, locationId: String(e.target.value) }))}
+                  >
+                    {locations.length === 0 && (
+                      <MenuItem value="1">Depo A</MenuItem>
+                    )}
+                    {locations.map((l) => (
+                      <MenuItem key={l.id} value={l.id}>{l.name}</MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
               </Grid>
@@ -373,7 +542,64 @@ export default function ProductsPage() {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setOpenCreateDialog(false)}>İptal</Button>
-            <Button variant="contained">Ekle</Button>
+            <Button variant="contained" onClick={handleSubmitCreate}>Ekle</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Edit Product Dialog */}
+        <Dialog open={openEditDialog} onClose={() => setOpenEditDialog(false)} maxWidth="md" fullWidth>
+          <DialogTitle>Ürün Düzenle</DialogTitle>
+          <DialogContent>
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Ürün Modeli</InputLabel>
+                  <Select
+                    label="Ürün Modeli"
+                    value={createForm.productModelId}
+                    onChange={(e) => setCreateForm((s) => ({ ...s, productModelId: String(e.target.value) }))}
+                  >
+                    {models.length === 0 && (
+                      <MenuItem value="1">Gateway-2000</MenuItem>
+                    )}
+                    {models.map((m) => (
+                      <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Üretim Tarihi"
+                  type="date"
+                  value={createForm.productionDate}
+                  onChange={(e) => setCreateForm((s) => ({ ...s, productionDate: e.target.value }))}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Konum</InputLabel>
+                  <Select
+                    label="Konum"
+                    value={createForm.locationId}
+                    onChange={(e) => setCreateForm((s) => ({ ...s, locationId: String(e.target.value) }))}
+                  >
+                    {locations.length === 0 && (
+                      <MenuItem value="1">Depo A</MenuItem>
+                    )}
+                    {locations.map((l) => (
+                      <MenuItem key={l.id} value={l.id}>{l.name}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenEditDialog(false)}>İptal</Button>
+            <Button variant="contained" onClick={handleSubmitEdit}>Kaydet</Button>
           </DialogActions>
         </Dialog>
 
@@ -417,6 +643,86 @@ export default function ProductsPage() {
           <DialogActions>
             <Button onClick={() => setOpenHardwareDialog(false)}>İptal</Button>
             <Button variant="contained">Tamamla</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* View Product Dialog */}
+        <Dialog open={openViewDialog} onClose={() => setOpenViewDialog(false)} maxWidth="md" fullWidth>
+          <DialogTitle>Ürün Detayları</DialogTitle>
+          <DialogContent>
+            {selectedProduct && (
+              <Grid container spacing={2} sx={{ mt: 1 }}>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Seri Numara
+                  </Typography>
+                  <Typography variant="body1">
+                    {selectedProduct.serialNumber || 'Henüz atanmadı'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Model
+                  </Typography>
+                  <Typography variant="body1">
+                    {selectedProduct.productModel.name}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Tür
+                  </Typography>
+                  <Typography variant="body1">
+                    {selectedProduct.productType.name}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Üretici
+                  </Typography>
+                  <Typography variant="body1">
+                    {selectedProduct.manufacturer.name}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Durum
+                  </Typography>
+                  <Chip
+                    label={getStatusLabel(selectedProduct.status)}
+                    color={getStatusColor(selectedProduct.status) as any}
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Konum
+                  </Typography>
+                  <Typography variant="body1">
+                    {selectedProduct.location?.name || 'Müşteride'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Üretim Tarihi
+                  </Typography>
+                  <Typography variant="body1">
+                    {new Date(selectedProduct.productionDate).toLocaleDateString('tr-TR')}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Garanti Durumu
+                  </Typography>
+                  <Typography variant="body1">
+                    {selectedProduct.warrantyStatus}
+                  </Typography>
+                </Grid>
+              </Grid>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenViewDialog(false)}>Kapat</Button>
           </DialogActions>
         </Dialog>
       </Box>

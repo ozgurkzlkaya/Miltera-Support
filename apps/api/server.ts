@@ -2,8 +2,9 @@ import { serve } from '@hono/node-server'
 import { createServer } from 'http'
 import initializeApp from './src/app'
 import { initializeWebSocket } from './src/lib/websocket'
+import env from './src/config/env'
 
-const port = process.env.PORT || 3001
+const port = 3011
 
 async function startServer() {
   try {

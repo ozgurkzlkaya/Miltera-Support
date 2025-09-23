@@ -15,6 +15,7 @@ import {
   Error422Schema,
   Error500Schema,
 } from "../dtos/base.schema";
+import { authMiddleware } from "../helpers/auth.helpers";
 
 const list = createRoute({
   method: "get",

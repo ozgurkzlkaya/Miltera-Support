@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -28,7 +28,8 @@ import {
   List,
   ListItem,
   ListItemText,
-  ListItemIcon
+  ListItemIcon,
+  CircularProgress
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -49,12 +50,12 @@ import {
   Description as DescriptionIcon
 } from '@mui/icons-material';
 
-// Mock data interface
+// Issue interface
 interface Issue {
   id: string;
   issueNumber: string;
   source: 'CUSTOMER' | 'TSP' | 'FIRST_PRODUCTION';
-  status: 'OPEN' | 'IN_PROGRESS' | 'WAITING_CUSTOMER_APPROVAL' | 'REPAIRED' | 'CLOSED' | 'CANCELLED';
+  status: 'OPEN' | 'IN_PROGRESS' | 'REPAIRED' | 'CLOSED';
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   customerDescription?: string;
   technicianDescription?: string;
@@ -64,6 +65,7 @@ interface Issue {
   issueDate: string;
   preInspectionDate?: string;
   repairDate?: string;
+  resolvedAt?: string;
   company?: {
     id: string;
     name: string;
@@ -72,96 +74,13 @@ interface Issue {
     id: string;
     name: string;
   };
-  createdByUser?: {
+  reportedByUser?: {
     id: string;
     firstName: string;
     lastName: string;
   };
 }
 
-// Mock data
-const initialMockIssues: Issue[] = [
-  {
-    id: '1',
-    issueNumber: '250117-01',
-    source: 'CUSTOMER',
-    status: 'OPEN',
-    priority: 'HIGH',
-    customerDescription: 'Cihaz çalışmıyor, güç gelmiyor',
-    isUnderWarranty: true,
-    estimatedCost: 500,
-    issueDate: '2025-01-17',
-    company: { id: '1', name: 'ABC Şirketi' },
-    category: { id: '1', name: 'Donanım Arızası' },
-    createdByUser: { id: '1', firstName: 'Ahmet', lastName: 'Yılmaz' }
-  },
-  {
-    id: '2',
-    issueNumber: '250117-02',
-    source: 'TSP',
-    status: 'IN_PROGRESS',
-    priority: 'MEDIUM',
-    customerDescription: 'Ekran görüntüsü bozuk',
-    technicianDescription: 'Ekran sürücü problemi tespit edildi',
-    isUnderWarranty: false,
-    estimatedCost: 1200,
-    actualCost: 1100,
-    issueDate: '2025-01-16',
-    company: { id: '2', name: 'XYZ Ltd.' },
-    category: { id: '2', name: 'Yazılım Sorunu' },
-    createdByUser: { id: '2', firstName: 'Mehmet', lastName: 'Demir' }
-  },
-  {
-    id: '3',
-    issueNumber: '250117-03',
-    source: 'FIRST_PRODUCTION',
-    status: 'REPAIRED',
-    priority: 'CRITICAL',
-    customerDescription: 'İlk test sırasında hata',
-    technicianDescription: 'Test hatası düzeltildi',
-    isUnderWarranty: true,
-    estimatedCost: 800,
-    actualCost: 750,
-    issueDate: '2025-01-15',
-    company: { id: '3', name: 'Tech Solutions' },
-    category: { id: '3', name: 'Test Hatası' },
-    createdByUser: { id: '3', firstName: 'Ayşe', lastName: 'Kaya' }
-  },
-  {
-    id: '4',
-    issueNumber: '250117-04',
-    source: 'CUSTOMER',
-    status: 'CLOSED',
-    priority: 'LOW',
-    customerDescription: 'Küçük yazılım güncellemesi',
-    technicianDescription: 'Yazılım güncellendi',
-    isUnderWarranty: true,
-    estimatedCost: 200,
-    actualCost: 0,
-    issueDate: '2025-01-14',
-    company: { id: '4', name: 'Modern Corp' },
-    category: { id: '2', name: 'Yazılım Sorunu' },
-    createdByUser: { id: '1', firstName: 'Ahmet', lastName: 'Yılmaz' }
-  }
-];
-
-// Mock companies and categories
-const mockCompanies = [
-  { id: '1', name: 'ABC Şirketi' },
-  { id: '2', name: 'XYZ Ltd.' },
-  { id: '3', name: 'Tech Solutions' },
-  { id: '4', name: 'Modern Corp' },
-  { id: '5', name: 'Digital Systems' },
-  { id: '6', name: 'Innovation Tech' }
-];
-
-const mockCategories = [
-  { id: '1', name: 'Donanım Arızası' },
-  { id: '2', name: 'Yazılım Sorunu' },
-  { id: '3', name: 'Test Hatası' },
-  { id: '4', name: 'Kalite Kontrol' },
-  { id: '5', name: 'Montaj Hatası' }
-];
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -258,7 +177,11 @@ const getSourceIcon = (source: string) => {
 };
 
 export default function IssuesPage() {
-  const [issues, setIssues] = useState<Issue[]>(initialMockIssues);
+  const [issues, setIssues] = useState<Issue[]>([]);
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [sourceFilter, setSourceFilter] = useState('');
@@ -275,6 +198,7 @@ export default function IssuesPage() {
   const [formData, setFormData] = useState({
     source: '',
     priority: '',
+    status: 'OPEN' as 'OPEN' | 'IN_PROGRESS' | 'REPAIRED' | 'CLOSED',
     customerDescription: '',
     technicianDescription: '',
     isUnderWarranty: true,
@@ -290,6 +214,74 @@ export default function IssuesPage() {
     message: '',
     severity: 'success' as 'success' | 'error' | 'warning' | 'info'
   });
+
+  // Load data from API
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const token = localStorage.getItem('auth_token');
+        const headers = {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        };
+
+        // Load issues
+        const issuesResponse = await fetch('http://localhost:3011/api/v1/issues', { headers });
+        if (issuesResponse.ok) {
+          const issuesData = await issuesResponse.json();
+          const rawIssues = (issuesData?.data ?? []) as any[];
+          const normalizedIssues: Issue[] = rawIssues.map((it) => ({
+            id: it.id,
+            issueNumber: it.issueNumber ?? '',
+            source: (it.source ?? 'CUSTOMER') as Issue['source'],
+            status: (it.status ?? 'OPEN') as Issue['status'],
+            priority: (it.priority ?? 'LOW') as Issue['priority'],
+            customerDescription: it.customerDescription ?? it.description ?? '',
+            technicianDescription: it.technicianDescription ?? '',
+            isUnderWarranty: Boolean(it.isUnderWarranty),
+            estimatedCost: it.estimatedCost != null ? Number(it.estimatedCost) : undefined,
+            actualCost: it.actualCost != null ? Number(it.actualCost) : undefined,
+            issueDate: it.reportedAt ?? it.createdAt ?? new Date().toISOString(),
+            company: it.company ? { id: it.company.id, name: it.company.name } : undefined,
+            category: it.issueCategory ? { id: it.issueCategory.id, name: it.issueCategory.name } : undefined,
+            reportedByUser: it.reportedByUser
+              ? {
+                  id: it.reportedByUser.id,
+                  firstName: it.reportedByUser.firstName ?? '',
+                  lastName: it.reportedByUser.lastName ?? '',
+                }
+              : undefined,
+          }));
+          setIssues(normalizedIssues);
+        }
+
+        // Load companies
+        const companiesResponse = await fetch('http://localhost:3011/api/v1/companies', { headers });
+        if (companiesResponse.ok) {
+          const companiesData = await companiesResponse.json();
+          setCompanies(companiesData.data || []);
+        }
+
+        // Load categories
+        const categoriesResponse = await fetch('http://localhost:3011/api/v1/categories', { headers });
+        if (categoriesResponse.ok) {
+          const categoriesData = await categoriesResponse.json();
+          setCategories(categoriesData.data || []);
+        }
+
+      } catch (error) {
+        console.error('Error loading data:', error);
+        setError('Veriler yüklenirken hata oluştu');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
 
   // Generate new issue number
   const generateIssueNumber = () => {
@@ -307,6 +299,7 @@ export default function IssuesPage() {
     setFormData({
       source: '',
       priority: '',
+      status: 'OPEN' as 'OPEN' | 'IN_PROGRESS' | 'REPAIRED' | 'CLOSED',
       customerDescription: '',
       technicianDescription: '',
       isUnderWarranty: true,
@@ -323,6 +316,7 @@ export default function IssuesPage() {
     setFormData({
       source: issue.source,
       priority: issue.priority,
+      status: issue.status,
       customerDescription: issue.customerDescription || '',
       technicianDescription: issue.technicianDescription || '',
       isUnderWarranty: issue.isUnderWarranty,
@@ -344,20 +338,44 @@ export default function IssuesPage() {
     setOpenDeleteDialog(true);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (selectedIssue) {
-      setIssues(prev => prev.filter(issue => issue.id !== selectedIssue.id));
-      setSnackbar({
-        open: true,
-        message: `Arıza ${selectedIssue.issueNumber} başarıyla silindi`,
-        severity: 'success'
-      });
-      setOpenDeleteDialog(false);
-      setSelectedIssue(null);
+      try {
+        const token = localStorage.getItem('auth_token');
+        const headers = {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        };
+
+        const response = await fetch(`http://localhost:3011/api/v1/issues/${selectedIssue.id}`, {
+          method: 'DELETE',
+          headers
+        });
+
+        if (response.ok) {
+          setIssues(prev => prev.filter(issue => issue.id !== selectedIssue.id));
+          setSnackbar({
+            open: true,
+            message: `Arıza başarıyla silindi`,
+            severity: 'success'
+          });
+          setOpenDeleteDialog(false);
+          setSelectedIssue(null);
+        } else {
+          throw new Error('Arıza silinemedi');
+        }
+      } catch (error) {
+        console.error('Error deleting issue:', error);
+        setSnackbar({
+          open: true,
+          message: 'Arıza silinirken hata oluştu',
+          severity: 'error'
+        });
+      }
     }
   };
 
-  const handleSaveCreate = () => {
+  const handleSaveCreate = async () => {
     if (!formData.source || !formData.priority || !formData.customerDescription) {
       setSnackbar({
         open: true,
@@ -367,73 +385,175 @@ export default function IssuesPage() {
       return;
     }
 
-    const newIssue: Issue = {
-      id: Date.now().toString(),
-      issueNumber: generateIssueNumber(),
-      source: formData.source as any,
-      status: 'OPEN',
-      priority: formData.priority as any,
-      customerDescription: formData.customerDescription,
-      technicianDescription: formData.technicianDescription,
-      isUnderWarranty: formData.isUnderWarranty,
-      estimatedCost: formData.estimatedCost ? parseFloat(formData.estimatedCost) : undefined,
-      actualCost: formData.actualCost ? parseFloat(formData.actualCost) : undefined,
-      issueDate: new Date().toISOString().split('T')[0],
-      company: mockCompanies.find(c => c.id === formData.companyId),
-      category: mockCategories.find(c => c.id === formData.categoryId),
-      createdByUser: { id: '1', firstName: 'Ahmet', lastName: 'Yılmaz' }
-    };
+    try {
+      const token = localStorage.getItem('auth_token');
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` })
+      };
 
-    setIssues(prev => [newIssue, ...prev]);
-    setOpenCreateDialog(false);
-    setSnackbar({
-      open: true,
-      message: `Yeni arıza ${newIssue.issueNumber} başarıyla oluşturuldu`,
-      severity: 'success'
-    });
+      const issueData = {
+        status: formData.status,
+        source: formData.source,
+        priority: formData.priority,
+        customerDescription: formData.customerDescription,
+        technicianDescription: formData.technicianDescription,
+        isUnderWarranty: formData.isUnderWarranty,
+        estimatedCost: formData.estimatedCost && formData.estimatedCost.toString().trim() !== '' ? formData.estimatedCost.toString() : null,
+        actualCost: formData.actualCost && formData.actualCost.toString().trim() !== '' ? formData.actualCost.toString() : null,
+        companyId: formData.companyId,
+        categoryId: formData.categoryId
+      };
+
+      const response = await fetch('http://localhost:3011/api/v1/issues', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(issueData)
+      });
+
+      if (response.ok) {
+        const payload = await response.json();
+        const created = payload?.data ?? {};
+        const normalized: Issue = {
+          id: created.id,
+          issueNumber: created.issueNumber ?? '',
+          source: (created.source ?? 'CUSTOMER') as Issue['source'],
+          status: (created.status ?? 'OPEN') as Issue['status'],
+          priority: (created.priority ?? 'LOW') as Issue['priority'],
+          customerDescription: created.customerDescription ?? created.description ?? '',
+          technicianDescription: created.technicianDescription ?? '',
+          isUnderWarranty: Boolean(created.isUnderWarranty),
+          estimatedCost: created.estimatedCost != null ? Number(created.estimatedCost) : undefined,
+          actualCost: created.actualCost != null ? Number(created.actualCost) : undefined,
+          issueDate: created.reportedAt ?? created.createdAt ?? new Date().toISOString(),
+          company: created.companyId ? { id: created.companyId, name: created.company?.name ?? '' } : undefined,
+          category: created.issueCategoryId ? { id: created.issueCategoryId, name: created.issueCategory?.name ?? '' } : undefined,
+          reportedByUser: created.reportedByUser
+            ? {
+                id: created.reportedByUser.id,
+                firstName: created.reportedByUser.firstName ?? '',
+                lastName: created.reportedByUser.lastName ?? '',
+              }
+            : undefined,
+        };
+        setIssues((prev) => [normalized, ...prev]);
+        setOpenCreateDialog(false);
+        setSnackbar({
+          open: true,
+          message: `Yeni arıza başarıyla oluşturuldu`,
+          severity: 'success'
+        });
+      } else {
+        throw new Error('Arıza oluşturulamadı');
+      }
+    } catch (error) {
+      console.error('Error creating issue:', error);
+      setSnackbar({
+        open: true,
+        message: 'Arıza oluşturulurken hata oluştu',
+        severity: 'error'
+      });
+    }
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!selectedIssue) return;
 
-    const updatedIssue: Issue = {
-      ...selectedIssue,
-      source: formData.source as any,
-      priority: formData.priority as any,
-      customerDescription: formData.customerDescription,
-      technicianDescription: formData.technicianDescription,
-      isUnderWarranty: formData.isUnderWarranty,
-      estimatedCost: formData.estimatedCost ? parseFloat(formData.estimatedCost) : undefined,
-      actualCost: formData.actualCost ? parseFloat(formData.actualCost) : undefined,
-      company: mockCompanies.find(c => c.id === formData.companyId),
-      category: mockCategories.find(c => c.id === formData.categoryId)
-    };
+    try {
+      const token = localStorage.getItem('auth_token');
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` })
+      };
 
-    setIssues(prev => prev.map(issue => 
-      issue.id === selectedIssue.id ? updatedIssue : issue
-    ));
-    setOpenEditDialog(false);
-    setSelectedIssue(null);
-    setSnackbar({
-      open: true,
-      message: `Arıza ${selectedIssue.issueNumber} başarıyla güncellendi`,
-      severity: 'success'
-    });
+      const issueData = {
+        status: formData.status,
+        source: formData.source,
+        priority: formData.priority,
+        customerDescription: formData.customerDescription,
+        technicianDescription: formData.technicianDescription,
+        isUnderWarranty: formData.isUnderWarranty,
+        estimatedCost: formData.estimatedCost && formData.estimatedCost.toString().trim() !== '' ? formData.estimatedCost.toString() : null,
+        actualCost: formData.actualCost && formData.actualCost.toString().trim() !== '' ? formData.actualCost.toString() : null,
+        companyId: formData.companyId,
+        categoryId: formData.categoryId
+      };
+
+      const response = await fetch(`http://localhost:3011/api/v1/issues/${selectedIssue.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(issueData)
+      });
+
+      if (response.ok) {
+        const updatedIssue = await response.json();
+        setIssues(prev => prev.map(issue => 
+          issue.id === selectedIssue.id ? updatedIssue.data : issue
+        ));
+        setOpenEditDialog(false);
+        setSelectedIssue(null);
+        setSnackbar({
+          open: true,
+          message: `Arıza başarıyla güncellendi`,
+          severity: 'success'
+        });
+      } else {
+        throw new Error('Arıza güncellenemedi');
+      }
+    } catch (error) {
+      console.error('Error updating issue:', error);
+      setSnackbar({
+        open: true,
+        message: 'Arıza güncellenirken hata oluştu',
+        severity: 'error'
+      });
+    }
   };
 
-  const handleUpdateStatus = (issueId: string, newStatus: string) => {
-    setIssues(prev => prev.map(issue => 
-      issue.id === issueId ? { 
-        ...issue, 
-        status: newStatus as any,
-        repairDate: newStatus === 'REPAIRED' ? new Date().toISOString().split('T')[0] : issue.repairDate
-      } : issue
-    ));
-    setSnackbar({
-      open: true,
-      message: 'Arıza durumu başarıyla güncellendi',
-      severity: 'success'
-    });
+  const handleUpdateStatus = async (issueId: string, newStatus: string) => {
+    try {
+      const response = await fetch(`http://localhost:3011/api/v1/issues/${issueId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          status: newStatus,
+          resolvedAt: newStatus === 'CLOSED' ? new Date().toISOString() : undefined
+        })
+      });
+
+      if (response.ok) {
+        // Backend'den güncellenmiş veriyi al
+        const updatedIssue = await response.json();
+        
+        // Frontend state'ini güncelle
+        setIssues(prev => prev.map(issue => 
+          issue.id === issueId ? { 
+            ...issue, 
+            status: newStatus as any,
+            repairDate: newStatus === 'REPAIRED' ? new Date().toISOString().split('T')[0] : issue.repairDate,
+            resolvedAt: newStatus === 'CLOSED' ? new Date().toISOString() : issue.resolvedAt
+          } : issue
+        ));
+        
+        setSnackbar({
+          open: true,
+          message: 'Arıza durumu başarıyla güncellendi',
+          severity: 'success'
+        });
+      } else {
+        throw new Error('Durum güncellenemedi');
+      }
+    } catch (error) {
+      console.error('Durum güncelleme hatası:', error);
+      setSnackbar({
+        open: true,
+        message: 'Durum güncellenirken hata oluştu',
+        severity: 'error'
+      });
+    }
   };
 
   const filteredIssues = issues.filter(issue => {
@@ -477,9 +597,23 @@ export default function IssuesPage() {
         </Button>
       </Box>
 
+      {/* Error Message */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
+
+      {/* Loading State */}
+      {loading && (
+        <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
+          <CircularProgress />
+        </Box>
+      )}
+
       {/* Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={3} key="open-issues">
           <Card sx={{ borderRadius: 2, boxShadow: 1 }}>
             <CardContent>
               <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -499,7 +633,7 @@ export default function IssuesPage() {
           </Card>
         </Grid>
         
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={3} key="in-progress-issues">
           <Card sx={{ borderRadius: 2, boxShadow: 1 }}>
             <CardContent>
               <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -519,7 +653,7 @@ export default function IssuesPage() {
           </Card>
         </Grid>
         
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={3} key="repaired-issues">
           <Card sx={{ borderRadius: 2, boxShadow: 1 }}>
             <CardContent>
               <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -539,7 +673,7 @@ export default function IssuesPage() {
           </Card>
         </Grid>
         
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={3} key="closed-issues">
           <Card sx={{ borderRadius: 2, boxShadow: 1 }}>
             <CardContent>
               <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -564,7 +698,7 @@ export default function IssuesPage() {
       <Card sx={{ borderRadius: 2, boxShadow: 1, mb: 3 }}>
         <CardContent sx={{ p: 2 }}>
           <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={4} key="search-field">
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <SearchIcon sx={{ color: "text.secondary" }} />
                 <TextField
@@ -578,7 +712,7 @@ export default function IssuesPage() {
               </Box>
             </Grid>
             
-            <Grid item xs={12} md={2}>
+            <Grid item xs={12} md={2} key="status-filter">
               <FormControl fullWidth size="small">
                 <InputLabel>Durum</InputLabel>
                 <Select
@@ -595,7 +729,7 @@ export default function IssuesPage() {
               </FormControl>
             </Grid>
             
-            <Grid item xs={12} md={2}>
+            <Grid item xs={12} md={2} key="source-filter">
               <FormControl fullWidth size="small">
                 <InputLabel>Kaynak</InputLabel>
                 <Select
@@ -611,7 +745,7 @@ export default function IssuesPage() {
               </FormControl>
             </Grid>
             
-            <Grid item xs={12} md={2}>
+            <Grid item xs={12} md={2} key="priority-filter">
               <FormControl fullWidth size="small">
                 <InputLabel>Öncelik</InputLabel>
                 <Select
@@ -628,7 +762,7 @@ export default function IssuesPage() {
               </FormControl>
             </Grid>
             
-            <Grid item xs={12} md={2}>
+            <Grid item xs={12} md={2} key="clear-button">
               <Button
                 fullWidth
                 variant="outlined"
@@ -648,8 +782,9 @@ export default function IssuesPage() {
       </Card>
 
       {/* Issues List */}
-      <Grid container spacing={3}>
-        {filteredIssues.map((issue) => (
+      {!loading && (
+        <Grid container spacing={3}>
+          {filteredIssues.map((issue) => (
           <Grid item xs={12} md={6} lg={4} key={issue.id}>
             <Card 
               sx={{ 
@@ -751,19 +886,27 @@ export default function IssuesPage() {
                     {new Date(issue.issueDate).toLocaleDateString('tr-TR')}
                   </Typography>
                   
-                  {issue.estimatedCost && (
-                    <Typography variant="body2" color="text.secondary">
-                      {issue.estimatedCost} TL
-                    </Typography>
-                  )}
+                  <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+                    {issue.estimatedCost && (
+                      <Typography variant="body2" color="primary.main" fontWeight="medium">
+                        Tahmini: {issue.estimatedCost} TL
+                      </Typography>
+                    )}
+                    {issue.actualCost && (
+                      <Typography variant="body2" color="success.main" fontWeight="medium">
+                        Gerçek: {issue.actualCost} TL
+                      </Typography>
+                    )}
+                  </Box>
                 </Box>
               </CardContent>
             </Card>
           </Grid>
         ))}
-      </Grid>
+        </Grid>
+      )}
 
-      {filteredIssues.length === 0 && (
+      {!loading && filteredIssues.length === 0 && (
         <Card sx={{ borderRadius: 2, textAlign: "center", p: 4 }}>
           <Typography variant="h6" color="textSecondary">
             Arama kriterlerinize uygun arıza bulunamadı
@@ -781,15 +924,13 @@ export default function IssuesPage() {
           sx: { borderRadius: 2 }
         }}
       >
-        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Yeni Arıza Kaydı
-          </Typography>
+        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontWeight: 600 }}>
+          Yeni Arıza Kaydı
         </DialogTitle>
         
         <DialogContent sx={{ p: 3 }}>
           <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={6} key="create-source">
               <FormControl fullWidth required>
                 <InputLabel>Kaynak *</InputLabel>
                 <Select 
@@ -828,7 +969,7 @@ export default function IssuesPage() {
                   value={formData.companyId}
                   onChange={(e) => setFormData({ ...formData, companyId: e.target.value })}
                 >
-                  {mockCompanies.map(company => (
+                  {companies.map(company => (
                     <MenuItem key={company.id} value={company.id}>
                       {company.name}
                     </MenuItem>
@@ -845,7 +986,7 @@ export default function IssuesPage() {
                   value={formData.categoryId}
                   onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
                 >
-                  {mockCategories.map(category => (
+                  {categories.map(category => (
                     <MenuItem key={category.id} value={category.id}>
                       {category.name}
                     </MenuItem>
@@ -930,10 +1071,8 @@ export default function IssuesPage() {
           sx: { borderRadius: 2 }
         }}
       >
-        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Arıza Düzenle - {selectedIssue?.issueNumber}
-          </Typography>
+        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontWeight: 600 }}>
+          Arıza Düzenle - {selectedIssue?.issueNumber}
         </DialogTitle>
         
         <DialogContent sx={{ p: 3 }}>
@@ -997,7 +1136,7 @@ export default function IssuesPage() {
                   value={formData.companyId}
                   onChange={(e) => setFormData({ ...formData, companyId: e.target.value })}
                 >
-                  {mockCompanies.map(company => (
+                  {companies.map(company => (
                     <MenuItem key={company.id} value={company.id}>
                       {company.name}
                     </MenuItem>
@@ -1076,10 +1215,8 @@ export default function IssuesPage() {
           sx: { borderRadius: 2 }
         }}
       >
-        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Arıza Detayları - {selectedIssue?.issueNumber}
-          </Typography>
+        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontWeight: 600 }}>
+          Arıza Detayları - {selectedIssue?.issueNumber}
         </DialogTitle>
         
         <DialogContent sx={{ p: 3 }}>
@@ -1171,11 +1308,21 @@ export default function IssuesPage() {
                   
                   <ListItem>
                     <ListItemIcon>
+                      <MoneyIcon />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Gerçek Maliyet" 
+                      secondary={selectedIssue.actualCost ? `${selectedIssue.actualCost} TL` : "Belirtilmemiş"} 
+                    />
+                  </ListItem>
+                  
+                  <ListItem>
+                    <ListItemIcon>
                       <PersonIcon />
                     </ListItemIcon>
                     <ListItemText 
                       primary="Oluşturan" 
-                      secondary={selectedIssue.createdByUser ? `${selectedIssue.createdByUser.firstName} ${selectedIssue.createdByUser.lastName}` : "Belirtilmemiş"} 
+                      secondary={selectedIssue.reportedByUser ? `${selectedIssue.reportedByUser.firstName} ${selectedIssue.reportedByUser.lastName}` : "Belirtilmemiş"} 
                     />
                   </ListItem>
                 </List>
@@ -1232,11 +1379,9 @@ export default function IssuesPage() {
           sx: { borderRadius: 2 }
         }}
       >
-        <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1, fontWeight: 600 }}>
           <ErrorIcon color="error" />
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Arıza Silme Onayı
-          </Typography>
+          Arıza Silme Onayı
         </DialogTitle>
         
         <DialogContent sx={{ p: 3 }}>

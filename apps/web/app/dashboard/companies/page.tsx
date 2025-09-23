@@ -21,9 +21,10 @@ import {
   Select,
   MenuItem,
   Snackbar,
-  Alert
+  Alert,
+  CircularProgress
 } from "@mui/material";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Add as AddIcon, 
   Edit as EditIcon, 
@@ -38,95 +39,27 @@ import {
   Save as SaveIcon
 } from "@mui/icons-material";
 
-// Company interface
+// Company interface updated to match API
 interface Company {
   id: string;
   name: string;
   email: string;
   phone: string;
   address: string;
-  isActive: boolean;
-  employees: number;
-  industry: string;
+  contactPersonName?: string;
+  contactPersonSurname?: string;
+  contactPersonEmail?: string;
+  contactPersonPhone?: string;
+  isManufacturer?: boolean;
   createdAt: string;
 }
 
-// Mock company data
-const initialCompanies: Company[] = [
-  {
-    id: "1",
-    name: "Miltera Teknoloji",
-    email: "info@miltera.com",
-    phone: "+90 212 555 0100",
-    address: "İstanbul, Türkiye",
-    isActive: true,
-    employees: 25,
-    industry: "Teknoloji",
-    createdAt: "2024-01-15"
-  },
-  {
-    id: "2", 
-    name: "Test Company",
-    email: "contact@testcompany.com",
-    phone: "+90 312 555 0200",
-    address: "Ankara, Türkiye",
-    isActive: true,
-    employees: 15,
-    industry: "Danışmanlık",
-    createdAt: "2024-01-10"
-  },
-  {
-    id: "3",
-    name: "Service Provider Co.",
-    email: "hello@serviceprovider.com", 
-    phone: "+90 232 555 0300",
-    address: "İzmir, Türkiye",
-    isActive: false,
-    employees: 8,
-    industry: "Hizmet",
-    createdAt: "2024-01-05"
-  },
-  {
-    id: "4",
-    name: "Tech Solutions Ltd.",
-    email: "info@techsolutions.com", 
-    phone: "+90 216 555 0400",
-    address: "Bursa, Türkiye",
-    isActive: true,
-    employees: 32,
-    industry: "Yazılım",
-    createdAt: "2024-01-20"
-  }
-];
-
-const industries = [
-  "Teknoloji",
-  "Yazılım", 
-  "Danışmanlık",
-  "Hizmet",
-  "Eğitim",
-  "Sağlık",
-  "Finans",
-  "E-ticaret"
-];
-
-const getIndustryColor = (industry: string) => {
-  switch (industry) {
-    case "Teknoloji":
-      return "primary";
-    case "Yazılım":
-      return "secondary";
-    case "Danışmanlık":
-      return "info";
-    case "Hizmet":
-      return "warning";
-    default:
-      return "default";
-  }
-};
+// sektör alanı backend'de olmadığı için kaldırıldı
 
 const CompaniesPage = () => {
-  const [companies, setCompanies] = useState<Company[]>(initialCompanies);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [openModal, setOpenModal] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
@@ -135,15 +68,70 @@ const CompaniesPage = () => {
     email: "",
     phone: "",
     address: "",
-    employees: 1,
-    industry: "",
-    isActive: true
+    isManufacturer: false,
+    contactPersonName: "",
+    contactPersonSurname: "",
+    contactPersonEmail: "",
+    contactPersonPhone: ""
   });
+  const [employeeCounts, setEmployeeCounts] = useState<Record<string, number>>({});
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
     severity: "success" as "success" | "error" | "warning" | "info"
   });
+
+  // Load companies from API
+  useEffect(() => {
+    const loadCompanies = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const token = localStorage.getItem('auth_token');
+        const headers = {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        };
+
+        const [companiesRes, usersRes] = await Promise.all([
+          fetch('http://localhost:3011/api/v1/companies', { headers }),
+          fetch('http://localhost:3011/api/v1/users', { headers }).catch(() => null)
+        ]);
+
+        if (companiesRes?.ok) {
+          const companiesJson = await companiesRes.json();
+          const list = companiesJson.data || [];
+          setCompanies(list);
+
+          // kullanıcıları isteğe bağlı çek: yetki yoksa 0 kalır
+          if (usersRes && usersRes.ok) {
+            const usersJson = await usersRes.json();
+            const counts: Record<string, number> = {};
+            (Array.isArray(usersJson.data) ? usersJson.data : []).forEach((u: any) => {
+              const cid = u.companyId;
+              if (!cid) return;
+              counts[cid] = (counts[cid] || 0) + 1;
+            });
+            setEmployeeCounts(counts);
+          } else {
+            setEmployeeCounts({});
+          }
+        } else {
+          throw new Error('Şirketler yüklenemedi');
+        }
+      } catch (error) {
+        console.error('Error loading companies:', error);
+        setError('Şirketler yüklenirken hata oluştu');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCompanies();
+  }, []);
+
+  // Durum toggle backend'de olmadığı için kaldırıldı
 
   const handleOpenModal = (company?: Company) => {
     if (company) {
@@ -153,9 +141,11 @@ const CompaniesPage = () => {
         email: company.email,
         phone: company.phone,
         address: company.address,
-        employees: company.employees,
-        industry: company.industry,
-        isActive: company.isActive
+        isManufacturer: company.isManufacturer ?? false,
+        contactPersonName: company.contactPersonName || "",
+        contactPersonSurname: company.contactPersonSurname || "",
+        contactPersonEmail: company.contactPersonEmail || "",
+        contactPersonPhone: company.contactPersonPhone || ""
       });
     } else {
       setEditingCompany(null);
@@ -164,9 +154,11 @@ const CompaniesPage = () => {
         email: "",
         phone: "",
         address: "",
-        employees: 1,
-        industry: "",
-        isActive: true
+        isManufacturer: false,
+        contactPersonName: "",
+        contactPersonSurname: "",
+        contactPersonEmail: "",
+        contactPersonPhone: ""
       });
     }
     setOpenModal(true);
@@ -180,9 +172,11 @@ const CompaniesPage = () => {
       email: "",
       phone: "",
       address: "",
-      employees: 1,
-      industry: "",
-      isActive: true
+      isManufacturer: false,
+      contactPersonName: "",
+      contactPersonSurname: "",
+      contactPersonEmail: "",
+      contactPersonPhone: ""
     });
   };
 
@@ -193,9 +187,9 @@ const CompaniesPage = () => {
     }));
   };
 
-  const handleSaveCompany = () => {
+  const handleSaveCompany = async () => {
     // Validation
-    if (!formData.name || !formData.email || !formData.phone || !formData.address || !formData.industry) {
+    if (!formData.name || !formData.email || !formData.phone || !formData.address) {
       setSnackbar({
         open: true,
         message: "Lütfen tüm gerekli alanları doldurun",
@@ -204,51 +198,105 @@ const CompaniesPage = () => {
       return;
     }
 
-    if (editingCompany) {
-      // Update existing company
-      setCompanies(prev => prev.map(company => 
-        company.id === editingCompany.id 
-          ? { ...company, ...formData }
-          : company
-      ));
-      setSnackbar({
-        open: true,
-        message: "Şirket başarıyla güncellendi",
-        severity: "success"
-      });
-    } else {
-      // Add new company
-      const newCompany: Company = {
-        id: Date.now().toString(),
-        ...formData,
-        createdAt: new Date().toISOString().split('T')[0]
+    try {
+      const token = localStorage.getItem('auth_token');
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` })
       };
-      setCompanies(prev => [newCompany, ...prev]);
+
+      if (editingCompany) {
+        // Update existing company
+        const response = await fetch(`http://localhost:3011/api/v1/companies/${editingCompany.id}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(formData)
+        });
+
+        if (response.ok) {
+          const updatedCompany = await response.json();
+          setCompanies(prev => prev.map(company => 
+            company.id === editingCompany.id ? updatedCompany.data : company
+          ));
+          setSnackbar({
+            open: true,
+            message: "Şirket başarıyla güncellendi",
+            severity: "success"
+          });
+        } else {
+          throw new Error('Şirket güncellenemedi');
+        }
+      } else {
+        // Add new company
+        const response = await fetch('http://localhost:3011/api/v1/companies', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(formData)
+        });
+
+        if (response.ok) {
+          const newCompany = await response.json();
+          setCompanies(prev => [newCompany.data, ...prev]);
+          setSnackbar({
+            open: true,
+            message: "Yeni şirket başarıyla eklendi",
+            severity: "success"
+          });
+        } else {
+          throw new Error('Şirket oluşturulamadı');
+        }
+      }
+      
+      handleCloseModal();
+    } catch (error) {
+      console.error('Error saving company:', error);
       setSnackbar({
         open: true,
-        message: "Şirket başarıyla eklendi",
-        severity: "success"
+        message: 'Şirket kaydedilirken hata oluştu',
+        severity: 'error'
       });
     }
-    
-    handleCloseModal();
   };
 
-  const handleDeleteCompany = (companyId: string) => {
+  const handleDeleteCompany = async (companyId: string) => {
     if (window.confirm("Bu şirketi silmek istediğinizden emin misiniz?")) {
-      setCompanies(prev => prev.filter(company => company.id !== companyId));
-      setSnackbar({
-        open: true,
-        message: "Şirket başarıyla silindi",
-        severity: "success"
-      });
+      try {
+        const token = localStorage.getItem('auth_token');
+        const headers = {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        };
+
+        const response = await fetch(`http://localhost:3011/api/v1/companies/${companyId}`, {
+          method: 'DELETE',
+          headers
+        });
+
+        if (response.ok) {
+          setCompanies(prev => prev.filter(company => company.id !== companyId));
+          setSnackbar({
+            open: true,
+            message: "Şirket başarıyla silindi",
+            severity: "success"
+          });
+        } else {
+          throw new Error('Şirket silinemedi');
+        }
+      } catch (error) {
+        console.error('Error deleting company:', error);
+        setSnackbar({
+          open: true,
+          message: 'Şirket silinirken hata oluştu',
+          severity: 'error'
+        });
+      }
     }
   };
 
   const filteredCompanies = companies.filter(company =>
     company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     company.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    company.industry.toLowerCase().includes(searchTerm.toLowerCase())
+    (company.industry || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -267,6 +315,20 @@ const CompaniesPage = () => {
           Yeni Şirket
         </Button>
       </Box>
+
+      {/* Error Message */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
+
+      {/* Loading State */}
+      {loading && (
+        <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
+          <CircularProgress />
+        </Box>
+      )}
 
       {/* Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -296,10 +358,10 @@ const CompaniesPage = () => {
               <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <Box>
                   <Typography color="textSecondary" gutterBottom>
-                    Aktif Şirket
+                    Üretici Firma
                   </Typography>
                   <Typography variant="h5" component="div" color="success.main">
-                    {companies.filter(c => c.isActive).length}
+                    {companies.filter(c => c.isManufacturer).length}
                   </Typography>
                 </Box>
                 <Avatar sx={{ bgcolor: "success.main" }}>
@@ -319,7 +381,7 @@ const CompaniesPage = () => {
                     Toplam Çalışan
                   </Typography>
                   <Typography variant="h5" component="div" color="info.main">
-                    {companies.reduce((sum, c) => sum + c.employees, 0)}
+                    {companies.reduce((sum, c) => sum + (employeeCounts[c.id] || 0), 0)}
                   </Typography>
                 </Box>
                 <Avatar sx={{ bgcolor: "info.main" }}>
@@ -339,7 +401,7 @@ const CompaniesPage = () => {
                     Sektörler
                   </Typography>
                   <Typography variant="h5" component="div" color="warning.main">
-                    {new Set(companies.map(c => c.industry)).size}
+                    {new Set(companies.map(c => c.industry).filter(Boolean)).size}
                   </Typography>
                 </Box>
                 <Avatar sx={{ bgcolor: "warning.main" }}>
@@ -381,8 +443,9 @@ const CompaniesPage = () => {
       </Card>
 
       {/* Companies List */}
-      <Grid container spacing={3}>
-        {filteredCompanies.map((company) => (
+      {!loading && (
+        <Grid container spacing={3}>
+          {filteredCompanies.map((company) => (
           <Grid item xs={12} md={6} lg={4} key={company.id}>
             <Card 
               sx={{ 
@@ -401,19 +464,16 @@ const CompaniesPage = () => {
                 <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", mb: 2 }}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                     <Avatar sx={{ bgcolor: "primary.main", width: 48, height: 48 }}>
-                      {company.name.charAt(0).toUpperCase()}
+                      {(company.name || "").charAt(0).toUpperCase()}
                     </Avatar>
                     
                     <Box sx={{ flex: 1 }}>
                       <Typography variant="h6" component="div" sx={{ fontWeight: 600 }}>
                         {company.name}
                       </Typography>
-                      <Chip 
-                        label={company.industry} 
-                        color={getIndustryColor(company.industry) as any}
-                        size="small"
-                        sx={{ mt: 0.5 }}
-                      />
+                      {company.isManufacturer && (
+                        <Chip label="Üretici" color="primary" size="small" sx={{ mt: 0.5 }} />
+                      )}
                     </Box>
                   </Box>
                   
@@ -464,24 +524,18 @@ const CompaniesPage = () => {
                   
                   <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <Typography variant="body2" color="text.secondary">
-                      {company.employees} çalışan
+                      {(employeeCounts[company.id] || 0)} çalışan
                     </Typography>
-                    
-                    <Chip 
-                      label={company.isActive ? "Aktif" : "Pasif"} 
-                      color={company.isActive ? "success" : "default"}
-                      size="small"
-                      variant="outlined"
-                    />
                   </Box>
                 </Box>
               </CardContent>
             </Card>
           </Grid>
         ))}
-      </Grid>
+        </Grid>
+      )}
 
-      {filteredCompanies.length === 0 && (
+      {!loading && filteredCompanies.length === 0 && (
         <Card sx={{ borderRadius: 2, textAlign: "center", p: 4 }}>
           <Typography variant="h6" color="textSecondary">
             Arama kriterlerinize uygun şirket bulunamadı
@@ -545,47 +599,57 @@ const CompaniesPage = () => {
             </Grid>
             
             <Grid item xs={12} md={6}>
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel>Üretici</InputLabel>
+                <Select
+                  value={formData.isManufacturer ? 'true' : 'false'}
+                  onChange={(e) => handleInputChange("isManufacturer", e.target.value === 'true')}
+                  label="Üretici"
+                >
+                  <MenuItem value="false">Hayır</MenuItem>
+                  <MenuItem value="true">Evet</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Çalışan Sayısı"
-                type="number"
-                value={formData.employees}
-                onChange={(e) => handleInputChange("employees", parseInt(e.target.value) || 1)}
-                inputProps={{ min: 1 }}
+                label="İlgili Kişi Adı"
+                value={formData.contactPersonName}
+                onChange={(e) => handleInputChange("contactPersonName", e.target.value)}
                 sx={{ mb: 2 }}
               />
             </Grid>
-            
+
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth sx={{ mb: 2 }}>
-                <InputLabel>Sektör</InputLabel>
-                <Select
-                  value={formData.industry}
-                  onChange={(e) => handleInputChange("industry", e.target.value)}
-                  label="Sektör"
-                  required
-                >
-                  {industries.map((industry) => (
-                    <MenuItem key={industry} value={industry}>
-                      {industry}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <TextField
+                fullWidth
+                label="İlgili Kişi Soyadı"
+                value={formData.contactPersonSurname}
+                onChange={(e) => handleInputChange("contactPersonSurname", e.target.value)}
+                sx={{ mb: 2 }}
+              />
             </Grid>
-            
+
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth sx={{ mb: 2 }}>
-                <InputLabel>Durum</InputLabel>
-                <Select
-                  value={formData.isActive}
-                  onChange={(e) => handleInputChange("isActive", e.target.value === "true")}
-                  label="Durum"
-                >
-                  <MenuItem value="true">Aktif</MenuItem>
-                  <MenuItem value="false">Pasif</MenuItem>
-                </Select>
-              </FormControl>
+              <TextField
+                fullWidth
+                label="İlgili Kişi E-posta"
+                value={formData.contactPersonEmail}
+                onChange={(e) => handleInputChange("contactPersonEmail", e.target.value)}
+                sx={{ mb: 2 }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="İlgili Kişi Telefon"
+                value={formData.contactPersonPhone}
+                onChange={(e) => handleInputChange("contactPersonPhone", e.target.value)}
+                sx={{ mb: 2 }}
+              />
             </Grid>
             
             <Grid item xs={12}>

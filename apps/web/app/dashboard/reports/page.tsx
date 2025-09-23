@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Typography, 
   Box, 
@@ -14,7 +14,24 @@ import {
   Chip,
   LinearProgress,
   IconButton,
-  Tooltip
+  Tooltip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Alert,
+  Snackbar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  Divider,
+  Paper,
+  Stack
 } from "@mui/material";
 import { 
   TrendingUp as TrendingUpIcon,
@@ -24,22 +41,65 @@ import {
   BarChart as BarChartIcon,
   Download as DownloadIcon,
   Refresh as RefreshIcon,
-  FilterList as FilterIcon
+  FilterList as FilterIcon,
+  Link as LinkIcon,
+  Visibility as ViewIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Add as AddIcon,
+  Timeline as TimelineIcon,
+  People as PeopleIcon,
+  Business as BusinessIcon,
+  Inventory as InventoryIcon,
+  LocalShipping as ShippingIcon,
+  Build as BuildIcon,
+  Warning as WarningIcon,
+  CheckCircle as CheckCircleIcon,
+  Schedule as ScheduleIcon,
+  AttachMoney as MoneyIcon
 } from "@mui/icons-material";
+import { useRouter } from 'next/navigation';
 
-// Mock data interfaces
+type UserRole = 'CUSTOMER' | 'TSP' | 'ADMIN' | 'USER';
+const getCurrentUserRole = (): UserRole | null => {
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+    if (!raw) return null;
+    const user = JSON.parse(raw);
+    return user?.role ?? null;
+  } catch {
+    return null;
+  }
+};
+
+// Data interfaces
 interface DashboardStats {
   totalProducts: number;
   activeIssues: number;
   completedRepairs: number;
   totalShipments: number;
+  totalServiceOperations: number;
+  totalCompanies: number;
+  totalUsers: number;
   productsByStatus: Record<string, number>;
   issuesByStatus: Record<string, number>;
+  serviceOperationsByStatus: Record<string, number>;
   monthlyTrend: Array<{
     month: string;
     products: number;
     issues: number;
     repairs: number;
+    serviceOperations: number;
+    shipments: number;
+  }>;
+  recentActivity: Array<{
+    id: string;
+    type: 'issue' | 'product' | 'service' | 'shipment';
+    title: string;
+    description: string;
+    timestamp: string;
+    status: string;
+    priority?: string;
   }>;
 }
 
@@ -81,127 +141,9 @@ interface PerformanceReport {
   };
 }
 
-// Mock data
-const mockDashboardStats: DashboardStats = {
-  totalProducts: 1247,
-  activeIssues: 23,
-  completedRepairs: 189,
-  totalShipments: 156,
-  productsByStatus: {
-    "Aktif": 892,
-    "Bakımda": 45,
-    "Arızalı": 23,
-    "Garantide": 287
-  },
-  issuesByStatus: {
-    "Açık": 15,
-    "İşlemde": 8,
-    "Çözüldü": 156,
-    "İptal": 4
-  },
-  monthlyTrend: [
-    { month: "Ocak", products: 98, issues: 12, repairs: 87 },
-    { month: "Şubat", products: 112, issues: 8, repairs: 94 },
-    { month: "Mart", products: 134, issues: 15, repairs: 102 },
-    { month: "Nisan", products: 145, issues: 18, repairs: 118 },
-    { month: "Mayıs", products: 167, issues: 22, repairs: 134 },
-    { month: "Haziran", products: 189, issues: 19, repairs: 156 }
-  ]
-};
 
-const mockProductAnalysis: ProductAnalysis = {
-  totalProducts: 1247,
-  productsByType: {
-    "Laptop": 456,
-    "Desktop": 234,
-    "Tablet": 189,
-    "Telefon": 298,
-    "Diğer": 70
-  },
-  productsByStatus: {
-    "Yeni": 892,
-    "İkinci El": 287,
-    "Refurbished": 68
-  },
-  warrantyStatus: {
-    "Garantili": 934,
-    "Garanti Dışı": 313
-  },
-  monthlyProduction: [
-    { month: "Ocak", count: 98 },
-    { month: "Şubat", count: 112 },
-    { month: "Mart", count: 134 },
-    { month: "Nisan", count: 145 },
-    { month: "Mayıs", count: 167 },
-    { month: "Haziran", count: 189 }
-  ]
-};
 
-const mockIssueAnalysis: IssueAnalysis = {
-  totalIssues: 183,
-  issuesByCategory: {
-    "Donanım": 67,
-    "Yazılım": 89,
-    "Ağ": 15,
-    "Güç": 12
-  },
-  issuesByPriority: {
-    "Yüksek": 23,
-    "Orta": 98,
-    "Düşük": 62
-  },
-  averageResolutionTime: 2.4,
-  issuesByMonth: [
-    { month: "Ocak", count: 28 },
-    { month: "Şubat", count: 22 },
-    { month: "Mart", count: 34 },
-    { month: "Nisan", count: 31 },
-    { month: "Mayıs", count: 38 },
-    { month: "Haziran", count: 30 }
-  ]
-};
 
-const mockPerformanceReport: PerformanceReport = {
-  technicianPerformance: [
-    {
-      technicianId: "1",
-      technicianName: "Ahmet Yılmaz",
-      totalOperations: 45,
-      completedOperations: 42,
-      averageDuration: 1.8,
-      successRate: 93.3
-    },
-    {
-      technicianId: "2",
-      technicianName: "Mehmet Demir",
-      totalOperations: 38,
-      completedOperations: 35,
-      averageDuration: 2.1,
-      successRate: 92.1
-    },
-    {
-      technicianId: "3",
-      technicianName: "Ayşe Kaya",
-      totalOperations: 52,
-      completedOperations: 48,
-      averageDuration: 1.9,
-      successRate: 92.3
-    },
-    {
-      technicianId: "4",
-      technicianName: "Fatma Özkan",
-      totalOperations: 41,
-      completedOperations: 38,
-      averageDuration: 2.3,
-      successRate: 92.7
-    }
-  ],
-  teamPerformance: {
-    totalOperations: 176,
-    averageResolutionTime: 2.0,
-    customerSatisfaction: 94.2
-  }
-};
 
 const getStatusColor = (status: string) => {
   switch (status.toLowerCase()) {
@@ -227,20 +169,396 @@ const getStatusColor = (status: string) => {
 };
 
 export default function ReportsPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [dateRange, setDateRange] = useState({
+    startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
+    endDate: new Date()
+  });
+  const [filterType, setFilterType] = useState('all');
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error' | 'warning' | 'info'
+  });
+  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [openDetailDialog, setOpenDetailDialog] = useState(false);
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [productAnalysis, setProductAnalysis] = useState<ProductAnalysis | null>(null);
+  const [issueAnalysis, setIssueAnalysis] = useState<IssueAnalysis | null>(null);
+  const [performanceReport, setPerformanceReport] = useState<PerformanceReport | null>(null);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
   };
 
+  const fetchDashboardStats = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('auth_token');
+      
+      // Fetch data from multiple endpoints
+      const [productsRes, issuesRes, serviceOpsRes, shipmentsRes, companiesRes] = await Promise.all([
+        fetch('http://localhost:3011/api/v1/products', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch('http://localhost:3011/api/v1/issues', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch('http://localhost:3011/api/v1/service-operations', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch('http://localhost:3011/api/v1/shipments', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch('http://localhost:3011/api/v1/companies', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+      ]);
+
+      const safeJson = async (res: Response) => {
+        if (!res.ok) return { data: [], meta: {} };
+        try { return await res.json(); } catch { return { data: [], meta: {} }; }
+      };
+
+      const [products, issues, serviceOps, shipments, companies] = await Promise.all([
+        safeJson(productsRes),
+        safeJson(issuesRes),
+        safeJson(serviceOpsRes),
+        safeJson(shipmentsRes),
+        safeJson(companiesRes)
+      ]);
+
+      // Process data
+      const processedStats: DashboardStats = {
+        // Prefer meta.total if provided by API; fallback to array length
+        totalProducts: (products.meta?.total ?? products.data?.length ?? 0) as number,
+        activeIssues: (issues.meta?.totalOpen ?? undefined) ?? (issues.data?.filter((i: any) => i.status === 'OPEN' || i.status === 'IN_PROGRESS').length || 0),
+        completedRepairs: (issues.meta?.totalClosed ?? undefined) ?? (issues.data?.filter((i: any) => i.status === 'REPAIRED' || i.status === 'CLOSED').length || 0),
+        totalShipments: (shipments.meta?.total ?? shipments.data?.length ?? 0) as number,
+        totalServiceOperations: (serviceOps.meta?.total ?? serviceOps.data?.length ?? 0) as number,
+        totalCompanies: (companies.meta?.total ?? companies.data?.length ?? 0) as number,
+        totalUsers: 0,
+        productsByStatus: {},
+        issuesByStatus: {},
+        serviceOperationsByStatus: {},
+        monthlyTrend: generateMonthlyTrend(products.data || [], issues.data || [], serviceOps.data || [], shipments.data || []),
+        recentActivity: generateRecentActivity(issues.data || [], serviceOps.data || [], shipments.data || [])
+      };
+
+      // Process status distributions
+      if (Array.isArray(products.data)) {
+        products.data.forEach((product: any) => {
+          const status = product.status || 'Unknown';
+          processedStats.productsByStatus[status] = (processedStats.productsByStatus[status] || 0) + 1;
+        });
+      }
+
+      if (Array.isArray(issues.data)) {
+        issues.data.forEach((issue: any) => {
+          const status = issue.status || 'Unknown';
+          processedStats.issuesByStatus[status] = (processedStats.issuesByStatus[status] || 0) + 1;
+        });
+      }
+
+      if (Array.isArray(serviceOps.data)) {
+        serviceOps.data.forEach((op: any) => {
+          const status = op.status || 'Unknown';
+          processedStats.serviceOperationsByStatus[status] = (processedStats.serviceOperationsByStatus[status] || 0) + 1;
+        });
+      }
+
+      setDashboardStats(processedStats);
+
+      // --------- Build Product Analysis ---------
+      const productsArray: any[] = Array.isArray(products.data) ? products.data : [];
+      const groupCount = (arr: any[], keyPickers: Array<(x: any) => string | undefined>) => {
+        const map: Record<string, number> = {};
+        arr.forEach((it) => {
+          let key: string | undefined;
+          for (const pick of keyPickers) {
+            const v = pick(it);
+            if (v) { key = String(v); break; }
+          }
+          const finalKey = key || 'Unknown';
+          map[finalKey] = (map[finalKey] || 0) + 1;
+        });
+        return map;
+      };
+
+      const productsByType = groupCount(productsArray, [
+        (p) => p.type,
+        (p) => p.productType?.name,
+        (p) => p.model?.name,
+      ]);
+
+      const productsByStatusPA = groupCount(productsArray, [(p) => p.status]);
+      const warrantyStatus = groupCount(productsArray, [
+        (p) => p.isUnderWarranty === true ? 'GARANTİLİ' : (p?.isUnderWarranty === false ? 'GARANTİ DIŞI' : undefined),
+        (p) => p.warrantyStatus,
+      ]);
+
+      const monthlyProduction = (() => {
+        const byMonth: Record<string, number> = {};
+        productsArray.forEach((p) => {
+          const d = new Date(p.productionDate || p.createdAt || p.updatedAt || Date.now());
+          const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+          byMonth[k] = (byMonth[k] || 0) + 1;
+        });
+        return Object.entries(byMonth).sort(([a],[b]) => a.localeCompare(b)).map(([month, count]) => ({ month, count }));
+      })();
+
+      setProductAnalysis({
+        totalProducts: productsArray.length,
+        productsByType,
+        productsByStatus: productsByStatusPA,
+        warrantyStatus,
+        monthlyProduction,
+      });
+
+      // --------- Build Issue Analysis ---------
+      const issuesArray: any[] = Array.isArray(issues.data) ? issues.data : [];
+      const issuesByCategory = groupCount(issuesArray, [
+        (i) => i.issueCategory?.name,
+        (i) => i.category?.name,
+        (i) => i.issueCategoryId,
+      ]);
+      const issuesByPriority = groupCount(issuesArray, [(i) => i.priority]);
+      const averageResolutionTime = (() => {
+        const diffs: number[] = [];
+        issuesArray.forEach((i) => {
+          if (i.resolvedAt) {
+            const start = new Date(i.reportedAt || i.createdAt).getTime();
+            const end = new Date(i.resolvedAt).getTime();
+            if (isFinite(start) && isFinite(end) && end >= start) diffs.push(end - start);
+          }
+        });
+        if (!diffs.length) return 0;
+        const avgMs = diffs.reduce((a,b) => a + b, 0) / diffs.length;
+        return Math.round(avgMs / (1000 * 60 * 60 * 24)); // days
+      })();
+      const issuesByMonth = (() => {
+        const byMonth: Record<string, number> = {};
+        issuesArray.forEach((i) => {
+          const d = new Date(i.reportedAt || i.createdAt || Date.now());
+          const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+          byMonth[k] = (byMonth[k] || 0) + 1;
+        });
+        return Object.entries(byMonth).sort(([a],[b]) => a.localeCompare(b)).map(([month, count]) => ({ month, count }));
+      })();
+      setIssueAnalysis({
+        totalIssues: issuesArray.length,
+        issuesByCategory,
+        issuesByPriority,
+        averageResolutionTime,
+        issuesByMonth,
+      });
+
+      // --------- Build Performance Report ---------
+      const opsArray: any[] = Array.isArray(serviceOps.data) ? serviceOps.data : [];
+      const byTech: Record<string, { name: string; total: number; completed: number; durations: number[] }>
+        = {};
+      opsArray.forEach((op) => {
+        const techId = op.technicianId || op.performedBy || 'unknown';
+        const techName = op.technicianName || op.performedByName || techId;
+        if (!byTech[techId]) byTech[techId] = { name: techName, total: 0, completed: 0, durations: [] };
+        byTech[techId].total += 1;
+        if (op.status === 'COMPLETED' || op.completedAt) byTech[techId].completed += 1;
+        if (op.startedAt && op.completedAt) {
+          const s = new Date(op.startedAt).getTime();
+          const e = new Date(op.completedAt).getTime();
+          if (isFinite(s) && isFinite(e) && e >= s) byTech[techId].durations.push(e - s);
+        }
+      });
+      const technicianPerformance = Object.entries(byTech).map(([id, v]) => ({
+        technicianId: id,
+        technicianName: v.name,
+        totalOperations: v.total,
+        completedOperations: v.completed,
+        averageDuration: v.durations.length ? Math.round((v.durations.reduce((a,b)=>a+b,0)/v.durations.length)/(1000*60)) : 0,
+        successRate: v.total ? Math.round((v.completed / v.total) * 100) : 0,
+      }));
+      const teamPerformance = {
+        totalOperations: opsArray.length,
+        averageResolutionTime: (() => {
+          const diffs: number[] = [];
+          opsArray.forEach((op) => {
+            if (op.startedAt && op.completedAt) {
+              const s = new Date(op.startedAt).getTime();
+              const e = new Date(op.completedAt).getTime();
+              if (isFinite(s) && isFinite(e) && e >= s) diffs.push(e - s);
+            }
+          });
+          if (!diffs.length) return 0;
+          return Math.round((diffs.reduce((a,b)=>a+b,0)/diffs.length)/(1000*60)); // minutes
+        })(),
+        customerSatisfaction: 0,
+      };
+      setPerformanceReport({ technicianPerformance, teamPerformance });
+    } catch (error) {
+      // Suppress noisy console errors; show a user-friendly message instead
+      setSnackbar({
+        open: true,
+        message: 'Veri yüklenirken hata oluştu',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleRefresh = () => {
     setIsRefreshing(true);
-    // Simulate refresh
+    fetchDashboardStats();
     setTimeout(() => {
       setIsRefreshing(false);
     }, 1000);
   };
+
+  const generateMonthlyTrend = (
+    productsInput: any,
+    issuesInput: any,
+    serviceOpsInput: any,
+    shipmentsInput: any
+  ) => {
+    const products: any[] = Array.isArray(productsInput) ? productsInput : [];
+    const issues: any[] = Array.isArray(issuesInput) ? issuesInput : [];
+    const serviceOps: any[] = Array.isArray(serviceOpsInput) ? serviceOpsInput : [];
+    const shipments: any[] = Array.isArray(shipmentsInput) ? shipmentsInput : [];
+    const months = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 
+                   'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+    const currentMonth = new Date().getMonth();
+    
+    return months.slice(Math.max(0, currentMonth - 5), currentMonth + 1).map((month, index) => ({
+      month,
+      products: products.filter((p: any) => {
+        const d = new Date(p.productionDate || p.createdAt || p.updatedAt || Date.now());
+        return d.getMonth() === currentMonth - 5 + index;
+      }).length,
+      issues: issues.filter(issue => {
+        const issueDate = new Date(issue.createdAt || issue.reportedAt);
+        return issueDate.getMonth() === currentMonth - 5 + index;
+      }).length,
+      repairs: (
+        issues.filter((i: any) => {
+          const rd = i.resolvedAt ? new Date(i.resolvedAt) : null;
+          return rd && rd.getMonth() === currentMonth - 5 + index;
+        }).length +
+        serviceOps.filter((op: any) => {
+          const cd = op.completedAt ? new Date(op.completedAt) : null;
+          return cd && cd.getMonth() === currentMonth - 5 + index;
+        }).length
+      ),
+      serviceOperations: serviceOps.filter(op => {
+        const opDate = new Date(op.createdAt || op.operationDate);
+        return opDate.getMonth() === currentMonth - 5 + index;
+      }).length,
+      shipments: shipments.filter((shipment: any) => {
+        const shipDate = new Date(shipment.createdAt || shipment.shipDate);
+        return shipDate.getMonth() === currentMonth - 5 + index;
+      }).length
+    }));
+  };
+
+  const generateRecentActivity = (issuesInput: any, serviceOpsInput: any, shipmentsInput: any) => {
+    const activities: any[] = [];
+    const issues: any[] = Array.isArray(issuesInput) ? issuesInput : [];
+    const serviceOps: any[] = Array.isArray(serviceOpsInput) ? serviceOpsInput : [];
+    const shipments: any[] = Array.isArray(shipmentsInput) ? shipmentsInput : [];
+    
+    // Add recent issues
+    issues.slice(0, 5).forEach((issue: any) => {
+      activities.push({
+        id: issue.id,
+        type: 'issue' as const,
+        title: `Arıza: ${issue.issueNumber || issue.title}`,
+        description: issue.description || issue.customerDescription,
+        timestamp: issue.createdAt || issue.reportedAt,
+        status: issue.status,
+        priority: issue.priority
+      });
+    });
+
+    // Add recent service operations
+    serviceOps.slice(0, 3).forEach((op: any) => {
+      activities.push({
+        id: op.id,
+        type: 'service' as const,
+        title: `Servis: ${op.operationType}`,
+        description: op.description,
+        timestamp: op.createdAt || op.operationDate,
+        status: op.status
+      });
+    });
+
+    // Add recent shipments
+    shipments.slice(0, 2).forEach((shipment: any) => {
+      activities.push({
+        id: shipment.id,
+        type: 'shipment' as const,
+        title: `Sevkiyat: ${shipment.trackingNumber || 'Sevkiyat'}`,
+        description: shipment.description,
+        timestamp: shipment.createdAt || shipment.shipDate,
+        status: shipment.status
+      });
+    });
+
+    return activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 10);
+  };
+
+  const handleItemClick = (item: any) => {
+    setSelectedItem(item);
+    setOpenDetailDialog(true);
+  };
+
+  const handleNavigateToPage = (type: string) => {
+    switch (type) {
+      case 'issue':
+        router.push('/dashboard/issues');
+        break;
+      case 'product':
+        router.push('/dashboard/products');
+        break;
+      case 'service':
+        router.push('/dashboard/service-operations');
+        break;
+      case 'shipment':
+        router.push('/dashboard/shipments');
+        break;
+      case 'company':
+        router.push('/dashboard/companies');
+        break;
+      case 'user':
+        router.push('/dashboard/users');
+        break;
+      default:
+        break;
+    }
+  };
+
+  const getActivityIcon = (type: string) => {
+    switch (type) {
+      case 'issue':
+        return <WarningIcon color="error" />;
+      case 'service':
+        return <BuildIcon color="primary" />;
+      case 'shipment':
+        return <ShippingIcon color="info" />;
+      case 'product':
+        return <InventoryIcon color="success" />;
+      default:
+        return <AssessmentIcon />;
+    }
+  };
+
+  // Component mount olduğunda veri çek
+  React.useEffect(() => {
+    fetchDashboardStats();
+    setUserRole(getCurrentUserRole());
+  }, []);
 
   const handleExport = (format: string) => {
     console.log(`Exporting report as ${format}`);
@@ -256,14 +574,14 @@ export default function ReportsPage() {
             title: "Dashboard Genel Bakış Raporu",
             generatedAt: new Date().toLocaleString('tr-TR'),
             metrics: {
-              totalProducts: mockDashboardStats.totalProducts,
-              activeIssues: mockDashboardStats.activeIssues,
-              completedRepairs: mockDashboardStats.completedRepairs,
-              totalShipments: mockDashboardStats.totalShipments
-            },
-            productsByStatus: mockDashboardStats.productsByStatus,
-            issuesByStatus: mockDashboardStats.issuesByStatus,
-            monthlyTrend: mockDashboardStats.monthlyTrend
+            totalProducts: dashboardStats?.totalProducts || 0,
+            activeIssues: dashboardStats?.activeIssues || 0,
+            completedRepairs: dashboardStats?.completedRepairs || 0,
+            totalShipments: dashboardStats?.totalShipments || 0
+          },
+          productsByStatus: dashboardStats?.productsByStatus || {},
+          issuesByStatus: dashboardStats?.issuesByStatus || {},
+          monthlyTrend: dashboardStats?.monthlyTrend || []
           };
           filename = `dashboard-raporu-${new Date().toISOString().split('T')[0]}`;
           break;
@@ -272,11 +590,11 @@ export default function ReportsPage() {
           data = {
             title: "Ürün Analizi Raporu",
             generatedAt: new Date().toLocaleString('tr-TR'),
-            totalProducts: mockProductAnalysis.totalProducts,
-            productsByType: mockProductAnalysis.productsByType,
-            productsByStatus: mockProductAnalysis.productsByStatus,
-            warrantyStatus: mockProductAnalysis.warrantyStatus,
-            monthlyProduction: mockProductAnalysis.monthlyProduction
+            totalProducts: dashboardStats?.totalProducts || 0,
+            productsByType: {},
+            productsByStatus: dashboardStats?.productsByStatus || {},
+            warrantyStatus: {},
+            monthlyProduction: []
           };
           filename = `urun-analizi-raporu-${new Date().toISOString().split('T')[0]}`;
           break;
@@ -285,11 +603,11 @@ export default function ReportsPage() {
           data = {
             title: "Sorun Analizi Raporu",
             generatedAt: new Date().toLocaleString('tr-TR'),
-            totalIssues: mockIssueAnalysis.totalIssues,
-            issuesByCategory: mockIssueAnalysis.issuesByCategory,
-            issuesByPriority: mockIssueAnalysis.issuesByPriority,
-            averageResolutionTime: mockIssueAnalysis.averageResolutionTime,
-            issuesByMonth: mockIssueAnalysis.issuesByMonth
+            totalIssues: dashboardStats?.activeIssues || 0,
+            issuesByCategory: {},
+            issuesByPriority: {},
+            averageResolutionTime: 0,
+            issuesByMonth: []
           };
           filename = `sorun-analizi-raporu-${new Date().toISOString().split('T')[0]}`;
           break;
@@ -298,8 +616,12 @@ export default function ReportsPage() {
           data = {
             title: "Performans Raporu",
             generatedAt: new Date().toLocaleString('tr-TR'),
-            technicianPerformance: mockPerformanceReport.technicianPerformance,
-            teamPerformance: mockPerformanceReport.teamPerformance
+            technicianPerformance: [],
+            teamPerformance: {
+              totalOperations: 0,
+              averageResolutionTime: 0,
+              customerSatisfaction: 0
+            }
           };
           filename = `performans-raporu-${new Date().toISOString().split('T')[0]}`;
           break;
@@ -504,107 +826,159 @@ export default function ReportsPage() {
   const renderDashboardOverview = () => (
     <Box>
       {/* Key Metrics */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
+      <Grid container spacing={3} justifyContent="center" sx={{ mb: 4 }}>
+        <Grid item xs={12} sm={6} md={2}>
+          <Card sx={{ borderRadius: 2, boxShadow: 2, cursor: 'pointer', '&:hover': { boxShadow: 4 } }}
+                onClick={() => handleNavigateToPage('product')}>
             <CardContent sx={{ textAlign: 'center', p: 3 }}>
               <Avatar sx={{ bgcolor: 'primary.main', mx: 'auto', mb: 2 }}>
-                <AssessmentIcon />
+                <InventoryIcon />
               </Avatar>
               <Typography variant="h4" color="primary" sx={{ fontWeight: 700, mb: 1 }}>
-                {mockDashboardStats.totalProducts.toLocaleString()}
+                {dashboardStats?.totalProducts?.toLocaleString() || 0}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Toplam Ürün
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mt: 1 }}>
-                <TrendingUpIcon sx={{ color: 'success.main', fontSize: 16, mr: 0.5 }} />
-                <Typography variant="caption" color="success.main">
-                  +12.5%
+                <LinkIcon sx={{ color: 'primary.main', fontSize: 16, mr: 0.5 }} />
+                <Typography variant="caption" color="primary.main">
+                  Detayları Gör
                 </Typography>
               </Box>
             </CardContent>
           </Card>
         </Grid>
-        
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
+
+        <Grid item xs={12} sm={6} md={2}>
+          <Card sx={{ borderRadius: 2, boxShadow: 2, cursor: 'pointer', '&:hover': { boxShadow: 4 } }}
+                onClick={() => handleNavigateToPage('issue')}>
             <CardContent sx={{ textAlign: 'center', p: 3 }}>
               <Avatar sx={{ bgcolor: 'error.main', mx: 'auto', mb: 2 }}>
-                <AssessmentIcon />
+                <WarningIcon />
               </Avatar>
-              <Typography variant="h4" color="error" sx={{ fontWeight: 700, mb: 1 }}>
-                {mockDashboardStats.activeIssues}
+              <Typography variant="h4" color="error.main" sx={{ fontWeight: 700, mb: 1 }}>
+                {dashboardStats?.activeIssues?.toLocaleString() || 0}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Aktif Sorun
+                Aktif Arıza
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mt: 1 }}>
-                <TrendingDownIcon sx={{ color: 'error.main', fontSize: 16, mr: 0.5 }} />
+                <LinkIcon sx={{ color: 'error.main', fontSize: 16, mr: 0.5 }} />
                 <Typography variant="caption" color="error.main">
-                  -5.2%
+                  Detayları Gör
                 </Typography>
               </Box>
             </CardContent>
           </Card>
         </Grid>
-        
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
+
+        <Grid item xs={12} sm={6} md={2}>
+          <Card sx={{ borderRadius: 2, boxShadow: 2, cursor: 'pointer', '&:hover': { boxShadow: 4 } }}
+                onClick={() => handleNavigateToPage('service')}>
             <CardContent sx={{ textAlign: 'center', p: 3 }}>
               <Avatar sx={{ bgcolor: 'success.main', mx: 'auto', mb: 2 }}>
-                <AssessmentIcon />
+                <BuildIcon />
               </Avatar>
               <Typography variant="h4" color="success.main" sx={{ fontWeight: 700, mb: 1 }}>
-                {mockDashboardStats.completedRepairs}
+                {dashboardStats?.totalServiceOperations?.toLocaleString() || 0}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Tamamlanan Onarım
+                Servis Operasyonu
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mt: 1 }}>
-                <TrendingUpIcon sx={{ color: 'success.main', fontSize: 16, mr: 0.5 }} />
+                <LinkIcon sx={{ color: 'success.main', fontSize: 16, mr: 0.5 }} />
                 <Typography variant="caption" color="success.main">
-                  +8.7%
+                  Detayları Gör
                 </Typography>
               </Box>
             </CardContent>
           </Card>
         </Grid>
-        
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
+
+        <Grid item xs={12} sm={6} md={2}>
+          <Card sx={{ borderRadius: 2, boxShadow: 2, cursor: 'pointer', '&:hover': { boxShadow: 4 } }}
+                onClick={() => handleNavigateToPage('shipment')}>
             <CardContent sx={{ textAlign: 'center', p: 3 }}>
               <Avatar sx={{ bgcolor: 'info.main', mx: 'auto', mb: 2 }}>
-                <AssessmentIcon />
+                <ShippingIcon />
               </Avatar>
               <Typography variant="h4" color="info.main" sx={{ fontWeight: 700, mb: 1 }}>
-                {mockDashboardStats.totalShipments}
+                {dashboardStats?.totalShipments?.toLocaleString() || 0}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Toplam Sevkiyat
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mt: 1 }}>
-                <TrendingUpIcon sx={{ color: 'success.main', fontSize: 16, mr: 0.5 }} />
-                <Typography variant="caption" color="success.main">
-                  +15.3%
+                <LinkIcon sx={{ color: 'info.main', fontSize: 16, mr: 0.5 }} />
+                <Typography variant="caption" color="info.main">
+                  Detayları Gör
                 </Typography>
               </Box>
             </CardContent>
           </Card>
         </Grid>
+
+        <Grid item xs={12} sm={6} md={2}>
+          <Card sx={{ borderRadius: 2, boxShadow: 2, cursor: 'pointer', '&:hover': { boxShadow: 4 } }}
+                onClick={() => handleNavigateToPage('company')}>
+            <CardContent sx={{ textAlign: 'center', p: 3 }}>
+              <Avatar sx={{ bgcolor: 'warning.main', mx: 'auto', mb: 2 }}>
+                <BusinessIcon />
+              </Avatar>
+              <Typography variant="h4" color="warning.main" sx={{ fontWeight: 700, mb: 1 }}>
+                {dashboardStats?.totalCompanies?.toLocaleString() || 0}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Toplam Şirket
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mt: 1 }}>
+                <LinkIcon sx={{ color: 'warning.main', fontSize: 16, mr: 0.5 }} />
+                <Typography variant="caption" color="warning.main">
+                  Detayları Gör
+                </Typography>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {userRole === 'ADMIN' && (
+          <Grid item xs={12} sm={6} md={2}>
+            <Card sx={{ borderRadius: 2, boxShadow: 2, cursor: 'pointer', '&:hover': { boxShadow: 4 } }}
+                  onClick={() => handleNavigateToPage('user')}>
+              <CardContent sx={{ textAlign: 'center', p: 3 }}>
+                <Avatar sx={{ bgcolor: 'secondary.main', mx: 'auto', mb: 2 }}>
+                  <PeopleIcon />
+                </Avatar>
+                <Typography variant="h4" color="secondary.main" sx={{ fontWeight: 700, mb: 1 }}>
+                  {dashboardStats?.totalUsers?.toLocaleString() || 0}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Toplam Kullanıcı
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mt: 1 }}>
+                  <LinkIcon sx={{ color: 'secondary.main', fontSize: 16, mr: 0.5 }} />
+                  <Typography variant="caption" color="secondary.main">
+                    Detayları Gör
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        )}
       </Grid>
 
       {/* Status Breakdown */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={4}>
           <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
             <CardContent sx={{ p: 3 }}>
               <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <PieChartIcon color="primary" />
+                <InventoryIcon color="primary" />
                 Ürünler Duruma Göre
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {Object.entries(mockDashboardStats.productsByStatus).map(([status, count]) => (
+                {Object.entries(dashboardStats?.productsByStatus || {}).map(([status, count]) => (
                   <Box key={status} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                       <Chip 
@@ -623,15 +997,15 @@ export default function ReportsPage() {
           </Card>
         </Grid>
         
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={4}>
           <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
             <CardContent sx={{ p: 3 }}>
               <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <BarChartIcon color="primary" />
-                Sorunlar Duruma Göre
+                <WarningIcon color="error" />
+                Arızalar Duruma Göre
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {Object.entries(mockDashboardStats.issuesByStatus).map(([status, count]) => (
+                {Object.entries(dashboardStats?.issuesByStatus || {}).map(([status, count]) => (
                   <Box key={status} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                       <Chip 
@@ -643,6 +1017,144 @@ export default function ReportsPage() {
                     <Typography variant="h6" sx={{ fontWeight: 600 }}>
                       {count.toLocaleString()}
                     </Typography>
+                  </Box>
+                ))}
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={4}>
+          <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
+            <CardContent sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <BuildIcon color="success" />
+                Servis Operasyonları
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {Object.entries(dashboardStats?.serviceOperationsByStatus || {}).map(([status, count]) => (
+                  <Box key={status} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Chip 
+                        label={status} 
+                        color={getStatusColor(status) as any}
+                        size="small"
+                      />
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                      {count.toLocaleString()}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Recent Activity */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} md={8}>
+          <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
+            <CardContent sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <TimelineIcon color="primary" />
+                Son Aktiviteler
+              </Typography>
+              <List>
+                {dashboardStats?.recentActivity?.slice(0, 8).map((activity, index) => (
+                  <React.Fragment key={activity.id}>
+                    <ListItem 
+                      sx={{ 
+                        cursor: 'pointer', 
+                        '&:hover': { bgcolor: 'action.hover' },
+                        borderRadius: 1
+                      }}
+                      onClick={() => handleItemClick(activity)}
+                    >
+                      <ListItemIcon>
+                        {getActivityIcon(activity.type)}
+                      </ListItemIcon>
+                      <ListItemText
+                        primaryTypographyProps={{ component: 'div' }}
+                        secondaryTypographyProps={{ component: 'div' }}
+                        primary={
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                              {activity.title}
+                            </Typography>
+                            <Chip 
+                              label={activity.status} 
+                              color={getStatusColor(activity.status) as any}
+                              size="small"
+                            />
+                            {activity.priority && (
+                              <Chip 
+                                label={activity.priority} 
+                                color={getStatusColor(activity.priority) as any}
+                                size="small"
+                                variant="outlined"
+                              />
+                            )}
+                          </Box>
+                        }
+                        secondary={
+                          <Box>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                              {activity.description}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {new Date(activity.timestamp).toLocaleString('tr-TR')}
+                            </Typography>
+                          </Box>
+                        }
+                      />
+                      <IconButton size="small" onClick={(e) => {
+                        e.stopPropagation();
+                        handleNavigateToPage(activity.type);
+                      }}>
+                        <LinkIcon />
+                      </IconButton>
+                    </ListItem>
+                    {index < dashboardStats?.recentActivity?.length - 1 && <Divider />}
+                  </React.Fragment>
+                ))}
+              </List>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={4}>
+          <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
+            <CardContent sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <BarChartIcon color="primary" />
+                Aylık Trend
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {dashboardStats?.monthlyTrend?.slice(-6).map((trend) => (
+                  <Box key={trend.month} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                      {trend.month}
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="caption" color="text.secondary">Ürünler:</Typography>
+                        <Typography variant="caption" sx={{ fontWeight: 600 }}>{trend.products}</Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="caption" color="text.secondary">Arızalar:</Typography>
+                        <Typography variant="caption" sx={{ fontWeight: 600 }}>{trend.issues}</Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="caption" color="text.secondary">Servis:</Typography>
+                        <Typography variant="caption" sx={{ fontWeight: 600 }}>{trend.serviceOperations}</Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="caption" color="text.secondary">Sevkiyat:</Typography>
+                        <Typography variant="caption" sx={{ fontWeight: 600 }}>{trend.shipments}</Typography>
+                      </Box>
+                    </Box>
                   </Box>
                 ))}
               </Box>
@@ -659,7 +1171,7 @@ export default function ReportsPage() {
             Aylık Trend Analizi
           </Typography>
           <Grid container spacing={2}>
-            {mockDashboardStats.monthlyTrend.map((month) => (
+            {(dashboardStats?.monthlyTrend || []).map((month) => (
               <Grid item xs={6} md={2} key={month.month}>
                 <Box sx={{ textAlign: 'center', p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
                   <Typography variant="subtitle2" color="text.secondary">
@@ -690,14 +1202,16 @@ export default function ReportsPage() {
                 Ürünler Türe Göre
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {Object.entries(mockProductAnalysis.productsByType).map(([type, count]) => (
-                  <Box key={type} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="body1">{type}</Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                      {count.toLocaleString()}
-                    </Typography>
-                  </Box>
-                ))}
+                {productAnalysis && Object.keys(productAnalysis.productsByType).length > 0 ? (
+                  Object.entries(productAnalysis.productsByType).map(([type, count]) => (
+                    <Box key={type} sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="body2">{type}</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{count as number}</Typography>
+                    </Box>
+                  ))
+                ) : (
+                  <Typography variant="body2" color="text.secondary">Veri bulunamadı</Typography>
+                )}
               </Box>
             </CardContent>
           </Card>
@@ -710,18 +1224,16 @@ export default function ReportsPage() {
                 Garanti Durumu
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {Object.entries(mockProductAnalysis.warrantyStatus).map(([status, count]) => (
-                  <Box key={status} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Chip 
-                      label={status} 
-                      color={getStatusColor(status) as any}
-                      size="small"
-                    />
-                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                      {count.toLocaleString()}
-                    </Typography>
-                  </Box>
-                ))}
+                {productAnalysis && Object.keys(productAnalysis.warrantyStatus).length > 0 ? (
+                  Object.entries(productAnalysis.warrantyStatus).map(([status, count]) => (
+                    <Box key={status} sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="body2">{status}</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{count as number}</Typography>
+                    </Box>
+                  ))
+                ) : (
+                  <Typography variant="body2" color="text.secondary">Veri bulunamadı</Typography>
+                )}
               </Box>
             </CardContent>
           </Card>
@@ -740,14 +1252,16 @@ export default function ReportsPage() {
                 Sorunlar Kategoriye Göre
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {Object.entries(mockIssueAnalysis.issuesByCategory).map(([category, count]) => (
-                  <Box key={category} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="body1">{category}</Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                      {count.toLocaleString()}
-                    </Typography>
-                  </Box>
-                ))}
+                {issueAnalysis && Object.keys(issueAnalysis.issuesByCategory).length > 0 ? (
+                  Object.entries(issueAnalysis.issuesByCategory).map(([cat, count]) => (
+                    <Box key={cat} sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="body2">{cat}</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{count as number}</Typography>
+                    </Box>
+                  ))
+                ) : (
+                  <Typography variant="body2" color="text.secondary">Veri bulunamadı</Typography>
+                )}
               </Box>
             </CardContent>
           </Card>
@@ -760,25 +1274,23 @@ export default function ReportsPage() {
                 Sorunlar Önceliğe Göre
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {Object.entries(mockIssueAnalysis.issuesByPriority).map(([priority, count]) => (
-                  <Box key={priority} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Chip 
-                      label={priority} 
-                      color={getStatusColor(priority) as any}
-                      size="small"
-                    />
-                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                      {count.toLocaleString()}
-                    </Typography>
-                  </Box>
-                ))}
+                {issueAnalysis && Object.keys(issueAnalysis.issuesByPriority).length > 0 ? (
+                  Object.entries(issueAnalysis.issuesByPriority).map(([prio, count]) => (
+                    <Box key={prio} sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="body2">{prio}</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{count as number}</Typography>
+                    </Box>
+                  ))
+                ) : (
+                  <Typography variant="body2" color="text.secondary">Veri bulunamadı</Typography>
+                )}
               </Box>
               <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
                 <Typography variant="body2" color="text.secondary">
                   Ortalama Çözüm Süresi
                 </Typography>
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                  {mockIssueAnalysis.averageResolutionTime} gün
+                  {issueAnalysis ? `${issueAnalysis.averageResolutionTime} gün` : '0 gün'}
                 </Typography>
               </Box>
             </CardContent>
@@ -798,38 +1310,44 @@ export default function ReportsPage() {
                 Teknik Ekip Performansı
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                {mockPerformanceReport.technicianPerformance.map((tech) => (
-                  <Box key={tech.technicianId} sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                      <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                        {tech.technicianName}
-                      </Typography>
-                      <Chip 
-                        label={`%${tech.successRate}`} 
-                        color={tech.successRate >= 93 ? "success" : "warning"}
-                        size="small"
-                      />
-                    </Box>
-                    <Grid container spacing={2}>
-                      <Grid item xs={6} md={3}>
-                        <Typography variant="body2" color="text.secondary">Toplam İşlem</Typography>
-                        <Typography variant="h6" sx={{ fontWeight: 600 }}>{tech.totalOperations}</Typography>
+                {performanceReport && performanceReport.technicianPerformance.length > 0 ? (
+                  <Grid container spacing={2}>
+                    {performanceReport.technicianPerformance.map((t) => (
+                      <Grid item xs={12} md={4} key={t.technicianId}>
+                        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{t.technicianName}</Typography>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+                            <Typography variant="caption" color="text.secondary">Toplam Operasyon</Typography>
+                            <Typography variant="caption" sx={{ fontWeight: 600 }}>{t.totalOperations}</Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="caption" color="text.secondary">Tamamlanan</Typography>
+                            <Typography variant="caption" sx={{ fontWeight: 600 }}>{t.completedOperations}</Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="caption" color="text.secondary">Başarı Oranı</Typography>
+                            <Typography variant="caption" sx={{ fontWeight: 600 }}>{t.successRate}%</Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="caption" color="text.secondary">Ortalama Süre</Typography>
+                            <Typography variant="caption" sx={{ fontWeight: 600 }}>{t.averageDuration} dk</Typography>
+                          </Box>
+                        </Paper>
                       </Grid>
-                      <Grid item xs={6} md={3}>
-                        <Typography variant="body2" color="text.secondary">Tamamlanan</Typography>
-                        <Typography variant="h6" sx={{ fontWeight: 600 }}>{tech.completedOperations}</Typography>
-                      </Grid>
-                      <Grid item xs={6} md={3}>
-                        <Typography variant="body2" color="text.secondary">Ortalama Süre</Typography>
-                        <Typography variant="h6" sx={{ fontWeight: 600 }}>{tech.averageDuration} gün</Typography>
-                      </Grid>
-                      <Grid item xs={6} md={3}>
-                        <Typography variant="body2" color="text.secondary">Başarı Oranı</Typography>
-                        <Typography variant="h6" sx={{ fontWeight: 600 }}>%{tech.successRate}</Typography>
-                      </Grid>
-                    </Grid>
+                    ))}
+                  </Grid>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">Veri bulunamadı</Typography>
+                )}
+                <Divider />
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Takım Özeti</Typography>
+                  <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                    <Chip label={`Toplam Operasyon: ${performanceReport?.teamPerformance.totalOperations ?? 0}`} />
+                    <Chip label={`Ortalama Çözüm: ${performanceReport?.teamPerformance.averageResolutionTime ?? 0} dk`} />
+                    <Chip label={`Müşteri Memnuniyeti: ${performanceReport?.teamPerformance.customerSatisfaction ?? 0}%`} />
                   </Box>
-                ))}
+                </Box>
               </Box>
             </CardContent>
           </Card>
@@ -910,6 +1428,105 @@ export default function ReportsPage() {
       {activeTab === 1 && renderProductAnalysis()}
       {activeTab === 2 && renderIssueAnalysis()}
       {activeTab === 3 && renderPerformanceReport()}
+
+      {/* Detail Dialog */}
+      <Dialog 
+        open={openDetailDialog} 
+        onClose={() => setOpenDetailDialog(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {selectedItem && getActivityIcon(selectedItem.type)}
+            <Typography variant="h6">
+              {selectedItem?.title}
+            </Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {selectedItem && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Açıklama
+                </Typography>
+                <Typography variant="body1">
+                  {selectedItem.description}
+                </Typography>
+              </Box>
+              
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Durum
+                  </Typography>
+                  <Chip 
+                    label={selectedItem.status} 
+                    color={getStatusColor(selectedItem.status) as any}
+                    size="small"
+                  />
+                </Box>
+                
+                {selectedItem.priority && (
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Öncelik
+                    </Typography>
+                    <Chip 
+                      label={selectedItem.priority} 
+                      color={getStatusColor(selectedItem.priority) as any}
+                      size="small"
+                      variant="outlined"
+                    />
+                  </Box>
+                )}
+              </Box>
+              
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Tarih
+                </Typography>
+                <Typography variant="body2">
+                  {new Date(selectedItem.timestamp).toLocaleString('tr-TR')}
+                </Typography>
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenDetailDialog(false)}>
+            Kapat
+          </Button>
+          <Button 
+            variant="contained" 
+            onClick={() => {
+              if (selectedItem) {
+                handleNavigateToPage(selectedItem.type);
+                setOpenDetailDialog(false);
+              }
+            }}
+          >
+            Detayları Gör
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} 
+          severity={snackbar.severity}
+          sx={{ borderRadius: 2 }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

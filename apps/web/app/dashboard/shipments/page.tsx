@@ -86,66 +86,63 @@ const ShipmentsPage = () => {
     search: '',
   });
 
-  // Mock data for demonstration
-  const mockShipments: Shipment[] = [
-    {
-      id: '1',
-      shipmentNumber: '250602-01',
-      type: 'SALES',
-      status: 'SHIPPED',
-      company: { id: '1', name: 'ABC Elektrik Ltd.' },
-      trackingNumber: 'TRK123456789',
-      estimatedDelivery: '2025-06-05T10:00:00Z',
-      itemCount: 3,
-      createdBy: { id: '1', firstName: 'Ahmet', lastName: 'Yılmaz' },
-      createdAt: '2025-06-02T09:00:00Z',
-      updatedAt: '2025-06-02T14:30:00Z',
-    },
-    {
-      id: '2',
-      shipmentNumber: '250602-02',
-      type: 'SERVICE_RETURN',
-      status: 'PREPARING',
-      company: { id: '2', name: 'XYZ Teknoloji A.Ş.' },
-      itemCount: 1,
-      createdBy: { id: '2', firstName: 'Mehmet', lastName: 'Kaya' },
-      createdAt: '2025-06-02T11:00:00Z',
-      updatedAt: '2025-06-02T11:00:00Z',
-    },
-    {
-      id: '3',
-      shipmentNumber: '250602-03',
-      type: 'SERVICE_SEND',
-      status: 'DELIVERED',
-      company: { id: '3', name: 'Delta Enerji Ltd.' },
-      trackingNumber: 'TRK987654321',
-      estimatedDelivery: '2025-06-03T15:00:00Z',
-      actualDelivery: '2025-06-03T14:30:00Z',
-      itemCount: 2,
-      createdBy: { id: '1', firstName: 'Ahmet', lastName: 'Yılmaz' },
-      createdAt: '2025-06-02T13:00:00Z',
-      updatedAt: '2025-06-03T14:30:00Z',
-    },
-  ];
-
-  const mockStats: ShipmentStats = {
-    totalShipments: 3,
-    preparingShipments: 1,
-    shippedShipments: 1,
-    deliveredShipments: 1,
-    cancelledShipments: 0,
-    salesShipments: 1,
-    serviceShipments: 2,
-  };
+  // Gerçek veri çekme
 
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setShipments(mockShipments);
-      setStats(mockStats);
-      setLoading(false);
-    }, 1000);
+    fetchShipments();
+    fetchStats();
   }, []);
+
+  const fetchShipments = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:3011/api/v1/shipments', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setShipments(data.data.shipments || []);
+      } else {
+        setError('Sevkiyat verileri yüklenemedi');
+      }
+    } catch (error) {
+      console.error('Error fetching shipments:', error);
+      setError('Sevkiyat verileri yüklenemedi');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:3011/api/v1/shipments/stats/overview', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        // API'den gelen veri yapısını frontend'e uygun hale getir
+        setStats({
+          totalShipments: data.data.total || 0,
+          preparingShipments: data.data.preparing || 0,
+          shippedShipments: data.data.shipped || 0,
+          deliveredShipments: data.data.delivered || 0,
+          cancelledShipments: data.data.cancelled || 0,
+          salesShipments: 0, // Bu bilgi API'de yok, hesaplanabilir
+          serviceShipments: 0, // Bu bilgi API'de yok, hesaplanabilir
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -206,7 +203,7 @@ const ShipmentsPage = () => {
       const searchLower = filters.search.toLowerCase();
       return (
         shipment.shipmentNumber.toLowerCase().includes(searchLower) ||
-        shipment.company.name.toLowerCase().includes(searchLower) ||
+        shipment.company?.name?.toLowerCase().includes(searchLower) ||
         (shipment.trackingNumber && shipment.trackingNumber.toLowerCase().includes(searchLower))
       );
     }
@@ -253,25 +250,25 @@ const ShipmentsPage = () => {
             <Grid item xs={12} sm={6} md={3}>
               <Paper sx={{ p: 2, textAlign: 'center' }}>
                 <Typography variant="h6">Toplam Sevkiyat</Typography>
-                <Typography variant="h4">{stats.totalShipments}</Typography>
+                <Typography variant="h4">{stats?.totalShipments || 0}</Typography>
               </Paper>
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
               <Paper sx={{ p: 2, textAlign: 'center' }}>
                 <Typography variant="h6">Hazırlanan</Typography>
-                <Typography variant="h4">{stats.preparingShipments}</Typography>
+                <Typography variant="h4">{stats?.preparingShipments || 0}</Typography>
               </Paper>
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
               <Paper sx={{ p: 2, textAlign: 'center' }}>
                 <Typography variant="h6">Sevk Edilen</Typography>
-                <Typography variant="h4">{stats.shippedShipments}</Typography>
+                <Typography variant="h4">{stats?.shippedShipments || 0}</Typography>
               </Paper>
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
               <Paper sx={{ p: 2, textAlign: 'center' }}>
                 <Typography variant="h6">Teslim Edilen</Typography>
-                <Typography variant="h4">{stats.deliveredShipments}</Typography>
+                <Typography variant="h4">{stats?.deliveredShipments || 0}</Typography>
               </Paper>
             </Grid>
           </Grid>
@@ -364,7 +361,7 @@ const ShipmentsPage = () => {
                       color={getStatusColor(shipment.status) as any}
                     />
                   </TableCell>
-                  <TableCell>{shipment.company.name}</TableCell>
+                  <TableCell>{shipment.company?.name || 'Müşteri bilgisi yok'}</TableCell>
                   <TableCell>
                     {shipment.trackingNumber ? (
                       <Typography variant="body2" color="primary">
@@ -376,7 +373,7 @@ const ShipmentsPage = () => {
                       </Typography>
                     )}
                   </TableCell>
-                  <TableCell>{shipment.itemCount}</TableCell>
+                  <TableCell>1</TableCell>
                   <TableCell>
                     {shipment.estimatedDelivery ? (
                       new Date(shipment.estimatedDelivery).toLocaleDateString('tr-TR')
@@ -387,7 +384,7 @@ const ShipmentsPage = () => {
                     )}
                   </TableCell>
                   <TableCell>
-                    {shipment.createdBy.firstName} {shipment.createdBy.lastName}
+                    {shipment.createdBy?.firstName} {shipment.createdBy?.lastName}
                   </TableCell>
                   <TableCell>
                     <IconButton

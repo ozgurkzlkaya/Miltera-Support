@@ -7,10 +7,11 @@ import {
   UserCreateDto,
   UserUpdateDto,
 } from "../dtos/user.dto";
+import type { HonoEnv } from "../config/env";
 
 const userService = new UserService(db);
 
-const list = createControllerAction(async (c) => {
+const list = createControllerAction<HonoEnv>(async (c) => {
   const query = await c.validateRequest("rawQuery", (v) => v);
   const userListRequestDto = UserListRequestDto.create(query);
 
@@ -21,7 +22,8 @@ const list = createControllerAction(async (c) => {
   return c.responseJSON(ResponseHandler.success(userList.data, userList.meta));
 });
 
-const show = createControllerAction("/:id", async (c) => {
+const show = createControllerAction<HonoEnv>("/:id", async (c) => {
+
   const id = c.req.param("id");
 
   const userDto = await userService.getUser(id);
@@ -30,7 +32,8 @@ const show = createControllerAction("/:id", async (c) => {
   return c.responseJSON(ResponseHandler.success(user));
 });
 
-const create = createControllerAction(async (c) => {
+const create = createControllerAction<HonoEnv>(async (c) => {
+
   const body = await c.validateRequest("json", (v) => v);
   const userCreateDto = UserCreateDto.create(body);
 
@@ -40,7 +43,8 @@ const create = createControllerAction(async (c) => {
   return c.responseJSON(ResponseHandler.success(user));
 });
 
-const update = createControllerAction("/:id", async (c) => {
+const update = createControllerAction<HonoEnv>("/:id", async (c) => {
+
   const id = c.req.param("id");
   const body = await c.validateRequest("json", (v) => v);
   const userUpdateDto = UserUpdateDto.create(body);
@@ -51,7 +55,8 @@ const update = createControllerAction("/:id", async (c) => {
   return c.responseJSON(ResponseHandler.success(user));
 });
 
-const destroy = createControllerAction("/:id", async (c) => {
+const destroy = createControllerAction<HonoEnv>("/:id", async (c) => {
+
   const id = c.req.param("id");
 
   await userService.deleteUser(id);

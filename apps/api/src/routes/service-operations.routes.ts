@@ -1,137 +1,194 @@
-import { createRoute } from "@hono/zod-openapi";
-import { createRouter } from "../lib/hono";
-import type { HonoEnv } from "../config/env";
-import { z } from "../lib/zod";
+import { OpenAPIHono } from "@hono/zod-openapi";
+import { createRoute, z } from "@hono/zod-openapi";
 import ServiceOperationsController from "../controllers/service-operations.controller";
-import { buildResponseSuccessSchema } from "../helpers/response.helpers";
+import type { HonoEnv } from "../config/env";
+// import { authMiddleware } from "../middlewares/auth.middleware";
+
+// Response helper functions
+const buildResponseSuccessSchema = (dataSchema: any) => z.object({
+  success: z.literal(true),
+  data: dataSchema,
+  meta: z.record(z.any()).optional(),
+});
+
+const Error400Schema = z.object({
+  success: z.literal(false),
+  error: z.object({
+    code: z.string(),
+    message: z.string(),
+  }),
+});
+
+const Error404Schema = z.object({
+  success: z.literal(false),
+  error: z.object({
+    code: z.string(),
+    message: z.string(),
+  }),
+});
+
+const Error500Schema = z.object({
+  success: z.literal(false),
+  error: z.object({
+    code: z.string(),
+    message: z.string(),
+  }),
+});
+
 import {
   ServiceOperationCreateSchema,
-  ServiceOperationListSchema,
-  ServiceOperationSchema,
   ServiceOperationUpdateSchema,
   ServiceWorkflowSchema,
-  RepairSummarySchema,
-  ServiceOperationStatsSchema,
-  TechnicianPerformanceSchema,
 } from "../dtos/service-operations.dto";
-import {
-  Error404Schema,
-  Error422Schema,
-  Error500Schema,
-} from "../dtos/base.schema";
-import { authMiddleware } from "../helpers/auth.helpers";
 
-// Service Operations Routes
-const listOperations = createRoute({
-  method: "get",
-  path: "/",
-  request: {},
-  responses: {
-    200: {
-      content: {
-        "application/json": {
-          schema: buildResponseSuccessSchema(ServiceOperationListSchema),
-        },
-      },
-      description: "List all service operations",
-    },
-    500: {
-      content: {
-        "application/json": {
-          schema: Error500Schema,
-        },
-      },
-      description: "Internal server error",
-    },
-  },
+// Basic service operation schema
+const ServiceOperationSchema = z.object({
+  id: z.string(),
+  issueId: z.string().nullable(),
+  productId: z.string(),
+  issueProductId: z.string().nullable(),
+  technicianId: z.string(),
+  operationType: z.string(),
+  status: z.string(),
+  description: z.string(),
+  findings: z.string().nullable(),
+  actionsTaken: z.string().nullable(),
+  isUnderWarranty: z.boolean(),
+  cost: z.string().nullable(),
+  duration: z.number().nullable(),
+  operationDate: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  performedBy: z.string(),
 });
 
-const showOperation = createRoute({
-  method: "get",
-  path: "/:id",
-  request: {
-    params: z.object({
-      id: z.string(),
-    }),
-  },
-  responses: {
-    200: {
-      content: {
-        "application/json": {
-          schema: buildResponseSuccessSchema(ServiceOperationSchema),
-        },
-      },
-      description: "Service operation details",
-    },
-    404: {
-      content: {
-        "application/json": {
-          schema: Error404Schema,
-        },
-      },
-      description: "Service operation not found",
-    },
-    500: {
-      content: {
-        "application/json": {
-          schema: Error500Schema,
-        },
-      },
-      description: "Internal server error",
-    },
-  },
-});
-
-const createOperation = createRoute({
-  method: "post",
-  path: "/",
+// Create service operation route
+const createServiceOperationRoute = createRoute({
+  method: 'post',
+  path: '/',
+  tags: ['Service Operations'],
+  summary: 'Create a new service operation',
   request: {
     body: {
       content: {
-        "application/json": {
+        'application/json': {
           schema: ServiceOperationCreateSchema,
         },
       },
     },
   },
   responses: {
-    200: {
+    201: {
       content: {
-        "application/json": {
+        'application/json': {
           schema: buildResponseSuccessSchema(ServiceOperationSchema),
         },
       },
-      description: "Service operation created successfully",
+      description: 'Service operation created successfully',
     },
-    422: {
+    400: {
       content: {
-        "application/json": {
-          schema: Error422Schema,
+        'application/json': {
+          schema: Error400Schema,
         },
       },
-      description: "Unprocessable entity",
+      description: 'Bad request',
     },
     500: {
       content: {
-        "application/json": {
+        'application/json': {
           schema: Error500Schema,
         },
       },
-      description: "Internal server error",
+      description: 'Internal server error',
     },
   },
 });
 
-const updateOperation = createRoute({
-  method: "put",
-  path: "/:id",
+// Get service operations route
+const getServiceOperationsRoute = createRoute({
+  method: 'get',
+  path: '/',
+  tags: ['Service Operations'],
+  summary: 'Get all service operations',
+  request: {
+    query: z.object({
+      page: z.string().optional(),
+      limit: z.string().optional(),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: buildResponseSuccessSchema(z.array(ServiceOperationSchema)),
+        },
+      },
+      description: 'Service operations retrieved successfully',
+    },
+    500: {
+      content: {
+        'application/json': {
+          schema: Error500Schema,
+        },
+      },
+      description: 'Internal server error',
+    },
+  },
+});
+
+// Get service operation by ID route
+const getServiceOperationRoute = createRoute({
+  method: 'get',
+  path: '/service-operations/{id}',
+  tags: ['Service Operations'],
+  summary: 'Get service operation by ID',
+  request: {
+    params: z.object({
+      id: z.string(),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: buildResponseSuccessSchema(ServiceOperationSchema),
+        },
+      },
+      description: 'Service operation retrieved successfully',
+    },
+    404: {
+      content: {
+        'application/json': {
+          schema: Error404Schema,
+        },
+      },
+      description: 'Service operation not found',
+    },
+    500: {
+      content: {
+        'application/json': {
+          schema: Error500Schema,
+        },
+      },
+      description: 'Internal server error',
+    },
+  },
+});
+
+// Update service operation route
+const updateServiceOperationRoute = createRoute({
+  method: 'put',
+  path: '/service-operations/{id}',
+  tags: ['Service Operations'],
+  summary: 'Update service operation',
   request: {
     params: z.object({
       id: z.string(),
     }),
     body: {
       content: {
-        "application/json": {
+        'application/json': {
           schema: ServiceOperationUpdateSchema,
         },
       },
@@ -140,206 +197,165 @@ const updateOperation = createRoute({
   responses: {
     200: {
       content: {
-        "application/json": {
+        'application/json': {
           schema: buildResponseSuccessSchema(ServiceOperationSchema),
         },
       },
-      description: "Service operation updated successfully",
+      description: 'Service operation updated successfully',
+    },
+    400: {
+      content: {
+        'application/json': {
+          schema: Error400Schema,
+        },
+      },
+      description: 'Bad request',
     },
     404: {
       content: {
-        "application/json": {
+        'application/json': {
           schema: Error404Schema,
         },
       },
-      description: "Service operation not found",
-    },
-    422: {
-      content: {
-        "application/json": {
-          schema: Error422Schema,
-        },
-      },
-      description: "Unprocessable entity",
+      description: 'Service operation not found',
     },
     500: {
       content: {
-        "application/json": {
+        'application/json': {
           schema: Error500Schema,
         },
       },
-      description: "Internal server error",
+      description: 'Internal server error',
     },
   },
 });
 
-// Service Workflow Routes
-const createWorkflow = createRoute({
-  method: "post",
-  path: "/workflow",
+// Delete service operation route
+const deleteServiceOperationRoute = createRoute({
+  method: 'delete',
+  path: '/service-operations/{id}',
+  tags: ['Service Operations'],
+  summary: 'Delete service operation',
   request: {
-    body: {
-      content: {
-        "application/json": {
-          schema: ServiceWorkflowSchema,
-        },
-      },
-    },
+    params: z.object({
+      id: z.string(),
+    }),
   },
   responses: {
     200: {
       content: {
-        "application/json": {
-          schema: buildResponseSuccessSchema(z.array(ServiceOperationSchema)),
-        },
-      },
-      description: "Service workflow created successfully",
-    },
-    422: {
-      content: {
-        "application/json": {
-          schema: Error422Schema,
-        },
-      },
-      description: "Unprocessable entity",
-    },
-    500: {
-      content: {
-        "application/json": {
-          schema: Error500Schema,
-        },
-      },
-      description: "Internal server error",
-    },
-  },
-});
-
-const createRepairSummary = createRoute({
-  method: "post",
-  path: "/repair-summary",
-  request: {
-    body: {
-      content: {
-        "application/json": {
-          schema: RepairSummarySchema,
-        },
-      },
-    },
-  },
-  responses: {
-    200: {
-      content: {
-        "application/json": {
+        'application/json': {
           schema: buildResponseSuccessSchema(ServiceOperationSchema),
         },
       },
-      description: "Repair summary created successfully",
+      description: 'Service operation deleted successfully',
     },
-    422: {
+    404: {
       content: {
-        "application/json": {
-          schema: Error422Schema,
+        'application/json': {
+          schema: Error404Schema,
         },
       },
-      description: "Unprocessable entity",
+      description: 'Service operation not found',
     },
     500: {
       content: {
-        "application/json": {
+        'application/json': {
           schema: Error500Schema,
         },
       },
-      description: "Internal server error",
+      description: 'Internal server error',
     },
   },
 });
 
-// Statistics and Reports Routes
-const getStats = createRoute({
-  method: "get",
-  path: "/stats",
-  request: {},
+// Get technician performance route
+const getTechnicianPerformanceRoute = createRoute({
+  method: 'get',
+  path: '/service-operations/technician/{technicianId}/performance',
+  tags: ['Service Operations'],
+  summary: 'Get technician performance',
+  request: {
+    params: z.object({
+      technicianId: z.string(),
+    }),
+    query: z.object({
+      dateFrom: z.string().optional(),
+      dateTo: z.string().optional(),
+    }),
+  },
   responses: {
     200: {
       content: {
-        "application/json": {
-          schema: buildResponseSuccessSchema(ServiceOperationStatsSchema),
+        'application/json': {
+          schema: buildResponseSuccessSchema(z.object({
+            totalOperations: z.number(),
+            completedOperations: z.number(),
+            averageDuration: z.number().nullable(),
+            totalCost: z.number().nullable(),
+          })),
         },
       },
-      description: "Service operation statistics",
+      description: 'Technician performance retrieved successfully',
     },
     500: {
       content: {
-        "application/json": {
+        'application/json': {
           schema: Error500Schema,
         },
       },
-      description: "Internal server error",
+      description: 'Internal server error',
     },
   },
 });
 
-const getTechnicianPerformance = createRoute({
-  method: "get",
-  path: "/technician-performance",
-  request: {},
+// Get non-warranty operations route
+const getNonWarrantyOperationsRoute = createRoute({
+  method: 'get',
+  path: '/service-operations/non-warranty',
+  tags: ['Service Operations'],
+  summary: 'Get non-warranty operations',
+  request: {
+    query: z.object({
+      dateFrom: z.string().optional(),
+      dateTo: z.string().optional(),
+    }),
+  },
   responses: {
     200: {
       content: {
-        "application/json": {
-          schema: buildResponseSuccessSchema(TechnicianPerformanceSchema),
+        'application/json': {
+          schema: buildResponseSuccessSchema(z.object({
+            totalOperations: z.number(),
+            totalCost: z.number().nullable(),
+            averageDuration: z.number().nullable(),
+          })),
         },
       },
-      description: "Technician performance report",
+      description: 'Non-warranty operations retrieved successfully',
     },
     500: {
       content: {
-        "application/json": {
+        'application/json': {
           schema: Error500Schema,
         },
       },
-      description: "Internal server error",
+      description: 'Internal server error',
     },
   },
 });
 
-const getNonWarrantyOperations = createRoute({
-  method: "get",
-  path: "/non-warranty",
-  request: {},
-  responses: {
-    200: {
-      content: {
-        "application/json": {
-          schema: buildResponseSuccessSchema(z.array(ServiceOperationSchema)),
-        },
-      },
-      description: "Non-warranty operations",
-    },
-    500: {
-      content: {
-        "application/json": {
-          schema: Error500Schema,
-        },
-      },
-      description: "Internal server error",
-    },
-  },
-});
+// Create router
+const serviceOperationsRouter = new OpenAPIHono<HonoEnv>();
 
-const serviceOperationsRoute = createRouter<HonoEnv>()
-  .use("*", authMiddleware)
-  // Basic CRUD operations
-  .openapi(listOperations, ServiceOperationsController.list)
-  .openapi(showOperation, ServiceOperationsController.show)
-  .openapi(createOperation, ServiceOperationsController.create)
-  .openapi(updateOperation, ServiceOperationsController.update)
-  // Workflow operations
-  .openapi(createWorkflow, ServiceOperationsController.createWorkflow)
-  .openapi(createRepairSummary, ServiceOperationsController.createRepairSummary)
-  // Statistics and reports
-  .openapi(getStats, ServiceOperationsController.getStats)
-  .openapi(getTechnicianPerformance, ServiceOperationsController.getTechnicianPerformance)
-  .openapi(getNonWarrantyOperations, ServiceOperationsController.getNonWarrantyOperations);
+// Register routes
+serviceOperationsRouter.openapi(createServiceOperationRoute, ServiceOperationsController.create);
+serviceOperationsRouter.openapi(getServiceOperationsRoute, ServiceOperationsController.list);
+serviceOperationsRouter.openapi(getServiceOperationRoute, ServiceOperationsController.show);
+serviceOperationsRouter.openapi(updateServiceOperationRoute, ServiceOperationsController.update);
+serviceOperationsRouter.openapi(deleteServiceOperationRoute, ServiceOperationsController.delete);
+serviceOperationsRouter.openapi(getTechnicianPerformanceRoute, ServiceOperationsController.getTechnicianPerformance);
+serviceOperationsRouter.openapi(getNonWarrantyOperationsRoute, ServiceOperationsController.getNonWarrantyOperations);
 
-export default serviceOperationsRoute;
+export { serviceOperationsRouter };
+export default serviceOperationsRouter;

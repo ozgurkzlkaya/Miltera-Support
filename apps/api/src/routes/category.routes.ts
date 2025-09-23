@@ -2,20 +2,14 @@ import { createRoute } from "@hono/zod-openapi";
 import { createRouter } from "../lib/hono";
 import type { HonoEnv } from "../config/env";
 import { z } from "../lib/zod";
-import UserController from "../controllers/user.controller";
+import CategoryController from "../controllers/category.controller";
 import { buildResponseSuccessSchema } from "../helpers/response.helpers";
-import {
-  UserListSchema,
-  UserSchema,
-  UserCreateSchema,
-  UserUpdateSchema,
-} from "../dtos/user.dto";
 import {
   Error404Schema,
   Error422Schema,
   Error500Schema,
 } from "../dtos/base.schema";
-import { adminMiddleware, authMiddleware } from "../helpers/auth.helpers";
+import { authMiddleware } from "../helpers/auth.helpers";
 
 const list = createRoute({
   method: "get",
@@ -25,10 +19,14 @@ const list = createRoute({
     200: {
       content: {
         "application/json": {
-          schema: buildResponseSuccessSchema(UserListSchema),
+          schema: buildResponseSuccessSchema(z.array(z.object({
+            id: z.string(),
+            name: z.string(),
+            description: z.string().optional(),
+          }))),
         },
       },
-      description: "List all users",
+      description: "List categories",
     },
     500: {
       content: {
@@ -44,15 +42,23 @@ const list = createRoute({
 const show = createRoute({
   method: "get",
   path: "/:id",
-  request: {},
+  request: {
+    params: z.object({
+      id: z.string(),
+    }),
+  },
   responses: {
     200: {
       content: {
         "application/json": {
-          schema: buildResponseSuccessSchema(UserSchema),
+          schema: buildResponseSuccessSchema(z.object({
+            id: z.string(),
+            name: z.string(),
+            description: z.string().optional(),
+          })),
         },
       },
-      description: "User details",
+      description: "Category details",
     },
     404: {
       content: {
@@ -60,7 +66,7 @@ const show = createRoute({
           schema: Error404Schema,
         },
       },
-      description: "User not found",
+      description: "Category not found",
     },
     500: {
       content: {
@@ -80,7 +86,10 @@ const create = createRoute({
     body: {
       content: {
         "application/json": {
-          schema: UserCreateSchema,
+          schema: z.object({
+            name: z.string(),
+            description: z.string().optional(),
+          }),
         },
       },
     },
@@ -89,10 +98,14 @@ const create = createRoute({
     200: {
       content: {
         "application/json": {
-          schema: buildResponseSuccessSchema(UserSchema),
+          schema: buildResponseSuccessSchema(z.object({
+            id: z.string(),
+            name: z.string(),
+            description: z.string().optional(),
+          })),
         },
       },
-      description: "User created successfully",
+      description: "Category created successfully",
     },
     422: {
       content: {
@@ -123,7 +136,10 @@ const update = createRoute({
     body: {
       content: {
         "application/json": {
-          schema: UserUpdateSchema,
+          schema: z.object({
+            name: z.string(),
+            description: z.string().optional(),
+          }),
         },
       },
     },
@@ -132,10 +148,14 @@ const update = createRoute({
     200: {
       content: {
         "application/json": {
-          schema: buildResponseSuccessSchema(UserSchema),
+          schema: buildResponseSuccessSchema(z.object({
+            id: z.string(),
+            name: z.string(),
+            description: z.string().optional(),
+          })),
         },
       },
-      description: "User updated successfully",
+      description: "Category updated successfully",
     },
     404: {
       content: {
@@ -143,7 +163,7 @@ const update = createRoute({
           schema: Error404Schema,
         },
       },
-      description: "User not found",
+      description: "Category not found",
     },
     422: {
       content: {
@@ -174,7 +194,7 @@ const destroy = createRoute({
   },
   responses: {
     204: {
-      description: "User deleted successfully",
+      description: "Category deleted successfully",
     },
     404: {
       content: {
@@ -182,7 +202,7 @@ const destroy = createRoute({
           schema: Error404Schema,
         },
       },
-      description: "User not found",
+      description: "Category not found",
     },
     500: {
       content: {
@@ -195,13 +215,12 @@ const destroy = createRoute({
   },
 });
 
-const usersRoute = createRouter<HonoEnv>()
+const categoriesRoute = createRouter<HonoEnv>()
   .use("*", authMiddleware)
-  .use("*", adminMiddleware)
-  .openapi(list, UserController.list)
-  .openapi(show, UserController.show)
-  .openapi(create, UserController.create)
-  .openapi(update, UserController.update)
-  .openapi(destroy, UserController.destroy);
+  .openapi(list, CategoryController.list)
+  .openapi(show, CategoryController.show)
+  .openapi(create, CategoryController.create)
+  .openapi(update, CategoryController.update)
+  .openapi(destroy, CategoryController.destroy);
 
-export default usersRoute;
+export default categoriesRoute;

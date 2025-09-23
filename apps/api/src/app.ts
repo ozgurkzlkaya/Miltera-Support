@@ -19,10 +19,10 @@ import websocketRoute from "./routes/websocket.routes";
 import fileUploadRoute from "./routes/file-upload.routes";
 import searchRoute from "./routes/search.routes";
 import notificationsRoute from "./routes/notifications.routes";
+import categoriesRoute from "./routes/category.routes";
 
 // Yeni controller'lar
 import { productController } from "./controllers/product.controller";
-import { issueController } from "./controllers/issue.controller";
 
 import { ResponseHandler } from "./helpers/response.helpers";
 import { setSessionMiddleware } from "./helpers/auth.helpers";
@@ -79,9 +79,7 @@ async function initializeApp() {
     .route("/file-upload", fileUploadRoute)
     .route("/search", searchRoute)
     .route("/notifications", notificationsRoute)
-    // Yeni API endpoint'leri
-    .route("/products", productController)
-    .route("/issues", issueController);
+    .route("/categories", categoriesRoute);
 
   app.use("*", setSessionMiddleware);
 

@@ -1,6 +1,7 @@
 import { db } from '../db';
 import { products, productModels, productTypes, companies, locations, users, productHistory } from '../db/schema';
 import { eq, and, isNull, isNotNull, desc, asc, inArray, like, not, or, ne } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import type { ProductStatus, WarrantyStatus, ProductHistoryEventType } from '../db/schema';
 import { EmailService } from './email.service';
 import { notificationService } from './notification.service';
@@ -8,7 +9,7 @@ import { notificationService } from './notification.service';
 export interface CreateProductRequest {
   productModelId: string;
   quantity: number;
-  productionDate: Date;
+  productionDate: Date | string;
   locationId?: string;
   createdBy: string;
 }
@@ -70,10 +71,52 @@ export class ProductService {
   private emailService = new EmailService();
 
   /**
+   * Ürün bilgilerini günceller
+   */
+  async updateProduct(productId: string, data: any) {
+    const result = await db.update(products)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(eq(products.id, productId))
+      .returning();
+    
+    return result[0];
+  }
+
+  /**
+   * Tek ürün getirir
+   */
+  async getProduct(productId: string) {
+    const result = await db.select()
+      .from(products)
+      .where(eq(products.id, productId))
+      .limit(1);
+    
+    return result[0];
+  }
+
+  /**
+   * Ürün siler
+   */
+  async deleteProduct(productId: string) {
+    await db.delete(products)
+      .where(eq(products.id, productId));
+    
+    return { success: true };
+  }
+
+  /**
    * İlk üretim ile ürünleri depoya ekler
    */
   async createProducts(request: CreateProductRequest) {
     const { productModelId, quantity, productionDate, locationId, createdBy } = request;
+    
+    // productionDate'i Date objesine çevir
+    const productionDateObj = typeof productionDate === 'string' 
+      ? new Date(productionDate) 
+      : productionDate;
     
     const productData = [];
     for (let i = 0; i < quantity; i++) {
@@ -81,7 +124,7 @@ export class ProductService {
         productModelId,
         status: 'FIRST_PRODUCTION' as ProductStatus,
         currentStatus: 'FIRST_PRODUCTION' as ProductStatus,
-        productionDate,
+        productionDate: productionDateObj,
         productionEntryBy: createdBy,
         locationId: locationId || null,
         createdBy,
@@ -270,6 +313,77 @@ export class ProductService {
   /**
    * Ürünleri filtreler ve listeler
    */
+  async getProductsSimple() {
+    // Basit product listesi - relation'lar olmadan
+    const result = await db
+      .select({
+        id: products.id,
+        serialNumber: products.serialNumber,
+        status: products.status,
+        productionDate: products.productionDate,
+        warrantyStatus: products.warrantyStatus,
+        locationId: products.locationId,
+        ownerId: products.ownerId,
+        createdAt: products.createdAt,
+        updatedAt: products.updatedAt,
+      })
+      .from(products)
+      .orderBy(desc(products.createdAt))
+      .limit(100);
+
+    return result;
+  }
+
+  /**
+   * Liste görünümü için ürünleri ilişkili temel verilerle döndürür
+   * Frontend'in beklediği shape: productModel, productType, manufacturer, location, owner
+   */
+  async getProductsForList() {
+    const manufacturer = alias(companies, 'manufacturer');
+    const owner = alias(companies, 'owner');
+
+    const result = await db
+      .select({
+        id: products.id,
+        serialNumber: products.serialNumber,
+        status: products.status,
+        productionDate: products.productionDate,
+        warrantyStatus: products.warrantyStatus,
+        createdAt: products.createdAt,
+        updatedAt: products.updatedAt,
+        productModel: {
+          id: productModels.id,
+          name: productModels.name,
+        },
+        productType: {
+          id: productTypes.id,
+          name: productTypes.name,
+        },
+        manufacturer: {
+          id: manufacturer.id,
+          name: manufacturer.name,
+        },
+        location: {
+          id: locations.id,
+          name: locations.name,
+        },
+        owner: {
+          id: owner.id,
+          name: owner.name,
+        },
+      })
+      .from(products)
+      .leftJoin(productModels, eq(products.productModelId, productModels.id))
+      .leftJoin(productTypes, eq(productModels.productTypeId, productTypes.id))
+      .leftJoin(manufacturer, eq(productModels.manufacturerId, manufacturer.id))
+      .leftJoin(locations, eq(products.locationId, locations.id))
+      .leftJoin(owner, eq(products.ownerId, owner.id))
+      .orderBy(desc(products.createdAt))
+      .limit(100);
+
+    return result;
+  }
+
   async getProducts(filter: ProductFilter = {}, page = 1, limit = 20) {
     const offset = (page - 1) * limit;
     

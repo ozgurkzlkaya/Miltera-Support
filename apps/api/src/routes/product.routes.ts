@@ -237,6 +237,7 @@ const destroy = createRoute({
 });
 
 const productsRoute = createRouter<HonoEnv>()
+  // .use("*", authMiddleware) // Geçici olarak devre dışı
   .openapi(list, ProductController.list)
   .openapi(show, ProductController.show)
   .openapi(create, ProductController.create)

@@ -10,89 +10,55 @@ export class ShipmentService {
 
   // Sevkiyat listesi
   async getShipments(filter: any, page: number = 1, limit: number = 20) {
-    const offset = (page - 1) * limit;
+    console.log('getShipments called with:', { filter, page, limit });
     
-    // Filtreleme koşulları
-    const whereConditions = [];
-    
-    if (filter.status) {
-      whereConditions.push(eq(shipments.status, filter.status));
-    }
-    
-    if (filter.type) {
-      whereConditions.push(eq(shipments.type, filter.type));
-    }
-    
-    if (filter.fromCompanyId) {
-      whereConditions.push(eq(shipments.fromCompanyId, filter.fromCompanyId));
-    }
-    
-    if (filter.toCompanyId) {
-      whereConditions.push(eq(shipments.toCompanyId, filter.toCompanyId));
-    }
-    
-    if (filter.search) {
-      whereConditions.push(
-        or(
-          like(shipments.trackingNumber, `%${filter.search}%`)
-        )
-      );
-    }
-    
-    const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;
-    
-    // Toplam kayıt sayısı
-    const totalResult = await db
-      .select({ count: count() })
-      .from(shipments)
-      .where(whereClause);
-    
-    const totalItems = totalResult[0]?.count || 0;
-    const totalPages = Math.ceil(totalItems / limit);
-    
-    // Sevkiyat listesi
-    const shipmentList = await db
-      .select({
-        id: shipments.id,
-        productId: shipments.productId,
-        type: shipments.type,
-        status: shipments.status,
-        trackingNumber: shipments.trackingNumber,
-        shippedAt: shipments.shippedAt,
-        deliveredAt: shipments.deliveredAt,
-        createdAt: shipments.createdAt,
-        updatedAt: shipments.updatedAt,
-        fromCompany: {
-          id: companies.id,
-          name: companies.name,
+    try {
+      // Sevkiyat listesi - company ve user bilgileri ile
+      const shipmentList = await db
+        .select({
+          id: shipments.id,
+          shipmentNumber: shipments.shipmentNumber,
+          type: shipments.type,
+          status: shipments.status,
+          trackingNumber: shipments.trackingNumber,
+          totalCost: shipments.totalCost,
+          estimatedDelivery: shipments.estimatedDelivery,
+          actualDelivery: shipments.actualDelivery,
+          shippedAt: shipments.shippedAt,
+          deliveredAt: shipments.deliveredAt,
+          createdAt: shipments.createdAt,
+          updatedAt: shipments.updatedAt,
+          company: {
+            id: companies.id,
+            name: companies.name,
+          },
+          createdBy: {
+            id: users.id,
+            firstName: users.firstName,
+            lastName: users.lastName,
+          },
+        })
+        .from(shipments)
+        .leftJoin(companies, eq(shipments.toCompanyId, companies.id))
+        .leftJoin(users, eq(shipments.createdBy, users.id))
+        .orderBy(desc(shipments.createdAt))
+        .limit(limit);
+      
+      console.log('Shipments found:', shipmentList.length);
+      
+      return {
+        shipments: shipmentList,
+        pagination: {
+          page,
+          limit,
+          total: shipmentList.length,
+          totalPages: 1,
         },
-        toCompany: {
-          id: companies.id,
-          name: companies.name,
-        },
-        createdBy: {
-          id: users.id,
-          name: users.name,
-        },
-      })
-      .from(shipments)
-      .leftJoin(companies, eq(shipments.fromCompanyId, companies.id))
-      .leftJoin(companies, eq(shipments.toCompanyId, companies.id))
-      .leftJoin(users, eq(shipments.createdBy, users.id))
-      .where(whereClause)
-      .orderBy(desc(shipments.createdAt))
-      .limit(limit)
-      .offset(offset);
-    
-    return {
-      shipments: shipmentList,
-      pagination: {
-        page,
-        limit,
-        total: totalItems,
-        totalPages,
-      },
-    };
+      };
+    } catch (error) {
+      console.error('Error in getShipments:', error);
+      throw error;
+    }
   }
 
   // Sevkiyat detayı
@@ -100,10 +66,13 @@ export class ShipmentService {
     const shipment = await db
       .select({
         id: shipments.id,
-        productId: shipments.productId,
+        shipmentNumber: shipments.shipmentNumber,
         type: shipments.type,
         status: shipments.status,
         trackingNumber: shipments.trackingNumber,
+        totalCost: shipments.totalCost,
+        estimatedDelivery: shipments.estimatedDelivery,
+        actualDelivery: shipments.actualDelivery,
         shippedAt: shipments.shippedAt,
         deliveredAt: shipments.deliveredAt,
         createdAt: shipments.createdAt,
@@ -118,7 +87,8 @@ export class ShipmentService {
         },
         createdBy: {
           id: users.id,
-          name: users.name,
+          firstName: users.firstName,
+          lastName: users.lastName,
         },
         product: {
           id: products.id,
@@ -127,7 +97,6 @@ export class ShipmentService {
         },
       })
       .from(shipments)
-      .leftJoin(companies, eq(shipments.fromCompanyId, companies.id))
       .leftJoin(companies, eq(shipments.toCompanyId, companies.id))
       .leftJoin(users, eq(shipments.createdBy, users.id))
       .leftJoin(products, eq(shipments.productId, products.id))
@@ -142,16 +111,24 @@ export class ShipmentService {
   }
 
   // Yeni sevkiyat oluşturma
-  async createShipment(data: ShipmentCreate & { createdBy: string }) {
-    const { productId, ...shipmentData } = data;
+  async createShipment(data: any) {
+    // Sevkiyat numarası oluştur
+    const shipmentNumber = await this.generateShipmentNumber();
     
     // Sevkiyat oluştur
     const [newShipment] = await db
       .insert(shipments)
       .values({
         id: crypto.randomUUID(),
-        productId,
-        ...shipmentData,
+        shipmentNumber,
+        type: data.type || 'SALES',
+        status: data.status || 'PREPARING',
+        fromCompanyId: data.fromCompanyId,
+        toCompanyId: data.toCompanyId,
+        trackingNumber: data.trackingNumber,
+        totalCost: data.totalCost,
+        estimatedDelivery: data.estimatedDelivery,
+        notes: data.notes,
         createdBy: data.createdBy,
       })
       .returning();
@@ -159,6 +136,25 @@ export class ShipmentService {
     const shipment = await this.getShipmentById(newShipment.id);
     
     return shipment;
+  }
+
+  // Sevkiyat numarası oluşturma
+  private async generateShipmentNumber(): Promise<string> {
+    const now = new Date();
+    const year = now.getFullYear().toString().slice(-2);
+    const month = (now.getMonth() + 1).toString().padStart(2, '0');
+    const day = now.getDate().toString().padStart(2, '0');
+    
+    // Aynı gün oluşturulan sevkiyat sayısını al
+    const existingCount = await db
+      .select({ count: count() })
+      .from(shipments)
+      .where(sql`DATE(created_at) = CURRENT_DATE`);
+    
+    const count = existingCount[0]?.count || 0;
+    const sequenceNumber = (count + 1).toString().padStart(2, '0');
+    
+    return `${year}${month}${day}-${sequenceNumber}`;
   }
 
   // Sevkiyat güncelleme

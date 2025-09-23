@@ -89,6 +89,30 @@ export const verifyToken = (token: string) => {
   }
 };
 
+// Hono context'ten auth bilgilerini al
+export const getAuth = async (c: any) => {
+  try {
+    const authHeader = c.req.header("authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return { isAuthenticated: false, user: null };
+    }
+    
+    const token = authHeader.substring(7);
+    const payload = verifyToken(token) as any;
+    
+    // Kullanıcı bilgilerini veritabanından al
+    const [user] = await db.select().from(schema.users).where(eq(schema.users.id, payload.id));
+    
+    if (!user) {
+      return { isAuthenticated: false, user: null };
+    }
+    
+    return { isAuthenticated: true, user };
+  } catch (error) {
+    return { isAuthenticated: false, user: null };
+  }
+};
+
 // Better-auth uyumluluğu için
 export const auth = {
   api: {
@@ -109,6 +133,3 @@ export const auth = {
   }
 };
 
-export const getAuth = async (c: any) => {
-  return await auth.api.getSession({ headers: c.req.raw.headers });
-};

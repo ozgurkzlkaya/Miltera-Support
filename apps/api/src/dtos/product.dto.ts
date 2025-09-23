@@ -130,12 +130,14 @@ class ProductDto extends BaseResponseDto<typeof ProductSchema, ProductBase> {
 
 /* --- Product Create Request --- */
 
-const ProductCreateSchema = BaseRequestSchemaFactory(
-  createInsertSchema(products)
-).omit({
-  createdBy: true,
-  updatedBy: true,
+const ProductCreateSchema = z.object({
+  productModelId: z.string().uuid(),
+  quantity: z.number().int().min(1),
+  productionDate: z.string().or(z.date()),
+  locationId: z.string().uuid().optional(),
+  createdBy: z.string().uuid(),
 });
+
 class ProductCreateDto extends BaseDto<
   typeof ProductCreateSchema,
   z.infer<typeof ProductCreateSchema>

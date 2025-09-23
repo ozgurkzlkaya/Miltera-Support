@@ -1,11 +1,11 @@
 // Basit auth service - Better-auth yerine
-const API_BASE_URL = "http://localhost:3001/api/v1/auth";
+const API_BASE_URL = "http://localhost:3011/api/v1/auth";
 
 export interface User {
   id: string;
   email: string;
   name: string;
-  role: "CUSTOMER" | "TECHNICIAN" | "ADMIN" | "user";
+  role: "CUSTOMER" | "TSP" | "ADMIN" | "USER";
   companyId?: string;
 }
 

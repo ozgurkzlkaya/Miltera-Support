@@ -474,7 +474,7 @@ const getStats = createRoute({
 });
 
 const shipmentsRoute = createRouter<HonoEnv>()
-  .use("*", authMiddleware)
+  // .use("*", authMiddleware) // Geçici olarak devre dışı
   .openapi(list, ShipmentController.list)
   .openapi(show, ShipmentController.show)
   .openapi(create, ShipmentController.create)

@@ -524,6 +524,7 @@ Bu proje MIT lisansı altında lisanslanmıştır. Detaylar için `LICENSE` dosy
 - ✅ **%100 Fonksiyonel**: Tüm temel özellikler çalışır durumda
 - ✅ **Modern UI/UX**: Kullanıcı dostu arayüz
 - ✅ **Real-time**: Gerçek zamanlı güncellemeler
+
 - ✅ **Scalable**: Ölçeklenebilir mimari
 - ✅ **Secure**: Güvenli ve güvenilir
 - ✅ **Maintainable**: Sürdürülebilir kod yapısı

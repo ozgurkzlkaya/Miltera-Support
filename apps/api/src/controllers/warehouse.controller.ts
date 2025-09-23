@@ -1,143 +1,89 @@
+import { db } from "../db";
 import { createControllerAction } from "./base.controller";
-import { WarehouseService } from "../services/warehouse.service";
-import { createSuccessResponse, createErrorResponse } from "../helpers/response.helpers";
+import { ResponseHandler } from "../helpers/response.helpers";
 import type { HonoEnv } from "../config/env";
-import type { 
-  LocationCreate, 
-  LocationUpdate, 
-  WarehouseInventory, 
-  WarehouseStats, 
-  StockAlerts,
-  BulkMoveProducts,
-  InventoryCount 
-} from "../dtos/warehouse.dto";
+import { locations } from "../db/schema";
+import { eq } from "drizzle-orm";
 
-const warehouseService = new WarehouseService();
+const list = createControllerAction<HonoEnv>(async (c) => {
+  try {
+    const query = await c.validateRequest("rawQuery", (v) => v);
+    
+    // Get locations from database
+    const warehouseLocations = await db.select().from(locations);
+    
+    return c.responseJSON(ResponseHandler.success(warehouseLocations));
+  } catch (error) {
+    console.error('Error getting warehouse locations:', error);
+    return c.responseJSON(ResponseHandler.error('INTERNAL_ERROR', 'Internal server error', 500));
+  }
+});
 
-const WarehouseController = {
-  // Location Management
-  listLocations: createControllerAction(async (c) => {
-    try {
-      const locations = await warehouseService.getLocations();
-      return c.responseJSON(createSuccessResponse(locations));
-    } catch (error) {
-      console.error('Error listing locations:', error);
-      return c.responseJSON(createErrorResponse(500, 'Internal server error'));
+const show = createControllerAction<HonoEnv>("/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    
+    // Get location from database
+    const location = await db.select().from(locations).where(eq(locations.id, id)).limit(1);
+    
+    if (location.length === 0) {
+      return c.responseJSON(ResponseHandler.error('NOT_FOUND', 'Location not found', 404));
     }
-  }),
+    
+    return c.responseJSON(ResponseHandler.success(location[0]));
+  } catch (error) {
+    console.error('Error getting warehouse location:', error);
+    return c.responseJSON(ResponseHandler.error('INTERNAL_ERROR', 'Internal server error', 500));
+  }
+});
 
-  showLocation: createControllerAction(async (c) => {
-    try {
-      const { id } = c.req.param();
-      const location = await warehouseService.getLocationById(id);
-      
-      if (!location) {
-        return c.responseJSON(createErrorResponse(404, 'Location not found'));
-      }
-      
-      return c.responseJSON(createSuccessResponse(location));
-    } catch (error) {
-      console.error('Error showing location:', error);
-      return c.responseJSON(createErrorResponse(500, 'Internal server error'));
-    }
-  }),
+const create = createControllerAction<HonoEnv>(async (c) => {
+  try {
+    const body = await c.req.json();
+    
+    // Create location in database
+    const location = await db.insert(locations).values(body).returning();
+    
+    return c.responseJSON(ResponseHandler.success(location[0]));
+  } catch (error) {
+    console.error('Error creating warehouse location:', error);
+    return c.responseJSON(ResponseHandler.error('INTERNAL_ERROR', 'Internal server error', 500));
+  }
+});
 
-  createLocation: createControllerAction(async (c) => {
-    try {
-      const body = await c.req.json() as LocationCreate;
-      const location = await warehouseService.createLocation(body);
-      return c.responseJSON(createSuccessResponse(location));
-    } catch (error) {
-      console.error('Error creating location:', error);
-      return c.responseJSON(createErrorResponse(500, 'Internal server error'));
+const update = createControllerAction<HonoEnv>("/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const body = await c.req.json();
+    
+    // Update location in database
+    const location = await db.update(locations).set(body).where(eq(locations.id, id)).returning();
+    
+    if (location.length === 0) {
+      return c.responseJSON(ResponseHandler.error('NOT_FOUND', 'Location not found', 404));
     }
-  }),
+    
+    return c.responseJSON(ResponseHandler.success(location[0]));
+  } catch (error) {
+    console.error('Error updating warehouse location:', error);
+    return c.responseJSON(ResponseHandler.error('INTERNAL_ERROR', 'Internal server error', 500));
+  }
+});
 
-  updateLocation: createControllerAction(async (c) => {
-    try {
-      const { id } = c.req.param();
-      const body = await c.req.json() as LocationUpdate;
-      const location = await warehouseService.updateLocation({
-        locationId: id,
-        ...body
-      });
-      
-      if (!location) {
-        return c.responseJSON(createErrorResponse(404, 'Location not found'));
-      }
-      
-      return c.responseJSON(createSuccessResponse(location));
-    } catch (error) {
-      console.error('Error updating location:', error);
-      return c.responseJSON(createErrorResponse(500, 'Internal server error'));
-    }
-  }),
+const destroy = createControllerAction<HonoEnv>("/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    
+    // Delete location from database
+    await db.delete(locations).where(eq(locations.id, id));
+    
+    return c.responseJSON(ResponseHandler.success(null));
+  } catch (error) {
+    console.error('Error deleting warehouse location:', error);
+    return c.responseJSON(ResponseHandler.error('INTERNAL_ERROR', 'Internal server error', 500));
+  }
+});
 
-  // Inventory Management
-  getInventory: createControllerAction(async (c) => {
-    try {
-      const inventory = await warehouseService.getWarehouseInventory();
-      return c.responseJSON(createSuccessResponse(inventory));
-    } catch (error) {
-      console.error('Error getting inventory:', error);
-      return c.responseJSON(createErrorResponse(500, 'Internal server error'));
-    }
-  }),
-
-  getLocationInventory: createControllerAction(async (c) => {
-    try {
-      const { id } = c.req.param();
-      const inventory = await warehouseService.getLocationInventory(id);
-      return c.responseJSON(createSuccessResponse(inventory));
-    } catch (error) {
-      console.error('Error getting location inventory:', error);
-      return c.responseJSON(createErrorResponse(500, 'Internal server error'));
-    }
-  }),
-
-  // Statistics
-  getStats: createControllerAction(async (c) => {
-    try {
-      const stats = await warehouseService.getWarehouseStats();
-      return c.responseJSON(createSuccessResponse(stats));
-    } catch (error) {
-      console.error('Error getting warehouse stats:', error);
-      return c.responseJSON(createErrorResponse(500, 'Internal server error'));
-    }
-  }),
-
-  getStockAlerts: createControllerAction(async (c) => {
-    try {
-      const alerts = await warehouseService.getStockAlerts();
-      return c.responseJSON(createSuccessResponse(alerts));
-    } catch (error) {
-      console.error('Error getting stock alerts:', error);
-      return c.responseJSON(createErrorResponse(500, 'Internal server error'));
-    }
-  }),
-
-  // Additional warehouse operations
-  bulkMoveProducts: createControllerAction(async (c) => {
-    try {
-      const body = await c.req.json() as BulkMoveProducts;
-      const result = await warehouseService.bulkMoveProducts(body);
-      return c.responseJSON(createSuccessResponse(result));
-    } catch (error) {
-      console.error('Error moving products:', error);
-      return c.responseJSON(createErrorResponse(500, 'Internal server error'));
-    }
-  }),
-
-  performInventoryCount: createControllerAction(async (c) => {
-    try {
-      const body = await c.req.json() as InventoryCount;
-      const result = await warehouseService.performInventoryCount(body);
-      return c.responseJSON(createSuccessResponse(result));
-    } catch (error) {
-      console.error('Error performing inventory count:', error);
-      return c.responseJSON(createErrorResponse(500, 'Internal server error'));
-    }
-  }),
-};
+const WarehouseController = { list, show, create, update, destroy };
 
 export default WarehouseController;

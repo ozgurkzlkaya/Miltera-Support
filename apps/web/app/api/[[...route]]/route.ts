@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3011';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { route: string[] } }
 ) {
+  console.log('API Route called:', params.route);
+  
   const route = params.route?.join('/') || '';
   const url = new URL(request.url);
   const queryString = url.search;
   
-  const apiUrl = `${API_BASE_URL}/${route}${queryString}`;
+  const apiUrl = `${API_BASE_URL}/api/v1/${route}${queryString}`;
+  console.log('Proxying to:', apiUrl);
   
   try {
     const response = await fetch(apiUrl, {
@@ -21,11 +24,20 @@ export async function GET(
       },
     });
 
-    const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
+    console.log('Response status:', response.status);
+    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+    if (response.headers.get('content-type')?.includes('application/json')) {
+      const data = await response.json();
+      return NextResponse.json(data, { status: response.status });
+    } else {
+      const text = await response.text();
+      return new NextResponse(text, { status: response.status });
+    }
   } catch (error) {
+    console.error('API Proxy Error:', error);
     return NextResponse.json(
-      { error: 'Internal Server Error' },
+      { error: 'Internal Server Error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
@@ -38,7 +50,7 @@ export async function POST(
   const route = params.route?.join('/') || '';
   const body = await request.json();
   
-  const apiUrl = `${API_BASE_URL}/${route}`;
+  const apiUrl = `${API_BASE_URL}/api/v1/${route}`;
   
   try {
     const response = await fetch(apiUrl, {
@@ -50,11 +62,17 @@ export async function POST(
       body: JSON.stringify(body),
     });
 
-    const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
+    if (response.headers.get('content-type')?.includes('application/json')) {
+      const data = await response.json();
+      return NextResponse.json(data, { status: response.status });
+    } else {
+      const text = await response.text();
+      return new NextResponse(text, { status: response.status });
+    }
   } catch (error) {
+    console.error('API Proxy Error:', error);
     return NextResponse.json(
-      { error: 'Internal Server Error' },
+      { error: 'Internal Server Error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
@@ -67,7 +85,7 @@ export async function PUT(
   const route = params.route?.join('/') || '';
   const body = await request.json();
   
-  const apiUrl = `${API_BASE_URL}/${route}`;
+  const apiUrl = `${API_BASE_URL}/api/v1/${route}`;
   
   try {
     const response = await fetch(apiUrl, {
@@ -79,11 +97,17 @@ export async function PUT(
       body: JSON.stringify(body),
     });
 
-    const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
+    if (response.headers.get('content-type')?.includes('application/json')) {
+      const data = await response.json();
+      return NextResponse.json(data, { status: response.status });
+    } else {
+      const text = await response.text();
+      return new NextResponse(text, { status: response.status });
+    }
   } catch (error) {
+    console.error('API Proxy Error:', error);
     return NextResponse.json(
-      { error: 'Internal Server Error' },
+      { error: 'Internal Server Error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
@@ -96,7 +120,7 @@ export async function PATCH(
   const route = params.route?.join('/') || '';
   const body = await request.json();
   
-  const apiUrl = `${API_BASE_URL}/${route}`;
+  const apiUrl = `${API_BASE_URL}/api/v1/${route}`;
   
   try {
     const response = await fetch(apiUrl, {
@@ -108,11 +132,17 @@ export async function PATCH(
       body: JSON.stringify(body),
     });
 
-    const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
+    if (response.headers.get('content-type')?.includes('application/json')) {
+      const data = await response.json();
+      return NextResponse.json(data, { status: response.status });
+    } else {
+      const text = await response.text();
+      return new NextResponse(text, { status: response.status });
+    }
   } catch (error) {
+    console.error('API Proxy Error:', error);
     return NextResponse.json(
-      { error: 'Internal Server Error' },
+      { error: 'Internal Server Error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
@@ -124,7 +154,7 @@ export async function DELETE(
 ) {
   const route = params.route?.join('/') || '';
   
-  const apiUrl = `${API_BASE_URL}/${route}`;
+  const apiUrl = `${API_BASE_URL}/api/v1/${route}`;
   
   try {
     const response = await fetch(apiUrl, {
@@ -135,11 +165,17 @@ export async function DELETE(
       },
     });
 
-    const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
+    if (response.headers.get('content-type')?.includes('application/json')) {
+      const data = await response.json();
+      return NextResponse.json(data, { status: response.status });
+    } else {
+      const text = await response.text();
+      return new NextResponse(text, { status: response.status });
+    }
   } catch (error) {
+    console.error('API Proxy Error:', error);
     return NextResponse.json(
-      { error: 'Internal Server Error' },
+      { error: 'Internal Server Error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

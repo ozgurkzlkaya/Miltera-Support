@@ -184,113 +184,65 @@ export default function NotificationsPage() {
     severity: 'success' as 'success' | 'error' | 'warning' | 'info'
   });
 
-  // Mock data
+  // Gerçek veri çekme
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        // Mock notifications data
-        const mockNotifications: Notification[] = [
-          {
-            id: '1',
-            title: 'Yeni Servis Talebi',
-            message: 'Müşteri ABC Firması için yeni bir servis talebi oluşturuldu.',
-            type: 'info',
-            isRead: false,
-            createdAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 minutes ago
-            priority: 'high',
-            category: 'Service Request',
-            sender: {
-              id: '1',
-              name: 'Ahmet Yılmaz',
-              avatar: undefined
-            }
-          },
-          {
-            id: '2',
-            title: 'Stok Uyarısı',
-            message: 'Ana depodaki ürün stoğu kritik seviyeye düştü.',
-            type: 'warning',
-            isRead: false,
-            createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
-            priority: 'high',
-            category: 'Inventory',
-            sender: {
-              id: '2',
-              name: 'Sistem',
-              avatar: undefined
-            }
-          },
-          {
-            id: '3',
-            title: 'Operasyon Tamamlandı',
-            message: 'Servis operasyonu #SO-2024-001 başarıyla tamamlandı.',
-            type: 'success',
-            isRead: true,
-            createdAt: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(), // 4 hours ago
-            priority: 'medium',
-            category: 'Service Operation',
-            sender: {
-              id: '3',
-              name: 'Mehmet Kaya',
-              avatar: undefined
-            }
-          },
-          {
-            id: '4',
-            title: 'Arıza Bildirimi',
-            message: 'Test laboratuvarında cihaz arızası tespit edildi.',
-            type: 'error',
-            isRead: true,
-            createdAt: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(), // 6 hours ago
-            priority: 'high',
-            category: 'Issue',
-            sender: {
-              id: '4',
-              name: 'Ayşe Demir',
-              avatar: undefined
-            }
-          },
-          {
-            id: '5',
-            title: 'Sevkiyat Hazır',
-            message: 'Ürün #P-2024-045 sevkiyata hazır durumda.',
-            type: 'info',
-            isRead: false,
-            createdAt: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(), // 8 hours ago
-            priority: 'medium',
-            category: 'Shipment',
-            sender: {
-              id: '5',
-              name: 'Ali Veli',
-              avatar: undefined
-            }
-          }
-        ];
-
-        const mockStats: NotificationStats = {
-          total: mockNotifications.length,
-          unread: mockNotifications.filter(n => !n.isRead).length,
-          byType: {
-            info: mockNotifications.filter(n => n.type === 'info').length,
-            warning: mockNotifications.filter(n => n.type === 'warning').length,
-            error: mockNotifications.filter(n => n.type === 'error').length,
-            success: mockNotifications.filter(n => n.type === 'success').length,
-          },
-          byPriority: {
-            low: mockNotifications.filter(n => n.priority === 'low').length,
-            medium: mockNotifications.filter(n => n.priority === 'medium').length,
-            high: mockNotifications.filter(n => n.priority === 'high').length,
-          }
+        const token = localStorage.getItem('auth_token');
+        const headers = {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
         };
 
-        setNotifications(mockNotifications);
-        setStats(mockStats);
+        // Gerçek API'den bildirimleri çek
+        const response = await fetch('http://localhost:3011/api/v1/notifications', { headers });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setNotifications(data.data || []);
+          
+          // İstatistikleri hesapla
+          const notifications = data.data || [];
+          const stats: NotificationStats = {
+            total: notifications.length,
+            unread: notifications.filter((n: Notification) => !n.isRead).length,
+            byType: {
+              info: notifications.filter((n: Notification) => n.type === 'info').length,
+              warning: notifications.filter((n: Notification) => n.type === 'warning').length,
+              error: notifications.filter((n: Notification) => n.type === 'error').length,
+              success: notifications.filter((n: Notification) => n.type === 'success').length,
+            },
+            byPriority: {
+              low: notifications.filter((n: Notification) => n.priority === 'low').length,
+              medium: notifications.filter((n: Notification) => n.priority === 'medium').length,
+              high: notifications.filter((n: Notification) => n.priority === 'high').length,
+            }
+          };
+          setStats(stats);
+        } else {
+          // API yoksa boş veri
+          setNotifications([]);
+          setStats({
+            total: 0,
+            unread: 0,
+            byType: { info: 0, warning: 0, error: 0, success: 0 },
+            byPriority: { low: 0, medium: 0, high: 0 }
+          });
+        }
       } catch (err) {
         console.error('Error fetching notifications:', err);
-        setError('Bildirimler yüklenirken hata oluştu');
+        setError('Bildirimler yüklenirken bir hata oluştu');
+        // Hata durumunda boş veri
+        setNotifications([]);
+        setStats({
+          total: 0,
+          unread: 0,
+          byType: { info: 0, warning: 0, error: 0, success: 0 },
+          byPriority: { low: 0, medium: 0, high: 0 }
+        });
       } finally {
         setLoading(false);
       }

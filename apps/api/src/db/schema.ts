@@ -209,8 +209,8 @@ export const products = pgTable('products', {
 export const issues = pgTable('issues', {
     id: uuid('id').primaryKey().defaultRandom(),
     issueNumber: text('issue_number').notNull().unique(), // YYMMDD-XX format
-    productId: uuid('product_id').references(() => products.id).notNull(),
-    customerId: uuid('customer_id').references(() => companies.id).notNull(),
+    productId: uuid('product_id').references(() => products.id),
+    customerId: uuid('customer_id').references(() => companies.id),
     companyId: uuid('company_id').references(() => companies.id).notNull(), // Company reference for search
     reportedBy: uuid('reported_by').references(() => users.id).notNull(),
     assignedTo: uuid('assigned_to').references(() => users.id),
@@ -229,8 +229,8 @@ export const issues = pgTable('issues', {
     
     // Garanti ve maliyet bilgileri
     isUnderWarranty: boolean('is_under_warranty').default(false),
-    estimatedCost: decimal('estimated_cost', { precision: 10, scale: 2 }),
-    actualCost: decimal('actual_cost', { precision: 10, scale: 2 }),
+    estimatedCost: decimal('estimated_cost', { precision: 10, scale: 2 }).$type<number | null>(),
+    actualCost: decimal('actual_cost', { precision: 10, scale: 2 }).$type<number | null>(),
     
     // Tarih bilgileri
     reportedAt: timestamp('reported_at').notNull(),
@@ -249,7 +249,7 @@ export const issues = pgTable('issues', {
 // Service Operations table - Teknik Servis Operasyonları
 export const serviceOperations = pgTable('service_operations', {
     id: uuid('id').primaryKey().defaultRandom(),
-    issueId: uuid('issue_id').references(() => issues.id).notNull(),
+    issueId: uuid('issue_id').references(() => issues.id),
     productId: uuid('product_id').references(() => products.id).notNull(),
     issueProductId: uuid('issue_product_id').references(() => issueProducts.id), // Issue product reference
     technicianId: uuid('technician_id').references(() => users.id).notNull(),
@@ -341,11 +341,34 @@ export const productHistory = pgTable('product_history', {
 });
 
 // Relations
+export const productTypesRelations = relations(productTypes, ({ many }) => ({
+    productModels: many(productModels),
+}));
+
+export const productModelsRelations = relations(productModels, ({ one, many }) => ({
+    productType: one(productTypes, {
+        fields: [productModels.productTypeId],
+        references: [productTypes.id],
+    }),
+    manufacturer: one(companies, {
+        fields: [productModels.manufacturerId],
+        references: [companies.id],
+    }),
+    products: many(products),
+}));
+
+export const locationsRelations = relations(locations, ({ many }) => ({
+    products: many(products),
+    shipmentsFrom: many(shipments, { relationName: 'fromLocation' }),
+    shipmentsTo: many(shipments, { relationName: 'toLocation' }),
+}));
+
 export const companiesRelations = relations(companies, ({ many }) => ({
     users: many(users),
     products: many(products),
     issues: many(issues),
     shipments: many(shipments),
+    productModels: many(productModels),
 }));
 
 export const usersRelations = relations(users, ({ one, many }) => ({

@@ -159,6 +159,12 @@ export const Layout = ({ title, children }: LayoutProps) => {
             text: "Companies",
             path: "/dashboard/companies",
           },
+        ]
+      : []),
+    
+    // Users menu - only for ADMIN role
+    ...(auth?.user?.role === "ADMIN"
+      ? [
           {
             icon: <PeopleIcon />,
             text: "Users",

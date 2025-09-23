@@ -14,7 +14,8 @@ dotenv.config({
 
 const envSchema = z.object({
   NODE_ENV: z.string().optional().default("development"),
-  DATABASE_URL: z.string().optional().default("postgresql://localhost:5432/fixlog"),
+  PORT: z.string().optional().default("3003"),
+  DATABASE_URL: z.string().optional().default("postgresql://postgres:postgres@localhost:5432/fixlog"),
   BETTER_AUTH_SECRET: z.string().optional().default("dev-secret-key-123"),
   BETTER_AUTH_URL: z.string().optional().default("http://localhost:3001"),
   REDIS_URL: z.string().optional().default("redis://localhost:6379"),

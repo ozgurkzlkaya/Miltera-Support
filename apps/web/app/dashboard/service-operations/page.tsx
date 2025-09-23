@@ -42,6 +42,7 @@ import {
 import {
   Add as AddIcon,
   Edit as EditIcon,
+  Delete as DeleteIcon,
   Visibility as ViewIcon,
   Build as BuildIcon,
   CheckCircle as CheckCircleIcon,
@@ -51,6 +52,7 @@ import {
   Timeline as TimelineIcon,
 } from '@mui/icons-material';
 import { Layout } from '../../../components/Layout';
+import { useAuth } from '../../../features/auth/useAuth';
 
 interface ServiceOperation {
   id: string;
@@ -165,6 +167,7 @@ const getStatusLabel = (status: string) => {
 };
 
 export default function ServiceOperationsPage() {
+  const auth = useAuth();
   const [operations, setOperations] = useState<ServiceOperation[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [performance, setPerformance] = useState<TechnicianPerformance[]>([]);
@@ -172,8 +175,10 @@ export default function ServiceOperationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState(0);
   const [openOperationDialog, setOpenOperationDialog] = useState(false);
+  const [openEditDialog, setOpenEditDialog] = useState(false);
   const [openWorkflowDialog, setOpenWorkflowDialog] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
+  const [editingOperation, setEditingOperation] = useState<ServiceOperation | null>(null);
   
   // Form data state
   const [formData, setFormData] = useState({
@@ -194,153 +199,51 @@ export default function ServiceOperationsPage() {
     severity: 'success' as 'success' | 'error' | 'warning' | 'info'
   });
 
-  // Mock data - gerçek API'den gelecek
+  // Load data from API
   useEffect(() => {
-    const mockOperations: ServiceOperation[] = [
-      {
-        id: '1',
-        operationType: 'HARDWARE_VERIFICATION',
-        status: 'COMPLETED',
-        description: 'Donanım doğrulama testleri tamamlandı',
-        findings: 'Tüm bileşenler çalışır durumda',
-        actionsTaken: 'Seri numarası atandı',
-        isUnderWarranty: true,
-        duration: 45,
-        operationDate: '2025-01-15T10:30:00',
-        issue: {
-          id: '1',
-          issueNumber: 'ARZ-2025-001',
-          status: 'IN_PROGRESS',
-        },
-        performedBy: {
-          id: '1',
-          firstName: 'Ahmet',
-          lastName: 'Yılmaz',
-        },
-        issueProduct: {
-          id: '1',
-          product: {
-            id: '1',
-            serialNumber: 'SN001',
-          },
-        },
-      },
-      {
-        id: '2',
-        operationType: 'REPAIR',
-        status: 'COMPLETED',
-        description: 'Güç kaynağı değişimi yapıldı',
-        findings: 'Güç kaynağı arızalı',
-        actionsTaken: 'Yeni güç kaynağı takıldı',
-        isUnderWarranty: false,
-        cost: 250,
-        duration: 120,
-        operationDate: '2025-01-14T14:20:00',
-        issue: {
-          id: '2',
-          issueNumber: 'ARZ-2025-002',
-          status: 'REPAIRED',
-        },
-        performedBy: {
-          id: '2',
-          firstName: 'Fatma',
-          lastName: 'Özer',
-        },
-        issueProduct: {
-          id: '2',
-          product: {
-            id: '2',
-            serialNumber: 'SN002',
-          },
-        },
-      },
-      {
-        id: '3',
-        operationType: 'PRE_TEST',
-        status: 'IN_PROGRESS',
-        description: 'Ön test işlemleri başlatıldı',
-        findings: 'Başlangıç testleri yapılıyor',
-        isUnderWarranty: true,
-        duration: 30,
-        operationDate: '2025-01-16T09:15:00',
-        issue: {
-          id: '3',
-          issueNumber: 'ARZ-2025-003',
-          status: 'IN_PROGRESS',
-        },
-        performedBy: {
-          id: '1',
-          firstName: 'Ahmet',
-          lastName: 'Yılmaz',
-        },
-      },
-    ];
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        
+        const token = localStorage.getItem('auth_token');
+        const headers = {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        };
 
-    const mockIssues: Issue[] = [
-      {
-        id: '1',
-        issueNumber: 'ARZ-2025-001',
-        status: 'IN_PROGRESS',
-        customerDescription: 'Cihaz açılmıyor',
-        issueDate: '2025-01-15T08:00:00',
-        company: {
-          name: 'ABC Şirketi',
-        },
-        products: [
-          {
-            id: '1',
-            serialNumber: 'SN001',
-            status: 'UNDER_REPAIR',
-          },
-        ],
-      },
-      {
-        id: '2',
-        issueNumber: 'ARZ-2025-002',
-        status: 'REPAIRED',
-        customerDescription: 'Güç sorunu yaşanıyor',
-        issueDate: '2025-01-14T10:00:00',
-        company: {
-          name: 'XYZ Şirketi',
-        },
-        products: [
-          {
-            id: '2',
-            serialNumber: 'SN002',
-            status: 'READY_FOR_SHIPMENT',
-          },
-        ],
-      },
-    ];
+        // Load service operations
+          const operationsResponse = await fetch('http://localhost:3011/api/v1/service-operations', { headers });
+        if (operationsResponse.ok) {
+          const operationsData = await operationsResponse.json();
+          setOperations(operationsData.data?.operations || []);
+        }
 
-    const mockPerformance: TechnicianPerformance[] = [
-      {
-        technicianId: '1',
-        technicianName: 'Ahmet Yılmaz',
-        totalOperations: 15,
-        completedOperations: 14,
-        totalCost: 1250,
-        totalDuration: 720,
-        averageDuration: 48,
-      },
-      {
-        technicianId: '2',
-        technicianName: 'Fatma Özer',
-        totalOperations: 12,
-        completedOperations: 11,
-        totalCost: 890,
-        totalDuration: 540,
-        averageDuration: 45,
-      },
-    ];
+        // Load issues for dropdown
+          const issuesResponse = await fetch('http://localhost:3011/api/v1/issues', { headers });
+        if (issuesResponse.ok) {
+          const issuesData = await issuesResponse.json();
+          setIssues(issuesData.data || []);
+        }
 
-    setTimeout(() => {
-      setOperations(mockOperations);
-      setIssues(mockIssues);
-      setPerformance(mockPerformance);
-      setLoading(false);
-    }, 1000);
+        // Load technician performance - temporarily disabled
+        // const performanceResponse = await fetch('http://localhost:3011/api/v1/service-operations/technician-performance', { headers });
+        // if (performanceResponse.ok) {
+        //   const performanceData = await performanceResponse.json();
+        //   setPerformance(performanceData.data || []);
+        // }
+        setPerformance([]); // Set empty array for now
+
+      } catch (error) {
+        console.error('Error loading data:', error);
+        setError('Veriler yüklenirken hata oluştu');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
   }, []);
+
 
   const handleCreateOperation = () => {
     setFormData({
@@ -353,11 +256,62 @@ export default function ServiceOperationsPage() {
       cost: '',
       isUnderWarranty: true
     });
+    setEditingOperation(null);
     setOpenOperationDialog(true);
   };
 
-  const handleSaveOperation = () => {
-    if (!formData.operationType || !formData.issueId || !formData.description) {
+  const handleEditOperation = (operation: ServiceOperation) => {
+    setEditingOperation(operation);
+    setFormData({
+      operationType: operation.operationType,
+      issueId: operation.issue?.id || '',
+      description: operation.description,
+      findings: operation.findings || '',
+      actionsTaken: operation.actionsTaken || '',
+      duration: operation.duration?.toString() || '',
+      cost: operation.cost?.toString() || '',
+      isUnderWarranty: operation.isUnderWarranty
+    });
+    setOpenEditDialog(true);
+  };
+
+  const handleDeleteOperation = async (operationId: string) => {
+    if (window.confirm('Bu operasyonu silmek istediğinizden emin misiniz?')) {
+      try {
+        const token = localStorage.getItem('auth_token');
+        const headers = {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        };
+
+        const response = await fetch(`http://localhost:3011/api/v1/service-operations/${operationId}`, {
+          method: 'DELETE',
+          headers,
+        });
+
+        if (response.ok) {
+          setOperations(prev => prev.filter(op => op.id !== operationId));
+          setSnackbar({
+            open: true,
+            message: 'Operasyon başarıyla silindi',
+            severity: 'success'
+          });
+        } else {
+          throw new Error('Operasyon silinemedi');
+        }
+      } catch (error) {
+        console.error('Error deleting operation:', error);
+        setSnackbar({
+          open: true,
+          message: 'Operasyon silinirken hata oluştu',
+          severity: 'error'
+        });
+      }
+    }
+  };
+
+  const handleSaveOperation = async () => {
+    if (!formData.operationType || !formData.description) {
       setSnackbar({
         open: true,
         message: 'Lütfen tüm gerekli alanları doldurun',
@@ -366,42 +320,114 @@ export default function ServiceOperationsPage() {
       return;
     }
 
-    const selectedIssueData = issues.find(issue => issue.id === formData.issueId);
-    
-    const newOperation: ServiceOperation = {
-      id: Date.now().toString(),
-      operationType: formData.operationType,
-      status: 'PENDING',
-      description: formData.description,
-      findings: formData.findings,
-      actionsTaken: formData.actionsTaken,
-      isUnderWarranty: formData.isUnderWarranty,
-      duration: formData.duration ? parseInt(formData.duration) : undefined,
-      cost: formData.cost ? parseFloat(formData.cost) : undefined,
-      operationDate: new Date().toISOString(),
-      issue: selectedIssueData ? {
-        id: selectedIssueData.id,
-        issueNumber: selectedIssueData.issueNumber,
-        status: selectedIssueData.status
-      } : {
-        id: formData.issueId,
-        issueNumber: 'Bilinmeyen',
-        status: 'UNKNOWN'
-      },
-      performedBy: {
-        id: '1',
-        firstName: 'Ahmet',
-        lastName: 'Yılmaz'
-      }
-    };
+    try {
+      const operationData = {
+        // issueId'yi tamamen kaldıralım - backend'de handle ediliyor
+        operationType: formData.operationType,
+        description: formData.description,
+        findings: formData.findings || "",
+        actionsTaken: formData.actionsTaken || "",
+        isUnderWarranty: formData.isUnderWarranty,
+        duration: formData.duration ? parseInt(formData.duration) : undefined,
+        cost: formData.cost ? parseFloat(formData.cost) : undefined,
+        performedBy: 'e7459941-79d4-4870-bd7f-7a42867b4d29'
+      };
 
-    setOperations(prev => [newOperation, ...prev]);
-    setOpenOperationDialog(false);
-    setSnackbar({
-      open: true,
-      message: `Yeni operasyon başarıyla oluşturuldu`,
-      severity: 'success'
-    });
+      const token = localStorage.getItem('auth_token');
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` })
+      };
+
+        const response = await fetch('http://localhost:3011/api/v1/service-operations', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(operationData)
+      });
+
+      if (response.ok) {
+        const newOperation = await response.json();
+        setOperations(prev => [newOperation.data, ...prev]);
+        setOpenOperationDialog(false);
+        setSnackbar({
+          open: true,
+          message: 'Yeni operasyon başarıyla oluşturuldu',
+          severity: 'success'
+        });
+      } else {
+        const errorText = await response.text();
+        console.error('Failed to create operation:', errorText);
+        throw new Error('Operasyon oluşturulamadı');
+      }
+    } catch (error) {
+      console.error('Error creating operation:', error);
+      setSnackbar({
+        open: true,
+        message: 'Operasyon oluşturulurken hata oluştu',
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleUpdateOperation = async () => {
+    if (!editingOperation || !formData.operationType || !formData.description) {
+      setSnackbar({
+        open: true,
+        message: 'Lütfen tüm gerekli alanları doldurun',
+        severity: 'error'
+      });
+      return;
+    }
+
+    try {
+      const operationData = {
+        status: 'COMPLETED',
+        description: formData.description,
+        findings: formData.findings || undefined,
+        actionsTaken: formData.actionsTaken || undefined,
+        isUnderWarranty: formData.isUnderWarranty,
+        duration: formData.duration ? parseInt(formData.duration) : undefined,
+        cost: formData.cost ? parseFloat(formData.cost) : undefined,
+        updatedBy: auth?.user?.id || 'e7459941-79d4-4870-bd7f-7a42867b4d29'
+      };
+
+      const token = localStorage.getItem('auth_token');
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` })
+      };
+
+      const response = await fetch(`http://localhost:3011/api/v1/service-operations/${editingOperation.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(operationData)
+      });
+
+      if (response.ok) {
+        const updatedOperation = await response.json();
+        setOperations(prev => prev.map(op => 
+          op.id === editingOperation.id ? updatedOperation.data : op
+        ));
+        setOpenEditDialog(false);
+        setEditingOperation(null);
+        setSnackbar({
+          open: true,
+          message: 'Operasyon başarıyla güncellendi',
+          severity: 'success'
+        });
+      } else {
+        const errorText = await response.text();
+        console.error('Failed to update operation:', errorText);
+        throw new Error('Operasyon güncellenemedi');
+      }
+    } catch (error) {
+      console.error('Error updating operation:', error);
+      setSnackbar({
+        open: true,
+        message: 'Operasyon güncellenirken hata oluştu',
+        severity: 'error'
+      });
+    }
   };
 
   const handleCreateWorkflow = (issue: Issue) => {
@@ -471,7 +497,7 @@ export default function ServiceOperationsPage() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {operations.map((operation) => (
+                    {operations?.map((operation) => (
                       <TableRow key={operation.id}>
                         <TableCell>
                           <Chip
@@ -508,8 +534,20 @@ export default function ServiceOperationsPage() {
                           <IconButton size="small" title="Görüntüle">
                             <ViewIcon />
                           </IconButton>
-                          <IconButton size="small" title="Düzenle">
+                          <IconButton 
+                            size="small" 
+                            title="Düzenle"
+                            onClick={() => handleEditOperation(operation)}
+                          >
                             <EditIcon />
+                          </IconButton>
+                          <IconButton 
+                            size="small" 
+                            title="Sil"
+                            onClick={() => handleDeleteOperation(operation.id)}
+                            sx={{ color: 'error.main' }}
+                          >
+                            <DeleteIcon />
                           </IconButton>
                         </TableCell>
                       </TableRow>
@@ -537,14 +575,14 @@ export default function ServiceOperationsPage() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {issues.map((issue) => (
+                    {issues?.map((issue) => (
                       <TableRow key={issue.id}>
                         <TableCell>
                           <Typography variant="body2" fontWeight="bold">
                             {issue.issueNumber}
                           </Typography>
                         </TableCell>
-                        <TableCell>{issue.company.name}</TableCell>
+                        <TableCell>{issue.company?.name || 'Bilinmeyen Şirket'}</TableCell>
                         <TableCell>
                           <Typography variant="body2" noWrap>
                             {issue.customerDescription}
@@ -561,7 +599,7 @@ export default function ServiceOperationsPage() {
                           {new Date(issue.issueDate).toLocaleDateString('tr-TR')}
                         </TableCell>
                         <TableCell>
-                          {issue.products.length} ürün
+                          {issue.products?.length || 0} ürün
                         </TableCell>
                         <TableCell>
                           <IconButton
@@ -587,7 +625,7 @@ export default function ServiceOperationsPage() {
           {activeTab === 2 && (
             <Box sx={{ p: 3 }}>
               <Grid container spacing={3}>
-                {performance.map((tech) => (
+                {performance?.map((tech) => (
                   <Grid item xs={12} md={6} key={tech.technicianId}>
                     <Card>
                       <CardContent>
@@ -661,15 +699,18 @@ export default function ServiceOperationsPage() {
               </Grid>
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth>
-                  <InputLabel>Arıza Kaydı</InputLabel>
+                  <InputLabel>Arıza Kaydı (Opsiyonel)</InputLabel>
                   <Select 
-                    label="Arıza Kaydı"
+                    label="Arıza Kaydı (Opsiyonel)"
                     value={formData.issueId || ''}
                     onChange={(e) => setFormData({ ...formData, issueId: e.target.value })}
                   >
-                    {issues.map((issue) => (
+                    <MenuItem value="">
+                      <em>Arıza kaydı seçin (opsiyonel)</em>
+                    </MenuItem>
+                    {issues?.map((issue) => (
                       <MenuItem key={issue.id} value={issue.id}>
-                        {issue.issueNumber} - {issue.company.name}
+                        {issue.issueNumber} - {issue.company?.name || 'Bilinmeyen Şirket'}
                       </MenuItem>
                     ))}
                   </Select>
@@ -729,6 +770,104 @@ export default function ServiceOperationsPage() {
           <DialogActions>
             <Button onClick={() => setOpenOperationDialog(false)}>İptal</Button>
             <Button variant="contained" onClick={handleSaveOperation}>Oluştur</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Operasyon Düzenleme Dialog */}
+        <Dialog open={openEditDialog} onClose={() => setOpenEditDialog(false)} maxWidth="md" fullWidth>
+          <DialogTitle>Operasyon Düzenle - {editingOperation?.id}</DialogTitle>
+          <DialogContent>
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Operasyon Türü</InputLabel>
+                  <Select 
+                    label="Operasyon Türü"
+                    value={formData.operationType || ''}
+                    onChange={(e) => setFormData({ ...formData, operationType: e.target.value })}
+                  >
+                    <MenuItem value="HARDWARE_VERIFICATION">Donanım Doğrulama</MenuItem>
+                    <MenuItem value="CONFIGURATION">Konfigürasyon</MenuItem>
+                    <MenuItem value="PRE_TEST">Ön Test</MenuItem>
+                    <MenuItem value="REPAIR">Tamir</MenuItem>
+                    <MenuItem value="FINAL_TEST">Final Test</MenuItem>
+                    <MenuItem value="QUALITY_CHECK">Kalite Kontrol</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Arıza Kaydı (Opsiyonel)</InputLabel>
+                  <Select 
+                    label="Arıza Kaydı (Opsiyonel)"
+                    value={formData.issueId || ''}
+                    onChange={(e) => setFormData({ ...formData, issueId: e.target.value })}
+                  >
+                    <MenuItem value="">
+                      <em>Arıza kaydı seçin (opsiyonel)</em>
+                    </MenuItem>
+                    {issues?.map((issue) => (
+                      <MenuItem key={issue.id} value={issue.id}>
+                        {issue.issueNumber} - {issue.company?.name || 'Bilinmeyen Şirket'}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Açıklama *"
+                  multiline
+                  rows={3}
+                  required
+                  value={formData.description || ''}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Bulgular"
+                  multiline
+                  rows={2}
+                  value={formData.findings || ''}
+                  onChange={(e) => setFormData({ ...formData, findings: e.target.value })}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Yapılan İşlemler"
+                  multiline
+                  rows={2}
+                  value={formData.actionsTaken || ''}
+                  onChange={(e) => setFormData({ ...formData, actionsTaken: e.target.value })}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Süre (dakika)"
+                  type="number"
+                  value={formData.duration || ''}
+                  onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Maliyet (₺)"
+                  type="number"
+                  value={formData.cost || ''}
+                  onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
+                />
+              </Grid>
+            </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenEditDialog(false)}>İptal</Button>
+            <Button variant="contained" onClick={handleUpdateOperation}>Güncelle</Button>
           </DialogActions>
         </Dialog>
 

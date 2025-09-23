@@ -20,6 +20,189 @@ import {
 } from "../dtos/base.schema";
 import { authMiddleware } from "../helpers/auth.helpers";
 
+// Basic CRUD Routes
+const list = createRoute({
+  method: "get",
+  path: "/",
+  request: {},
+  responses: {
+    200: {
+      content: {
+        "application/json": {
+          schema: buildResponseSuccessSchema(z.array(z.object({}))),
+        },
+      },
+      description: "List warehouse locations",
+    },
+    500: {
+      content: {
+        "application/json": {
+          schema: Error500Schema,
+        },
+      },
+      description: "Internal server error",
+    },
+  },
+});
+
+const show = createRoute({
+  method: "get",
+  path: "/:id",
+  request: {
+    params: z.object({
+      id: z.string(),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        "application/json": {
+          schema: buildResponseSuccessSchema(z.object({})),
+        },
+      },
+      description: "Warehouse location details",
+    },
+    404: {
+      content: {
+        "application/json": {
+          schema: Error404Schema,
+        },
+      },
+      description: "Location not found",
+    },
+    500: {
+      content: {
+        "application/json": {
+          schema: Error500Schema,
+        },
+      },
+      description: "Internal server error",
+    },
+  },
+});
+
+const create = createRoute({
+  method: "post",
+  path: "/",
+  request: {
+    body: {
+      content: {
+        "application/json": {
+          schema: z.object({}),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        "application/json": {
+          schema: buildResponseSuccessSchema(z.object({})),
+        },
+      },
+      description: "Warehouse location created successfully",
+    },
+    422: {
+      content: {
+        "application/json": {
+          schema: Error422Schema,
+        },
+      },
+      description: "Unprocessable entity",
+    },
+    500: {
+      content: {
+        "application/json": {
+          schema: Error500Schema,
+        },
+      },
+      description: "Internal server error",
+    },
+  },
+});
+
+const update = createRoute({
+  method: "put",
+  path: "/:id",
+  request: {
+    params: z.object({
+      id: z.string(),
+    }),
+    body: {
+      content: {
+        "application/json": {
+          schema: z.object({}),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        "application/json": {
+          schema: buildResponseSuccessSchema(z.object({})),
+        },
+      },
+      description: "Warehouse location updated successfully",
+    },
+    404: {
+      content: {
+        "application/json": {
+          schema: Error404Schema,
+        },
+      },
+      description: "Location not found",
+    },
+    422: {
+      content: {
+        "application/json": {
+          schema: Error422Schema,
+        },
+      },
+      description: "Unprocessable entity",
+    },
+    500: {
+      content: {
+        "application/json": {
+          schema: Error500Schema,
+        },
+      },
+      description: "Internal server error",
+    },
+  },
+});
+
+const destroy = createRoute({
+  method: "delete",
+  path: "/:id",
+  request: {
+    params: z.object({
+      id: z.string(),
+    }),
+  },
+  responses: {
+    204: {
+      description: "Warehouse location deleted successfully",
+    },
+    404: {
+      content: {
+        "application/json": {
+          schema: Error404Schema,
+        },
+      },
+      description: "Location not found",
+    },
+    500: {
+      content: {
+        "application/json": {
+          schema: Error500Schema,
+        },
+      },
+      description: "Internal server error",
+    },
+  },
+});
+
 // Location Routes
 const listLocations = createRoute({
   method: "get",
@@ -284,16 +467,10 @@ const getStockAlerts = createRoute({
 
 const warehouseRoute = createRouter<HonoEnv>()
   .use("*", authMiddleware)
-  // Location routes
-  .openapi(listLocations, WarehouseController.listLocations)
-  .openapi(showLocation, WarehouseController.showLocation)
-  .openapi(createLocation, WarehouseController.createLocation)
-  .openapi(updateLocation, WarehouseController.updateLocation)
-  // Inventory routes
-  .openapi(getInventory, WarehouseController.getInventory)
-  .openapi(getLocationInventory, WarehouseController.getLocationInventory)
-  // Statistics routes
-  .openapi(getStats, WarehouseController.getStats)
-  .openapi(getStockAlerts, WarehouseController.getStockAlerts);
+  .openapi(list, WarehouseController.list)
+  .openapi(show, WarehouseController.show)
+  .openapi(create, WarehouseController.create)
+  .openapi(update, WarehouseController.update)
+  .openapi(destroy, WarehouseController.destroy);
 
 export default warehouseRoute;

@@ -59,30 +59,48 @@ class UserRepository
     userData: Repository["$TEntityInsert"],
     password: string
   ) {
-    const ctx = await auth.$context;
-    const user = (await ctx.internalAdapter.createUser(
-      userData
-    )) as Repository["$TEntity"];
-
-    const hashedPassword = await hashPassword(password);
-    await ctx.internalAdapter.createAccount({
-      accountId: user.id,
-      providerId: "credential",
-      userId: user.id,
-      password: hashedPassword,
-    });
+    // Custom auth implementation
+    const { createUser } = await import("../lib/auth");
+    
+    const user = await createUser(
+      userData.email,
+      password,
+      `${userData.firstName} ${userData.lastName}`.trim(),
+      userData.role
+    );
 
     return user;
   }
 
   create: Repository["create"] = async (data) => {
-    const ctx = await auth.$context;
-    return ctx.internalAdapter.createUser(data);
+    // Custom auth implementation - use direct database insert
+    const { db } = await import("../db");
+    const { users } = await import("../db/schema");
+    
+    const [user] = await db.insert(users).values({
+      ...data,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    
+    return user;
   };
 
   update: Repository["update"] = async (id, data) => {
-    const ctx = await auth.$context;
-    return ctx.internalAdapter.updateUser(id, data);
+    // Custom auth implementation - use direct database update
+    const { db } = await import("../db");
+    const { users } = await import("../db/schema");
+    const { eq } = await import("drizzle-orm");
+    
+    const [user] = await db.update(users)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, id))
+      .returning();
+    
+    return user;
   };
 
   async findByEmail(email: string) {

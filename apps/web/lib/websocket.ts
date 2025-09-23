@@ -35,7 +35,7 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
   unreadCount: 0,
 
   connect: (token: string) => {
-    const socket = io(process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3001', {
+    const socket = io(process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3011', {
       auth: {
         token: `Bearer ${token}`
       },
