@@ -14,7 +14,7 @@ const list = createControllerAction<HonoEnv>(async (c) => {
     const warehouseLocations = await db.select().from(locations);
     
     return c.responseJSON(ResponseHandler.success(warehouseLocations));
-  } catch (error) {
+    } catch (error) {
     console.error('Error getting warehouse locations:', error);
     return c.responseJSON(ResponseHandler.error('INTERNAL_ERROR', 'Internal server error', 500));
   }
@@ -32,7 +32,7 @@ const show = createControllerAction<HonoEnv>("/locations/:id", async (c) => {
     }
     
     return c.responseJSON(ResponseHandler.success(location[0]));
-  } catch (error) {
+    } catch (error) {
     console.error('Error getting warehouse location:', error);
     return c.responseJSON(ResponseHandler.error('INTERNAL_ERROR', 'Internal server error', 500));
   }
@@ -46,7 +46,7 @@ const create = createControllerAction<HonoEnv>(async (c) => {
     const location = await db.insert(locations).values(body).returning();
     
     return c.responseJSON(ResponseHandler.success(location[0]));
-  } catch (error) {
+    } catch (error) {
     console.error('Error creating warehouse location:', error);
     return c.responseJSON(ResponseHandler.error('INTERNAL_ERROR', 'Internal server error', 500));
   }
@@ -79,58 +79,58 @@ const destroy = createControllerAction<HonoEnv>("/locations/:id", async (c) => {
     await db.delete(locations).where(eq(locations.id, id));
     
     return c.responseJSON(ResponseHandler.success(null));
-  } catch (error) {
+    } catch (error) {
     console.error('Error deleting warehouse location:', error);
     return c.responseJSON(ResponseHandler.error('INTERNAL_ERROR', 'Internal server error', 500));
-  }
+    }
 });
 
 // Inventory endpoints
 const getInventory = createControllerAction<HonoEnv>(async (c) => {
-  try {
+    try {
     const warehouseService = new WarehouseService();
-    const inventory = await warehouseService.getWarehouseInventory();
+      const inventory = await warehouseService.getWarehouseInventory();
     
     return c.responseJSON(ResponseHandler.success(inventory));
-  } catch (error) {
+    } catch (error) {
     console.error('Error getting warehouse inventory:', error);
     return c.responseJSON(ResponseHandler.error('INTERNAL_ERROR', 'Internal server error', 500));
-  }
+    }
 });
 
 const getLocationInventory = createControllerAction<HonoEnv>("/locations/:id/inventory", async (c) => {
-  try {
+    try {
     const id = c.req.param("id");
     const warehouseService = new WarehouseService();
-    const inventory = await warehouseService.getLocationInventory(id);
+      const inventory = await warehouseService.getLocationInventory(id);
     
     return c.responseJSON(ResponseHandler.success(inventory));
-  } catch (error) {
-    console.error('Error getting location inventory:', error);
+    } catch (error) {
+      console.error('Error getting location inventory:', error);
     return c.responseJSON(ResponseHandler.error('INTERNAL_ERROR', 'Internal server error', 500));
-  }
+    }
 });
 
 const getStats = createControllerAction<HonoEnv>(async (c) => {
-  try {
+    try {
     const warehouseService = new WarehouseService();
-    const stats = await warehouseService.getWarehouseStats();
+      const stats = await warehouseService.getWarehouseStats();
     
     return c.responseJSON(ResponseHandler.success(stats));
-  } catch (error) {
-    console.error('Error getting warehouse stats:', error);
+    } catch (error) {
+      console.error('Error getting warehouse stats:', error);
     return c.responseJSON(ResponseHandler.error('INTERNAL_ERROR', 'Internal server error', 500));
-  }
+    }
 });
 
 const getStockAlerts = createControllerAction<HonoEnv>(async (c) => {
-  try {
+    try {
     const warehouseService = new WarehouseService();
-    const alerts = await warehouseService.getStockAlerts();
+      const alerts = await warehouseService.getStockAlerts();
     
     return c.responseJSON(ResponseHandler.success(alerts));
-  } catch (error) {
-    console.error('Error getting stock alerts:', error);
+    } catch (error) {
+      console.error('Error getting stock alerts:', error);
     return c.responseJSON(ResponseHandler.error('INTERNAL_ERROR', 'Internal server error', 500));
   }
 });
@@ -304,7 +304,7 @@ const updateLocation = createControllerAction<HonoEnv>("/locations/:id", async (
     }
     
     return c.responseJSON(ResponseHandler.success(location[0]));
-  } catch (error) {
+    } catch (error) {
     console.error('Error updating location:', error);
     return c.responseJSON(ResponseHandler.error('INTERNAL_ERROR', 'Internal server error', 500));
   }
@@ -315,7 +315,7 @@ const destroyLocation = createControllerAction<HonoEnv>("/locations/:id", async 
     const id = c.req.param("id");
     await db.delete(locations).where(eq(locations.id, id));
     return c.responseJSON(ResponseHandler.success(null));
-  } catch (error) {
+    } catch (error) {
     console.error('Error deleting location:', error);
     return c.responseJSON(ResponseHandler.error('INTERNAL_ERROR', 'Internal server error', 500));
   }
