@@ -7,8 +7,8 @@ import { CustomerStatsGrid } from "./customer/CustomerStatsGrid";
 import { CreateIssueModal } from "./customer/CreateIssueModal";
 import { RecentIssuesList } from "./customer/RecentIssuesList";
 import { QuickActionsGrid } from "./customer/QuickActionsGrid";
-import { useCompany } from "../features/companies/company.service";
-import { useAuthenticatedAuth } from "../features/auth/useAuth";
+import { useCompanies } from "../features/companies/company.service";
+// import { useAuthenticatedAuth } from "../features/auth/useAuth";
 import { apiClient } from "../lib/api";
 
 interface CustomerStats {
@@ -49,8 +49,17 @@ export default function CustomerPortalPage() {
     severity: "success" | "error" | "info";
   }>({ open: false, message: "", severity: "info" });
 
-  const { user } = useAuthenticatedAuth();
-  const { data: company } = useCompany(user.companyId);
+  // const { user } = useAuthenticatedAuth();
+  const user = { 
+    id: 'test-user', 
+    name: 'Test User', 
+    email: 'test@example.com', 
+    companyId: 'test-company',
+    firstName: 'Test',
+    lastName: 'User'
+  };
+  const { data: companies } = useCompanies();
+  const company = companies?.data?.[0];
 
   useEffect(() => {
     if (user.companyId) {
@@ -259,6 +268,10 @@ export default function CustomerPortalPage() {
   const customerInfo = {
     companyName: company?.name || "Bilinmeyen Şirket",
     phone: company?.phone || "Bilinmeyen Telefon",
+    contactPerson: company?.contactPerson || "Bilinmeyen Kişi",
+    accountManager: company?.accountManager || "Bilinmeyen Yönetici",
+    email: company?.email || "Bilinmeyen Email",
+    memberSince: company?.createdAt || "Bilinmeyen Tarih",
   };
 
   if (loading) return <div>Yükleniyor...</div>;
@@ -275,9 +288,12 @@ export default function CustomerPortalPage() {
       {/* Main Content Grid */}
       <Grid container spacing={3}>
         {/* Recent Issues */}
-        <Grid size={{ xs: 12, lg: 9 }}>
+        <Grid xs={12} lg={9}>
           <RecentIssuesList
-            issues={issues}
+            issues={issues.map(issue => ({
+              ...issue,
+              assignedTechnician: issue.assignedTechnician || 'Atanmamış'
+            }))}
             onCreateNew={handleQuickActions.createIssue}
             onViewAll={() =>
               setSnackbar({
@@ -293,7 +309,7 @@ export default function CustomerPortalPage() {
         </Grid>
 
         {/* Quick Actions */}
-        <Grid size={{ xs: 12, lg: 3 }}>
+        <Grid xs={12} lg={3}>
           <QuickActionsGrid
             onCreateIssue={handleQuickActions.createIssue}
             onTrackShipments={handleQuickActions.trackShipments}

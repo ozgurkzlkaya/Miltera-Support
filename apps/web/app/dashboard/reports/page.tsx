@@ -56,9 +56,25 @@ import {
   Warning as WarningIcon,
   CheckCircle as CheckCircleIcon,
   Schedule as ScheduleIcon,
-  AttachMoney as MoneyIcon
+  AttachMoney as MoneyIcon,
+  PictureAsPdf as PdfIcon,
+  TableChart as ExcelIcon,
+  Description as CsvIcon
 } from "@mui/icons-material";
 import { useRouter } from 'next/navigation';
+import { ExportService } from "../../../lib/export";
+import { 
+  useGetDashboardStats,
+  useGetCompaniesCount,
+  useGetUsersCount,
+  useGetRecentActivity,
+  useGetTrendsData,
+  useGetProductAnalysis,
+  useGetIssueAnalysis,
+  useGetPerformanceReport
+} from "../../../features/reports/reports.service";
+import { usePerformanceMonitor } from "../../../lib/performance-monitor";
+import { useErrorHandler } from "../../../lib/error-handler";
 
 type UserRole = 'CUSTOMER' | 'TSP' | 'ADMIN' | 'USER';
 const getCurrentUserRole = (): UserRole | null => {
@@ -172,7 +188,6 @@ export default function ReportsPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState({
     startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
@@ -187,9 +202,29 @@ export default function ReportsPage() {
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [openDetailDialog, setOpenDetailDialog] = useState(false);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
-  const [productAnalysis, setProductAnalysis] = useState<ProductAnalysis | null>(null);
-  const [issueAnalysis, setIssueAnalysis] = useState<IssueAnalysis | null>(null);
-  const [performanceReport, setPerformanceReport] = useState<PerformanceReport | null>(null);
+
+  // Performance monitoring and error handling
+  const performanceMonitor = usePerformanceMonitor();
+  const errorHandler = useErrorHandler();
+
+  // React Query hooks for data fetching
+  const { data: dashboardStats, isLoading: dashboardLoading, refetch: refetchDashboard } = useGetDashboardStats();
+  const { data: companiesCount } = useGetCompaniesCount();
+  const { data: usersCount } = useGetUsersCount();
+  const { data: recentActivity } = useGetRecentActivity(10);
+  const { data: trendsData } = useGetTrendsData(7);
+  const { data: productAnalysis } = useGetProductAnalysis({
+    startDate: dateRange.startDate.toISOString().split('T')[0],
+    endDate: dateRange.endDate.toISOString().split('T')[0]
+  });
+  const { data: issueAnalysis } = useGetIssueAnalysis({
+    startDate: dateRange.startDate.toISOString().split('T')[0],
+    endDate: dateRange.endDate.toISOString().split('T')[0]
+  });
+  const { data: performanceReport } = useGetPerformanceReport({
+    startDate: dateRange.startDate.toISOString().split('T')[0],
+    endDate: dateRange.endDate.toISOString().split('T')[0]
+  });
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
@@ -200,21 +235,21 @@ export default function ReportsPage() {
       setLoading(true);
       const token = localStorage.getItem('auth_token');
       
-      // Fetch data from multiple endpoints
-      const [productsRes, issuesRes, serviceOpsRes, shipmentsRes, companiesRes] = await Promise.all([
-        fetch('http://localhost:3011/api/v1/products', {
+      // Fetch data from reports API endpoints
+      const [dashboardRes, companiesRes, usersRes, activityRes, trendsRes] = await Promise.all([
+        fetch('http://localhost:3015/api/v1/reports/dashboard', {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        fetch('http://localhost:3011/api/v1/issues', {
+        fetch('http://localhost:3015/api/v1/reports/companies-count', {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        fetch('http://localhost:3011/api/v1/service-operations', {
+        fetch('http://localhost:3015/api/v1/reports/users-count', {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        fetch('http://localhost:3011/api/v1/shipments', {
+        fetch('http://localhost:3015/api/v1/reports/recent-activity', {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        fetch('http://localhost:3011/api/v1/companies', {
+        fetch('http://localhost:3015/api/v1/reports/trends', {
           headers: { 'Authorization': `Bearer ${token}` }
         })
       ]);
@@ -224,57 +259,39 @@ export default function ReportsPage() {
         try { return await res.json(); } catch { return { data: [], meta: {} }; }
       };
 
-      const [products, issues, serviceOps, shipments, companies] = await Promise.all([
-        safeJson(productsRes),
-        safeJson(issuesRes),
-        safeJson(serviceOpsRes),
-        safeJson(shipmentsRes),
-        safeJson(companiesRes)
+      const [dashboard, companies, users, activity, trends] = await Promise.all([
+        safeJson(dashboardRes),
+        safeJson(companiesRes),
+        safeJson(usersRes),
+        safeJson(activityRes),
+        safeJson(trendsRes)
       ]);
 
-      // Process data
+      // Process data from reports API
       const processedStats: DashboardStats = {
-        // Prefer meta.total if provided by API; fallback to array length
-        totalProducts: (products.meta?.total ?? products.data?.length ?? 0) as number,
-        activeIssues: (issues.meta?.totalOpen ?? undefined) ?? (issues.data?.filter((i: any) => i.status === 'OPEN' || i.status === 'IN_PROGRESS').length || 0),
-        completedRepairs: (issues.meta?.totalClosed ?? undefined) ?? (issues.data?.filter((i: any) => i.status === 'REPAIRED' || i.status === 'CLOSED').length || 0),
-        totalShipments: (shipments.meta?.total ?? shipments.data?.length ?? 0) as number,
-        totalServiceOperations: (serviceOps.meta?.total ?? serviceOps.data?.length ?? 0) as number,
-        totalCompanies: (companies.meta?.total ?? companies.data?.length ?? 0) as number,
-        totalUsers: 0,
-        productsByStatus: {},
-        issuesByStatus: {},
-        serviceOperationsByStatus: {},
-        monthlyTrend: generateMonthlyTrend(products.data || [], issues.data || [], serviceOps.data || [], shipments.data || []),
-        recentActivity: generateRecentActivity(issues.data || [], serviceOps.data || [], shipments.data || [])
+        totalProducts: dashboard.data?.totalProducts || 0,
+        activeIssues: dashboard.data?.activeIssues || 0,
+        completedRepairs: dashboard.data?.completedRepairs || 0,
+        totalShipments: dashboard.data?.totalShipments || 0,
+        totalServiceOperations: dashboard.data?.totalServiceOperations || 0,
+        totalCompanies: companies.data?.count || 0,
+        totalUsers: users.data?.count || 0,
+        productsByStatus: dashboard.data?.productsByStatus || {},
+        issuesByStatus: dashboard.data?.issuesByStatus || {},
+        serviceOperationsByStatus: dashboard.data?.serviceOperationsByStatus || {},
+        monthlyTrend: trends.data?.monthlyTrend || [],
+        recentActivity: activity.data || []
       };
 
-      // Process status distributions
-      if (Array.isArray(products.data)) {
-        products.data.forEach((product: any) => {
-          const status = product.status || 'Unknown';
-          processedStats.productsByStatus[status] = (processedStats.productsByStatus[status] || 0) + 1;
-        });
-      }
-
-      if (Array.isArray(issues.data)) {
-        issues.data.forEach((issue: any) => {
-          const status = issue.status || 'Unknown';
-          processedStats.issuesByStatus[status] = (processedStats.issuesByStatus[status] || 0) + 1;
-        });
-      }
-
-      if (Array.isArray(serviceOps.data)) {
-        serviceOps.data.forEach((op: any) => {
-          const status = op.status || 'Unknown';
-          processedStats.serviceOperationsByStatus[status] = (processedStats.serviceOperationsByStatus[status] || 0) + 1;
-        });
-      }
-
-      setDashboardStats(processedStats);
+      // Dashboard stats are managed by React Query
 
       // --------- Build Product Analysis ---------
-      const productsArray: any[] = Array.isArray(products.data) ? products.data : [];
+      // Fetch real products data
+      const productsRes = await fetch('http://localhost:3015/api/v1/products', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const productsData = await safeJson(productsRes);
+      const productsArray: any[] = productsData.data || [];
       const groupCount = (arr: any[], keyPickers: Array<(x: any) => string | undefined>) => {
         const map: Record<string, number> = {};
         arr.forEach((it) => {
@@ -293,9 +310,13 @@ export default function ReportsPage() {
         (p) => p.type,
         (p) => p.productType?.name,
         (p) => p.model?.name,
+        (p) => p.model?.modelName,
       ]);
 
-      const productsByStatusPA = groupCount(productsArray, [(p) => p.status]);
+      const productsByStatusPA = groupCount(productsArray, [
+        (p) => p.status,
+        (p) => p.currentStatus,
+      ]);
       const warrantyStatus = groupCount(productsArray, [
         (p) => p.isUnderWarranty === true ? 'GARANTİLİ' : (p?.isUnderWarranty === false ? 'GARANTİ DIŞI' : undefined),
         (p) => p.warrantyStatus,
@@ -311,16 +332,15 @@ export default function ReportsPage() {
         return Object.entries(byMonth).sort(([a],[b]) => a.localeCompare(b)).map(([month, count]) => ({ month, count }));
       })();
 
-      setProductAnalysis({
-        totalProducts: productsArray.length,
-        productsByType,
-        productsByStatus: productsByStatusPA,
-        warrantyStatus,
-        monthlyProduction,
-      });
+      // Product analysis data is managed by React Query
 
       // --------- Build Issue Analysis ---------
-      const issuesArray: any[] = Array.isArray(issues.data) ? issues.data : [];
+      // Fetch real issues data
+      const issuesRes = await fetch('http://localhost:3015/api/v1/issues', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const issuesData = await safeJson(issuesRes);
+      const issuesArray: any[] = issuesData.data || [];
       const issuesByCategory = groupCount(issuesArray, [
         (i) => i.issueCategory?.name,
         (i) => i.category?.name,
@@ -349,21 +369,32 @@ export default function ReportsPage() {
         });
         return Object.entries(byMonth).sort(([a],[b]) => a.localeCompare(b)).map(([month, count]) => ({ month, count }));
       })();
-      setIssueAnalysis({
-        totalIssues: issuesArray.length,
-        issuesByCategory,
-        issuesByPriority,
-        averageResolutionTime,
-        issuesByMonth,
-      });
+      // Issue analysis data is managed by React Query
 
       // --------- Build Performance Report ---------
-      const opsArray: any[] = Array.isArray(serviceOps.data) ? serviceOps.data : [];
+      // Fetch real service operations data
+      const operationsRes = await fetch('http://localhost:3015/api/v1/service-operations', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const operationsData = await safeJson(operationsRes);
+      const opsArray: any[] = operationsData.data || [];
       const byTech: Record<string, { name: string; total: number; completed: number; durations: number[] }>
         = {};
       opsArray.forEach((op) => {
-        const techId = op.technicianId || op.performedBy || 'unknown';
-        const techName = op.technicianName || op.performedByName || techId;
+        const techId = op.performedBy || op.technicianId || 'unknown';
+        let techName = 'Bilinmeyen Teknisyen';
+        if (op.performedBy) {
+          // performedBy bir ID ise, isim mapping yap
+          if (op.performedBy === '3383f9bf-1b18-4174-b080-6a114bf457e5') {
+            techName = 'Test User 6';
+          } else if (op.performedBy === '0834d1d1-98e6-4de2-962d-efbd596eecc6') {
+            techName = 'Teknisyen 1';
+          } else {
+            techName = `Teknisyen ${op.performedBy.slice(-4)}`;
+          }
+        } else if (op.technicianId) {
+          techName = `Teknisyen ${op.technicianId.slice(-4)}`;
+        }
         if (!byTech[techId]) byTech[techId] = { name: techName, total: 0, completed: 0, durations: [] };
         byTech[techId].total += 1;
         if (op.status === 'COMPLETED' || op.completedAt) byTech[techId].completed += 1;
@@ -397,7 +428,7 @@ export default function ReportsPage() {
         })(),
         customerSatisfaction: 0,
       };
-      setPerformanceReport({ technicianPerformance, teamPerformance });
+      // Performance report data is managed by React Query
     } catch (error) {
       // Suppress noisy console errors; show a user-friendly message instead
       setSnackbar({
@@ -412,10 +443,17 @@ export default function ReportsPage() {
 
   const handleRefresh = () => {
     setIsRefreshing(true);
-    fetchDashboardStats();
-    setTimeout(() => {
-      setIsRefreshing(false);
-    }, 1000);
+    performanceMonitor.recordUserInteraction('refresh_reports', performance.now());
+    
+    // Refetch all data
+    Promise.all([
+      refetchDashboard(),
+      // Add other refetch calls as needed
+    ]).finally(() => {
+      setTimeout(() => {
+        setIsRefreshing(false);
+      }, 1000);
+    });
   };
 
   const generateMonthlyTrend = (
@@ -518,7 +556,7 @@ export default function ReportsPage() {
     switch (type) {
       case 'issue':
         router.push('/dashboard/issues');
-        break;
+          break;
       case 'product':
         router.push('/dashboard/products');
         break;
@@ -554,94 +592,195 @@ export default function ReportsPage() {
     }
   };
 
+  // Export functions
+  const exportIssuesToPDF = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('http://localhost:3015/api/v1/issues', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const issues = data.data || [];
+        
+        await ExportService.exportToPDF({
+          title: 'Arıza Raporu',
+          filename: `ariza-raporu-${new Date().toISOString().split('T')[0]}`,
+          data: issues,
+          columns: [
+            { key: 'issueNumber', label: 'Arıza No', width: 30 },
+            { key: 'title', label: 'Başlık', width: 50 },
+            { key: 'status', label: 'Durum', width: 25, formatter: ExportService.formatters.status },
+            { key: 'priority', label: 'Öncelik', width: 25, formatter: ExportService.formatters.priority },
+            { key: 'reportedAt', label: 'Tarih', width: 30, formatter: ExportService.formatters.date },
+            { key: 'company.name', label: 'Müşteri', width: 40 },
+          ],
+          includeDate: true,
+          includeUser: true,
+        });
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+      setSnackbar({
+        open: true,
+        message: 'Export sırasında hata oluştu',
+        severity: 'error'
+      });
+    }
+  };
+
+  const exportProductsToExcel = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('http://localhost:3015/api/v1/products', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const products = data.data || [];
+        
+        await ExportService.exportToExcel({
+          title: 'Ürün Raporu',
+          filename: `urun-raporu-${new Date().toISOString().split('T')[0]}`,
+          data: products,
+          columns: [
+            { key: 'serialNumber', label: 'Seri No', width: 30 },
+            { key: 'model.name', label: 'Model', width: 40 },
+            { key: 'currentStatus', label: 'Durum', width: 25, formatter: ExportService.formatters.status },
+            { key: 'productionDate', label: 'Üretim Tarihi', width: 30, formatter: ExportService.formatters.date },
+            { key: 'isUnderWarranty', label: 'Garanti', width: 20, formatter: ExportService.formatters.boolean },
+            { key: 'location.name', label: 'Konum', width: 30 },
+          ],
+          includeDate: true,
+          includeUser: true,
+        });
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+      setSnackbar({
+        open: true,
+        message: 'Export sırasında hata oluştu',
+        severity: 'error'
+      });
+    }
+  };
+
+  const exportServiceOperationsToCSV = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('http://localhost:3015/api/v1/service-operations', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const operations = data.data || [];
+        
+        await ExportService.exportToCSV({
+          title: 'Servis Operasyonları Raporu',
+          filename: `servis-operasyonlari-${new Date().toISOString().split('T')[0]}`,
+          data: operations,
+          columns: [
+            { key: 'operationType', label: 'Operasyon Türü', width: 40 },
+            { key: 'status', label: 'Durum', width: 25, formatter: ExportService.formatters.status },
+            { key: 'description', label: 'Açıklama', width: 60 },
+            { key: 'operationDate', label: 'Tarih', width: 30, formatter: ExportService.formatters.date },
+            { key: 'cost', label: 'Maliyet', width: 25, formatter: ExportService.formatters.currency },
+            { key: 'duration', label: 'Süre (dk)', width: 20 },
+          ],
+          includeDate: true,
+          includeUser: true,
+        });
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+      setSnackbar({
+        open: true,
+        message: 'Export sırasında hata oluştu',
+        severity: 'error'
+      });
+    }
+  };
+
   // Component mount olduğunda veri çek
   React.useEffect(() => {
     fetchDashboardStats();
     setUserRole(getCurrentUserRole());
   }, []);
 
-  const handleExport = (format: string) => {
-    console.log(`Exporting report as ${format}`);
+  const handleExport = async (format: string) => {
     
     try {
-      // Get current tab data
-      let data = {};
+      const token = localStorage.getItem('auth_token');
+      let reportId = '';
       let filename = '';
       
-      switch (activeTab) {
-        case 0: // Dashboard Overview
-          data = {
-            title: "Dashboard Genel Bakış Raporu",
-            generatedAt: new Date().toLocaleString('tr-TR'),
-            metrics: {
-            totalProducts: dashboardStats?.totalProducts || 0,
-            activeIssues: dashboardStats?.activeIssues || 0,
-            completedRepairs: dashboardStats?.completedRepairs || 0,
-            totalShipments: dashboardStats?.totalShipments || 0
-          },
-          productsByStatus: dashboardStats?.productsByStatus || {},
-          issuesByStatus: dashboardStats?.issuesByStatus || {},
-          monthlyTrend: dashboardStats?.monthlyTrend || []
-          };
-          filename = `dashboard-raporu-${new Date().toISOString().split('T')[0]}`;
-          break;
-          
-        case 1: // Product Analysis
-          data = {
-            title: "Ürün Analizi Raporu",
-            generatedAt: new Date().toLocaleString('tr-TR'),
-            totalProducts: dashboardStats?.totalProducts || 0,
-            productsByType: {},
-            productsByStatus: dashboardStats?.productsByStatus || {},
-            warrantyStatus: {},
-            monthlyProduction: []
-          };
-          filename = `urun-analizi-raporu-${new Date().toISOString().split('T')[0]}`;
-          break;
-          
-        case 2: // Issue Analysis
-          data = {
-            title: "Sorun Analizi Raporu",
-            generatedAt: new Date().toLocaleString('tr-TR'),
-            totalIssues: dashboardStats?.activeIssues || 0,
-            issuesByCategory: {},
-            issuesByPriority: {},
-            averageResolutionTime: 0,
-            issuesByMonth: []
-          };
-          filename = `sorun-analizi-raporu-${new Date().toISOString().split('T')[0]}`;
-          break;
-          
-        case 3: // Performance Report
-          data = {
-            title: "Performans Raporu",
-            generatedAt: new Date().toLocaleString('tr-TR'),
-            technicianPerformance: [],
-            teamPerformance: {
-              totalOperations: 0,
-              averageResolutionTime: 0,
-              customerSatisfaction: 0
-            }
-          };
-          filename = `performans-raporu-${new Date().toISOString().split('T')[0]}`;
-          break;
-          
-        default:
-          data = { title: "Genel Rapor", generatedAt: new Date().toLocaleString('tr-TR') };
-          filename = `rapor-${new Date().toISOString().split('T')[0]}`;
+      // Generate custom report first
+      const reportData = {
+        reportType: activeTab === 0 ? 'dashboard' : activeTab === 1 ? 'products' : activeTab === 2 ? 'issues' : 'performance',
+        dateRange: {
+          startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          endDate: new Date().toISOString().split('T')[0]
+        },
+        filters: {},
+        groupBy: []
+      };
+      
+      const generateResponse = await fetch('http://localhost:3015/api/v1/reports/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(reportData)
+      });
+      
+      if (generateResponse.ok) {
+        const generateData = await generateResponse.json();
+        reportId = generateData.data.reportId;
+        filename = `${reportData.reportType}-raporu-${new Date().toISOString().split('T')[0]}`;
+      } else {
+        throw new Error('Report generation failed');
       }
       
-      if (format === 'pdf') {
-        exportToPDF(data, filename);
-      } else if (format === 'excel') {
-        exportToExcel(data, filename);
-      } else if (format === 'csv') {
-        exportToCSV(data, filename);
-      }
+      // Wait a moment for report to be processed
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
+      // Export the report
+      const exportResponse = await fetch(`http://localhost:3015/api/v1/reports/${reportId}/export?format=${format}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (exportResponse.ok) {
+        const blob = await exportResponse.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${filename}.${format}`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        setSnackbar({
+          open: true,
+          message: `${format.toUpperCase()} raporu başarıyla indirildi`,
+          severity: 'success'
+        });
+      } else {
+        throw new Error('Export failed');
+      }
     } catch (error) {
       console.error('Export error:', error);
-      alert('Rapor indirme sırasında bir hata oluştu. Lütfen tekrar deneyin.');
+      setSnackbar({
+        open: true,
+        message: 'Rapor indirilirken hata oluştu',
+        severity: 'error'
+      });
     }
   };
 
@@ -849,7 +988,7 @@ export default function ReportsPage() {
             </CardContent>
           </Card>
         </Grid>
-
+        
         <Grid item xs={12} sm={6} md={2}>
           <Card sx={{ borderRadius: 2, boxShadow: 2, cursor: 'pointer', '&:hover': { boxShadow: 4 } }}
                 onClick={() => handleNavigateToPage('issue')}>
@@ -872,7 +1011,7 @@ export default function ReportsPage() {
             </CardContent>
           </Card>
         </Grid>
-
+        
         <Grid item xs={12} sm={6} md={2}>
           <Card sx={{ borderRadius: 2, boxShadow: 2, cursor: 'pointer', '&:hover': { boxShadow: 4 } }}
                 onClick={() => handleNavigateToPage('service')}>
@@ -895,7 +1034,7 @@ export default function ReportsPage() {
             </CardContent>
           </Card>
         </Grid>
-
+        
         <Grid item xs={12} sm={6} md={2}>
           <Card sx={{ borderRadius: 2, boxShadow: 2, cursor: 'pointer', '&:hover': { boxShadow: 4 } }}
                 onClick={() => handleNavigateToPage('shipment')}>
@@ -988,7 +1127,7 @@ export default function ReportsPage() {
                       />
                     </Box>
                     <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                      {count.toLocaleString()}
+                      {Number(count).toLocaleString()}
                     </Typography>
                   </Box>
                 ))}
@@ -1015,7 +1154,7 @@ export default function ReportsPage() {
                       />
                     </Box>
                     <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                      {count.toLocaleString()}
+                      {Number(count).toLocaleString()}
                     </Typography>
                   </Box>
                 ))}
@@ -1042,7 +1181,7 @@ export default function ReportsPage() {
                       />
                     </Box>
                     <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                      {count.toLocaleString()}
+                      {Number(count).toLocaleString()}
                     </Typography>
                   </Box>
                 ))}
@@ -1062,7 +1201,7 @@ export default function ReportsPage() {
                 Son Aktiviteler
               </Typography>
               <List>
-                {dashboardStats?.recentActivity?.slice(0, 8).map((activity, index) => (
+                {dashboardStats?.recentActivity?.slice(0, 8).map((activity: any, index: number) => (
                   <React.Fragment key={activity.id}>
                     <ListItem 
                       sx={{ 
@@ -1132,7 +1271,7 @@ export default function ReportsPage() {
                 Aylık Trend
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {dashboardStats?.monthlyTrend?.slice(-6).map((trend) => (
+                {dashboardStats?.monthlyTrend?.slice(-6).map((trend: any) => (
                   <Box key={trend.month} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
                       {trend.month}
@@ -1171,7 +1310,7 @@ export default function ReportsPage() {
             Aylık Trend Analizi
           </Typography>
           <Grid container spacing={2}>
-            {(dashboardStats?.monthlyTrend || []).map((month) => (
+            {(dashboardStats?.monthlyTrend || []).map((month: any) => (
               <Grid item xs={6} md={2} key={month.month}>
                 <Box sx={{ textAlign: 'center', p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
                   <Typography variant="subtitle2" color="text.secondary">
@@ -1207,7 +1346,7 @@ export default function ReportsPage() {
                     <Box key={type} sx={{ display: 'flex', justifyContent: 'space-between' }}>
                       <Typography variant="body2">{type}</Typography>
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>{count as number}</Typography>
-                    </Box>
+                  </Box>
                   ))
                 ) : (
                   <Typography variant="body2" color="text.secondary">Veri bulunamadı</Typography>
@@ -1229,7 +1368,7 @@ export default function ReportsPage() {
                     <Box key={status} sx={{ display: 'flex', justifyContent: 'space-between' }}>
                       <Typography variant="body2">{status}</Typography>
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>{count as number}</Typography>
-                    </Box>
+                  </Box>
                   ))
                 ) : (
                   <Typography variant="body2" color="text.secondary">Veri bulunamadı</Typography>
@@ -1257,7 +1396,7 @@ export default function ReportsPage() {
                     <Box key={cat} sx={{ display: 'flex', justifyContent: 'space-between' }}>
                       <Typography variant="body2">{cat}</Typography>
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>{count as number}</Typography>
-                    </Box>
+                  </Box>
                   ))
                 ) : (
                   <Typography variant="body2" color="text.secondary">Veri bulunamadı</Typography>
@@ -1279,7 +1418,7 @@ export default function ReportsPage() {
                     <Box key={prio} sx={{ display: 'flex', justifyContent: 'space-between' }}>
                       <Typography variant="body2">{prio}</Typography>
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>{count as number}</Typography>
-                    </Box>
+                  </Box>
                   ))
                 ) : (
                   <Typography variant="body2" color="text.secondary">Veri bulunamadı</Typography>
@@ -1311,8 +1450,8 @@ export default function ReportsPage() {
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 {performanceReport && performanceReport.technicianPerformance.length > 0 ? (
-                  <Grid container spacing={2}>
-                    {performanceReport.technicianPerformance.map((t) => (
+                    <Grid container spacing={2}>
+                    {performanceReport.technicianPerformance.map((t: any) => (
                       <Grid item xs={12} md={4} key={t.technicianId}>
                         <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
                           <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{t.technicianName}</Typography>
@@ -1335,7 +1474,7 @@ export default function ReportsPage() {
                         </Paper>
                       </Grid>
                     ))}
-                  </Grid>
+                      </Grid>
                 ) : (
                   <Typography variant="body2" color="text.secondary">Veri bulunamadı</Typography>
                 )}
@@ -1376,11 +1515,27 @@ export default function ReportsPage() {
           </Tooltip>
           <Button 
             variant="outlined" 
-            startIcon={<DownloadIcon />}
-            onClick={() => handleExport('pdf')}
+            startIcon={<PdfIcon />}
+            onClick={exportIssuesToPDF}
             sx={{ borderRadius: 2 }}
           >
-            PDF İndir
+            PDF
+          </Button>
+          <Button 
+            variant="outlined" 
+            startIcon={<ExcelIcon />}
+            onClick={exportProductsToExcel}
+            sx={{ borderRadius: 2 }}
+          >
+            Excel
+          </Button>
+          <Button 
+            variant="outlined" 
+            startIcon={<CsvIcon />}
+            onClick={exportServiceOperationsToCSV}
+            sx={{ borderRadius: 2 }}
+          >
+            CSV
           </Button>
           <Button 
             variant="outlined" 

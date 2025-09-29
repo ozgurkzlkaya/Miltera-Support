@@ -73,7 +73,9 @@ export const QuickActionsGrid = ({
           {actions.map((action) => (
             <Grid
               key={action.key}
-              size={{ xs: 12, sm: 6, md: actions.length <= 4 ? 6 : 4 }}
+              xs={12}
+              sm={6}
+              md={actions.length <= 4 ? 6 : 4}
               sx={{ display: "flex" }}
             >
               <Tooltip title={action.description} placement="top">

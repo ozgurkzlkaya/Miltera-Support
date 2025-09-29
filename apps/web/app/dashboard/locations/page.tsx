@@ -177,9 +177,9 @@ export default function LocationsPage() {
         columns={columns}
         queryResult={locationsQueryResult}
         formFields={formFields}
-        onAdd={(data) => createMutation.mutate({ payload: data })}
-        onEdit={(id, data) => updateMutation.mutate({ id, payload: data })}
-        onDelete={(id) => deleteMutation.mutate({ id })}
+        onAdd={(data) => createMutation.mutate(data)}
+        onEdit={(id, data) => updateMutation.mutate({ id, data })}
+        onDelete={(id) => deleteMutation.mutate(id)}
         addButtonText="Add Location"
         selectable={true}
       />

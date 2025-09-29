@@ -9,7 +9,7 @@ import {
   Error422Schema,
   Error500Schema,
 } from "../dtos/base.schema";
-import { authMiddleware } from "../helpers/auth.helpers";
+import { authMiddleware } from "../helpers/auth.helpers"; // Auth middleware aktif
 
 // Notification Schema
 const NotificationSchema = z.object({
@@ -143,7 +143,7 @@ const showNotification = createRoute({
 // Mark notification as read
 const markAsRead = createRoute({
   method: "patch",
-  path: "/:id/read",
+  path: "/:id/mark-read",
   request: {
     params: z.object({
       id: z.string()
@@ -313,7 +313,7 @@ const getStats = createRoute({
 });
 
 const notificationsRoute = createRouter<HonoEnv>()
-  .use("*", authMiddleware)
+  .use("*", authMiddleware) // Auth middleware aktif
   .openapi(listNotifications, NotificationsController.list)
   .openapi(showNotification, NotificationsController.show)
   .openapi(markAsRead, NotificationsController.markAsRead)
@@ -321,5 +321,12 @@ const notificationsRoute = createRouter<HonoEnv>()
   .openapi(deleteNotification, NotificationsController.delete)
   .openapi(createNotification, NotificationsController.create)
   .openapi(getStats, NotificationsController.getStats);
+
+// Ayrı bir stats route'u ekleyelim
+const statsRoute = createRouter<HonoEnv>()
+  .use("*", authMiddleware) // Auth middleware aktif
+  .get("/", (c) => c.json({ success: true, data: { total: 0, unread: 0, highPriority: 0, success: 0 } }));
+
+export { statsRoute };
 
 export default notificationsRoute;

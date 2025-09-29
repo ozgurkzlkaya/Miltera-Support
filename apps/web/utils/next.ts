@@ -1,6 +1,6 @@
 const getMaybeNextHeaders = async () => {
   let headersPromise:
-    | ReturnType<typeof import("next/headers").headers>
+    | Promise<ReturnType<typeof import("next/headers").headers>>
     | undefined;
 
   if (process.env.NEXT_RUNTIME) {

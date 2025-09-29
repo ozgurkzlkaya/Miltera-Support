@@ -245,7 +245,7 @@ export const FileAttachmentsList: React.FC<FileAttachmentsListProps> = ({
                     {attachment.fileUrl && (
                       <IconButton
                         size="small"
-                        onClick={() => window.open(attachment.fileUrl, '_blank')}
+                        onClick={() => attachment.fileUrl && window.open(attachment.fileUrl, '_blank')}
                       >
                         <DownloadIcon />
                       </IconButton>
@@ -275,7 +275,6 @@ export const FileAttachmentsList: React.FC<FileAttachmentsListProps> = ({
           close={() => setLightboxOpen(false)}
           index={lightboxIndex}
           slides={imageAttachments.map(att => ({ src: att.fileUrl || '' }))}
-          onView={({ index }) => setLightboxIndex(index)}
         />
       )}
 

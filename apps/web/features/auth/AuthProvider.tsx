@@ -1,7 +1,15 @@
 "use client";
 
 import { createContext, useEffect, useState, useRef } from "react";
-import { type User, getSession } from "./auth.service";
+// import { getSession } from "./auth.service";
+
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+}
+import { initializeWebSocket, cleanupWebSocket } from "../../lib/websocket";
 
 type Auth =
   | {
@@ -32,19 +40,30 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
         const token = localStorage.getItem('auth_token');
         const userStr = localStorage.getItem('user');
         
+        console.log('AuthProvider - Token:', token);
+        console.log('AuthProvider - User:', userStr);
+        
         if (token && userStr) {
           const user = JSON.parse(userStr);
+          console.log('AuthProvider - Parsed user:', user);
           setAuth({
             isLoading: false,
             isAuthenticated: true,
             user: user,
           });
+          
+          // Initialize WebSocket connection
+          initializeWebSocket(token);
         } else {
+          console.log('AuthProvider - No token or user, setting unauthenticated');
           setAuth({
             isLoading: false,
             isAuthenticated: false,
             user: null,
           });
+          
+          // Cleanup WebSocket connection
+          cleanupWebSocket();
         }
       } catch (error) {
         setAuth({
@@ -52,6 +71,9 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
           isAuthenticated: false,
           user: null,
         });
+        
+        // Cleanup WebSocket connection on error
+        cleanupWebSocket();
       } finally {
         isCheckingRef.current = false;
       }
@@ -70,6 +92,7 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
     // Custom event dinle (aynı tab içinde localStorage değişiklikleri için)
     const handleCustomStorageChange = () => {
       console.log('Custom storage event, auth kontrol ediliyor...');
+      // Hemen kontrol et
       checkAuth();
     };
 

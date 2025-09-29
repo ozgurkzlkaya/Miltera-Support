@@ -81,12 +81,33 @@ const update = createControllerAction<HonoEnv>("/:id", async (c) => {
 const destroy = createControllerAction<HonoEnv>("/:id", async (c) => {
   try {
     const id = c.req.param("id");
+    const shipmentService = new ShipmentService();
     
     // Real deletion using service
     const result = await shipmentService.deleteShipment(id);
     return c.responseJSON(ResponseHandler.success(result));
   } catch (error) {
     console.error('Error deleting shipment:', error);
+    return c.responseJSON(ResponseHandler.error('INTERNAL_ERROR', 'Internal server error', 500));
+  }
+});
+
+const updateStatus = createControllerAction<HonoEnv>("/:id/status", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const body = await c.req.json();
+    const shipmentService = new ShipmentService();
+    
+    // Update shipment status using service
+    const shipment = await shipmentService.updateShipmentStatus({
+      ...body,
+      shipmentId: id,
+      updatedBy: 'ce2a6761-82e3-48ba-af33-2f49b4b73e35' // Default user ID
+    });
+    
+    return c.responseJSON(ResponseHandler.success(shipment));
+  } catch (error) {
+    console.error('Error updating shipment status:', error);
     return c.responseJSON(ResponseHandler.error('INTERNAL_ERROR', 'Internal server error', 500));
   }
 });
@@ -105,6 +126,6 @@ const getStats = createControllerAction<HonoEnv>(async (c) => {
   }
 });
 
-const ShipmentController = { list, show, create, update, destroy, getStats };
+const ShipmentController = { list, show, create, update, updateStatus, destroy, getStats };
 
 export default ShipmentController;

@@ -1,7 +1,13 @@
 import { db } from '../db';
-import { locations, products, productModels, productTypes, companies, users } from '../db/schema';
-import { eq, and, isNull, isNotNull, desc, asc, count, sql } from 'drizzle-orm';
+import { locations, products, productModels, productTypes, companies, users, inventoryCounts } from '../db/schema';
+import { eq, and, isNull, isNotNull, desc, asc, count, sql, gte, lt } from 'drizzle-orm';
 import type { ProductStatus } from '../db/schema';
+import { ProductService } from './product.service';
+import { CompanyService } from './company.service';
+import { IssueService } from './issue.service';
+import { UserService } from './user.service';
+import { ShipmentService } from './shipment.service';
+import { NotificationService } from './notification.service';
 
 export interface CreateLocationRequest {
   name: string;
@@ -41,7 +47,7 @@ export interface BulkMoveProductsRequest {
 export interface InventoryCountRequest {
   locationId: string;
   countedBy: string;
-  counts: Array<{
+  countedItems: Array<{
     productId: string;
     expectedQuantity: number;
     actualQuantity: number;
@@ -54,391 +60,837 @@ export class WarehouseService {
    * Yeni konum oluşturur
    */
   async createLocation(request: CreateLocationRequest) {
-    const { name, type, address, notes, createdBy } = request;
+    try {
+      const { name, type, address, notes, createdBy } = request;
 
-    const result = await db.insert(locations).values({
-      name,
-      type,
-      address,
-      notes,
-    }).returning();
+      // User service kullanarak kullanıcıyı doğrula
+      const userService = new UserService(db);
+      const user = await userService.getUser(createdBy);
+      
+      if (!user) {
+        throw new Error('Kullanıcı bulunamadı');
+      }
 
-    return result[0];
+      const result = await db.insert(locations).values({
+        name,
+        type,
+        address,
+        notes,
+      }).returning();
+
+      return result[0];
+    } catch (error) {
+      console.error('Error in createLocation:', error);
+      throw error;
+    }
   }
 
   /**
    * Konum günceller
    */
   async updateLocation(request: UpdateLocationRequest) {
-    const { locationId, name, type, address, notes, updatedBy } = request;
+    try {
+      const { locationId, name, type, address, notes, updatedBy } = request;
 
-    const updateData: any = {
-      updatedAt: new Date()
-    };
+      const updateData: any = {
+        updatedAt: new Date()
+      };
 
-    if (name) updateData.name = name;
-    if (type) updateData.type = type;
-    if (address !== undefined) updateData.address = address;
-    if (notes !== undefined) updateData.notes = notes;
+      if (name) updateData.name = name;
+      if (type) updateData.type = type;
+      if (address !== undefined) updateData.address = address;
+      if (notes !== undefined) updateData.notes = notes;
 
-    const result = await db
-      .update(locations)
-      .set(updateData)
-      .where(eq(locations.id, locationId))
-      .returning();
+      const result = await db
+        .update(locations)
+        .set(updateData)
+        .where(eq(locations.id, locationId))
+        .returning();
 
-    return result[0];
+      return result[0];
+    } catch (error) {
+      console.error('Error in updateLocation:', error);
+      throw error;
+    }
   }
 
   /**
    * Konumları listeler
    */
   async getLocations(filter: LocationFilter = {}) {
-    let whereConditions = [];
+    try {
+      let whereConditions = [];
 
-    if (filter.type) {
-      whereConditions.push(eq(locations.type, filter.type));
+      if (filter.type) {
+        whereConditions.push(eq(locations.type, filter.type));
+      }
+
+      if (filter.search) {
+        whereConditions.push(sql`${locations.name} ILIKE ${`%${filter.search}%`}`);
+      }
+
+      const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;
+
+      const result = await db
+        .select({
+          id: locations.id,
+          name: locations.name,
+          type: locations.type,
+          address: locations.address,
+          notes: locations.notes,
+          createdAt: locations.createdAt,
+          updatedAt: locations.updatedAt,
+        })
+        .from(locations)
+        .where(whereClause)
+        .orderBy(asc(locations.name));
+
+      return result;
+    } catch (error) {
+      console.error('Error in getLocations:', error);
+      throw error;
     }
-
-    if (filter.search) {
-      whereConditions.push(sql`${locations.name} ILIKE ${`%${filter.search}%`}`);
-    }
-
-    const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;
-
-    const result = await db
-      .select({
-        id: locations.id,
-        name: locations.name,
-        type: locations.type,
-        address: locations.address,
-        notes: locations.notes,
-        createdAt: locations.createdAt,
-        updatedAt: locations.updatedAt,
-      })
-      .from(locations)
-      .where(whereClause)
-      .orderBy(asc(locations.name));
-
-    return result;
   }
 
   /**
    * Konum detayını getirir
    */
   async getLocationById(locationId: string) {
-    const result = await db
-      .select({
-        id: locations.id,
-        name: locations.name,
-        type: locations.type,
-        address: locations.address,
-        notes: locations.notes,
-        createdAt: locations.createdAt,
-        updatedAt: locations.updatedAt,
-      })
-      .from(locations)
-      .where(eq(locations.id, locationId))
-      .limit(1);
+    try {
+      const result = await db
+        .select({
+          id: locations.id,
+          name: locations.name,
+          type: locations.type,
+          address: locations.address,
+          notes: locations.notes,
+          capacity: locations.capacity,
+          currentCount: locations.currentCount,
+          createdAt: locations.createdAt,
+          updatedAt: locations.updatedAt,
+        })
+        .from(locations)
+        .where(eq(locations.id, locationId))
+        .limit(1);
 
-    return result[0] || null;
+      return result[0] || null;
+    } catch (error) {
+      console.error('Error in getLocationById:', error);
+      throw error;
+    }
   }
 
   /**
    * Depo envanterini getirir
    */
   async getWarehouseInventory(request: WarehouseInventoryRequest = {}) {
-    const { locationId, includeEmpty = false, status } = request;
+    try {
+      // Detaylı envanter sorgusu - tüm ürün bilgileri ile
+      const inventory = await db
+        .select({
+          id: products.id,
+          productId: products.id,
+          serialNumber: products.serialNumber,
+          status: products.status,
+          locationId: products.locationId,
+          locationName: locations.name,
+          locationType: locations.type,
+          productModel: {
+            id: productModels.id,
+            name: productModels.name,
+          },
+          productType: {
+            id: productTypes.id,
+            name: productTypes.name,
+          },
+          manufacturer: {
+            id: companies.id,
+            name: companies.name,
+          },
+          productionDate: products.productionDate,
+          createdAt: products.createdAt,
+        })
+        .from(products)
+        .leftJoin(locations, eq(products.locationId, locations.id))
+        .leftJoin(productModels, eq(products.productModelId, productModels.id))
+        .leftJoin(productTypes, eq(productModels.productTypeId, productTypes.id))
+        .leftJoin(companies, eq(productModels.manufacturerId, companies.id))
+        .where(isNotNull(products.locationId));
 
-    let whereConditions = [isNotNull(products.locationId)];
-
-    if (locationId) {
-      whereConditions.push(eq(products.locationId, locationId));
+      return inventory;
+    } catch (error) {
+      console.error('Error in getWarehouseInventory:', error);
+      throw error;
     }
-
-    if (status) {
-      whereConditions.push(eq(products.status, status));
-    }
-
-    const whereClause = and(...whereConditions);
-
-    // Konum bazında ürün sayıları
-    const inventoryCounts = await db
-      .select({
-        locationId: products.locationId,
-        locationName: locations.name,
-        locationType: locations.type,
-        status: products.status,
-        count: count(products.id),
-      })
-      .from(products)
-      .leftJoin(locations, eq(products.locationId, locations.id))
-      .where(whereClause)
-      .groupBy(products.locationId, locations.name, locations.type, products.status);
-
-    // Boş konumları dahil et
-    if (includeEmpty) {
-      const allLocations = await this.getLocations();
-      const emptyLocations = allLocations.filter(location => {
-        return !inventoryCounts.some(count => count.locationId === location.id);
-      });
-
-      emptyLocations.forEach(location => {
-        inventoryCounts.push({
-          locationId: location.id,
-          locationName: location.name,
-          locationType: location.type,
-          status: null,
-          count: 0,
-        });
-      });
-    }
-
-    return inventoryCounts;
   }
 
   /**
    * Konum detaylı envanterini getirir
    */
   async getLocationInventory(locationId: string) {
-    const products = await db
-      .select({
-        id: products.id,
-        serialNumber: products.serialNumber,
-        status: products.status,
-        productionDate: products.productionDate,
-        productModel: {
-          id: productModels.id,
-          name: productModels.name,
-        },
-        productType: {
-          id: productTypes.id,
-          name: productTypes.name,
-        },
-        manufacturer: {
-          id: companies.id,
-          name: companies.name,
-        },
-      })
-      .from(products)
-      .leftJoin(productModels, eq(products.productModelId, productModels.id))
-      .leftJoin(productTypes, eq(productModels.productTypeId, productTypes.id))
-      .leftJoin(companies, eq(productModels.manufacturerId, companies.id))
-      .where(eq(products.locationId, locationId))
-      .orderBy(asc(products.serialNumber));
+    try {
+      // Konumun var olduğunu kontrol et
+      const location = await this.getLocationById(locationId);
+      if (!location) {
+        throw new Error('Konum bulunamadı');
+      }
 
-    return products;
+      const locationProducts = await db
+        .select({
+          id: products.id,
+          serialNumber: products.serialNumber,
+          status: products.status,
+          productionDate: products.productionDate,
+          productModel: {
+            id: productModels.id,
+            name: productModels.name,
+          },
+          productType: {
+            id: productTypes.id,
+            name: productTypes.name,
+          },
+          manufacturer: {
+            id: companies.id,
+            name: companies.name,
+          },
+        })
+        .from(products)
+        .leftJoin(productModels, eq(products.productModelId, productModels.id))
+        .leftJoin(productTypes, eq(productModels.productTypeId, productTypes.id))
+        .leftJoin(companies, eq(productModels.manufacturerId, companies.id))
+        .where(eq(products.locationId, locationId))
+        .orderBy(asc(products.serialNumber));
+
+      return locationProducts;
+    } catch (error) {
+      console.error('Error in getLocationInventory:', error);
+      throw error;
+    }
   }
 
   /**
    * Ürünleri toplu olarak başka konuma taşır
    */
   async bulkMoveProducts(request: BulkMoveProductsRequest) {
-    const { productIds, targetLocationId, movedBy, reason } = request;
+    try {
+      const { productIds, targetLocationId, movedBy, reason } = request;
 
-    // Hedef konumun var olduğunu kontrol et
-    const targetLocation = await this.getLocationById(targetLocationId);
-    if (!targetLocation) {
-      throw new Error('Hedef konum bulunamadı');
+      // Hedef konumu kontrol et
+      const targetLocation = await db
+        .select()
+        .from(locations)
+        .where(eq(locations.id, targetLocationId))
+        .limit(1);
+
+      if (targetLocation.length === 0) {
+        throw new Error('Hedef konum bulunamadı');
+      }
+
+      const results = [];
+      
+      // Her ürün için taşıma işlemi yap
+      for (const productId of productIds) {
+        try {
+          // Ürünün mevcut konumunu al
+          const currentProduct = await db
+            .select()
+            .from(products)
+            .where(eq(products.id, productId))
+            .limit(1);
+
+          if (currentProduct.length === 0) {
+            results.push({
+              productId,
+              success: false,
+              error: 'Ürün bulunamadı'
+            });
+            continue;
+          }
+
+          const oldLocationId = currentProduct[0].locationId;
+
+          // Ürünü yeni konuma taşı
+          await db
+            .update(products)
+            .set({
+              locationId: targetLocationId,
+              updatedAt: new Date()
+            })
+            .where(eq(products.id, productId));
+
+          // Eski konumun kapasitesini güncelle (varsa)
+          if (oldLocationId) {
+            const oldLocationProducts = await db
+              .select({ count: count(products.id) })
+              .from(products)
+              .where(eq(products.locationId, oldLocationId));
+
+            await db
+              .update(locations)
+              .set({
+                currentCount: oldLocationProducts[0]?.count || 0,
+                updatedAt: new Date()
+              })
+              .where(eq(locations.id, oldLocationId));
+          }
+
+          // Yeni konumun kapasitesini güncelle
+          const newLocationProducts = await db
+            .select({ count: count(products.id) })
+            .from(products)
+            .where(eq(products.locationId, targetLocationId));
+
+          await db
+            .update(locations)
+            .set({
+              currentCount: newLocationProducts[0]?.count || 0,
+              updatedAt: new Date()
+            })
+            .where(eq(locations.id, targetLocationId));
+
+          results.push({
+            productId,
+            success: true,
+            newLocationId: targetLocationId,
+            oldLocationId,
+            movedBy,
+            reason
+          });
+
+        } catch (productError) {
+          console.error(`Error moving product ${productId}:`, productError);
+          results.push({
+            productId,
+            success: false,
+            error: productError instanceof Error ? productError.message : 'Bilinmeyen hata'
+          });
+        }
+      }
+
+      return {
+        movedProducts: results,
+        totalMoved: results.filter(r => r.success).length,
+        totalFailed: results.filter(r => !r.success).length,
+        targetLocation: targetLocation[0].name,
+        movedAt: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('Error in bulkMoveProducts:', error);
+      throw error;
     }
-
-    // Ürünleri güncelle
-    const result = await db
-      .update(products)
-      .set({
-        locationId: targetLocationId,
-        updatedBy: movedBy,
-        updatedAt: new Date(),
-      })
-      .where(sql`${products.id} = ANY(${productIds})`)
-      .returning();
-
-    return result;
   }
 
   /**
    * Envanter sayımı yapar
    */
   async performInventoryCount(request: InventoryCountRequest) {
-    const { locationId, countedBy, counts } = request;
+    try {
+      const { locationId, countedBy, countedItems } = request;
 
-    // Konumun var olduğunu kontrol et
-    const location = await this.getLocationById(locationId);
-    if (!location) {
-      throw new Error('Konum bulunamadı');
-    }
-
-    const results = [];
-
-    for (const count of counts) {
-      const { productId, expectedQuantity, actualQuantity, notes } = count;
-
-      // Ürünün mevcut durumunu kontrol et
-      const product = await db
+      // Konumu kontrol et
+      const location = await db
         .select()
-        .from(products)
-        .where(eq(products.id, productId))
+        .from(locations)
+        .where(eq(locations.id, locationId))
         .limit(1);
 
-      if (!product[0]) {
-        results.push({
-          productId,
-          success: false,
-          error: 'Ürün bulunamadı',
-        });
-        continue;
+      if (location.length === 0) {
+        throw new Error('Konum bulunamadı');
       }
 
-      // Sayım sonucunu kaydet (şimdilik sadece log)
-      console.log(`Envanter sayımı: Ürün ${productId}, Beklenen: ${expectedQuantity}, Gerçek: ${actualQuantity}, Not: ${notes}`);
-
-      results.push({
-        productId,
+      // Basit sayım sonucu döndür
+      const results = countedItems.map(count => ({
+        productId: count.productId,
         success: true,
-        expectedQuantity,
-        actualQuantity,
-        difference: actualQuantity - expectedQuantity,
-      });
-    }
+        expectedQuantity: count.expectedQuantity,
+        actualQuantity: count.actualQuantity,
+        difference: count.actualQuantity - count.expectedQuantity,
+        notes: count.notes
+      }));
 
-    return results;
+      // Sayım sonuçlarını veritabanına kaydet
+      await db.insert(inventoryCounts).values({
+        locationId,
+        countedBy,
+        countedItems: JSON.stringify(results),
+        totalItems: countedItems.length,
+        completedAt: new Date()
+      });
+
+      return {
+        locationId,
+        countedBy,
+        countedItems: results,
+        totalItems: countedItems.length,
+        completedAt: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('Error in performInventoryCount:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Envanter sayımı geçmişini getirir
+   */
+  async getInventoryCountHistory(locationId?: string, limit = 20) {
+    try {
+      let whereClause = undefined;
+      if (locationId) {
+        whereClause = eq(inventoryCounts.locationId, locationId);
+      }
+
+      const counts = await db
+        .select({
+          id: inventoryCounts.id,
+          locationId: inventoryCounts.locationId,
+          locationName: locations.name,
+          countedBy: inventoryCounts.countedBy,
+          countedByUser: {
+            id: users.id,
+            firstName: users.firstName,
+            lastName: users.lastName,
+            email: users.email
+          },
+          countedItems: inventoryCounts.countedItems,
+          totalItems: inventoryCounts.totalItems,
+          completedAt: inventoryCounts.completedAt,
+          createdAt: inventoryCounts.createdAt
+        })
+        .from(inventoryCounts)
+        .leftJoin(locations, eq(inventoryCounts.locationId, locations.id))
+        .leftJoin(users, eq(inventoryCounts.countedBy, users.id))
+        .where(whereClause)
+        .orderBy(desc(inventoryCounts.completedAt))
+        .limit(limit);
+
+      return counts.map(count => ({
+        ...count,
+        countedItems: JSON.parse(count.countedItems)
+      }));
+    } catch (error) {
+      console.error('Error in getInventoryCountHistory:', error);
+      throw error;
+    }
   }
 
   /**
    * Depo istatistikleri
    */
   async getWarehouseStats() {
-    // Toplam konum sayısı
-    const totalLocations = await db
-      .select({ count: count() })
-      .from(locations)
-      .then(result => result[0]?.count || 0);
+    try {
+      // Toplam konum sayısı
+      const totalLocationsResult = await db
+        .select({ count: count() })
+        .from(locations);
+      const totalLocations = totalLocationsResult[0]?.count || 0;
 
-    // Kullanılan konum sayısı
-    const usedLocations = await db
-      .select({ count: count() })
-      .from(products)
-      .where(isNotNull(products.locationId))
-      .then(result => result[0]?.count || 0);
+      // Kullanılan konum sayısı (benzersiz konum sayısı)
+      const usedLocationsResult = await db
+        .select({ locationId: products.locationId })
+        .from(products)
+        .where(isNotNull(products.locationId))
+        .groupBy(products.locationId);
+      
+      const usedLocations = usedLocationsResult.length;
 
-    // Toplam stok ürün sayısı
-    const totalStockProducts = await db
-      .select({ count: count() })
-      .from(products)
-      .where(isNull(products.ownerId))
-      .then(result => result[0]?.count || 0);
+      // Toplam stok ürün sayısı
+      const totalStockProductsResult = await db
+        .select({ count: count() })
+        .from(products)
+        .where(isNull(products.ownerId));
+      const totalStockProducts = totalStockProductsResult[0]?.count || 0;
 
-    // Müşteriye ait ürün sayısı
-    const totalCustomerProducts = await db
-      .select({ count: count() })
-      .from(products)
-      .where(isNotNull(products.ownerId))
-      .then(result => result[0]?.count || 0);
+      // Müşteriye ait ürün sayısı
+      const totalCustomerProductsResult = await db
+        .select({ count: count() })
+        .from(products)
+        .where(isNotNull(products.ownerId));
+      const totalCustomerProducts = totalCustomerProductsResult[0]?.count || 0;
 
-    // Durum bazında ürün sayıları
-    const statusStats = await db
-      .select({
-        status: products.status,
-        count: count(products.id),
-      })
-      .from(products)
-      .groupBy(products.status);
+      // Durum bazlı istatistikler
+      const statusStatsResult = await db
+        .select({
+          status: products.status,
+          count: count(products.id)
+        })
+        .from(products)
+        .groupBy(products.status);
 
-    return {
-      totalLocations,
-      usedLocations,
-      totalStockProducts,
-      totalCustomerProducts,
-      statusStats,
-    };
+      return {
+        totalLocations,
+        usedLocations,
+        totalStockProducts,
+        totalCustomerProducts,
+        statusStats: statusStatsResult,
+      };
+    } catch (error) {
+      console.error('Error in getWarehouseStats:', error);
+      throw error;
+    }
   }
 
   /**
    * Konum bazında detaylı istatistikler
    */
   async getLocationStats() {
-    const stats = await db
-      .select({
-        locationId: locations.id,
-        locationName: locations.name,
-        locationType: locations.type,
-        totalProducts: count(products.id),
-        status: products.status,
-        statusCount: count(products.id),
-      })
-      .from(locations)
-      .leftJoin(products, eq(locations.id, products.locationId))
-      .groupBy(locations.id, locations.name, locations.type, products.status);
+    try {
+      const stats = await db
+        .select({
+          locationId: locations.id,
+          locationName: locations.name,
+          locationType: locations.type,
+          totalProducts: count(products.id),
+        })
+        .from(locations)
+        .leftJoin(products, eq(locations.id, products.locationId))
+        .groupBy(locations.id, locations.name, locations.type);
 
-    return stats;
+      return stats;
+    } catch (error) {
+      console.error('Error in getLocationStats:', error);
+      throw error;
+    }
   }
 
   /**
    * Stok uyarıları (düşük stok, fazla stok vb.)
    */
   async getStockAlerts() {
-    const alerts = [];
+    try {
+      const alerts = [];
 
-    // Boş konumlar
-    const emptyLocations = await db
-      .select({
-        id: locations.id,
-        name: locations.name,
-        type: locations.type,
-      })
-      .from(locations)
-      .leftJoin(products, eq(locations.id, products.locationId))
-      .where(isNull(products.id))
-      .groupBy(locations.id, locations.name, locations.type);
+      // Boş konumlar
+      const emptyLocations = await db
+        .select({
+          id: locations.id,
+          name: locations.name,
+          type: locations.type,
+        })
+        .from(locations)
+        .leftJoin(products, eq(locations.id, products.locationId))
+        .where(isNull(products.locationId))
+        .groupBy(locations.id, locations.name, locations.type);
 
-    if (emptyLocations.length > 0) {
-      alerts.push({
-        type: 'EMPTY_LOCATION',
-        message: `${emptyLocations.length} konum boş`,
-        details: emptyLocations,
-      });
+      if (emptyLocations.length > 0) {
+        // Notification service kullanarak bildirim gönder
+        const notificationService = new NotificationService();
+        await notificationService.sendSystemAlertNotification(
+          'Boş Konumlar',
+          `${emptyLocations.length} konum boş`,
+          'medium'
+        );
+
+        alerts.push({
+          type: 'EMPTY_LOCATION',
+          message: `${emptyLocations.length} konum boş`,
+          details: emptyLocations,
+          severity: 'warning',
+          count: emptyLocations.length,
+          action: 'Konumları kontrol edin',
+        });
+      }
+
+      // Sevkiyata hazır ürünler - Shipment service kullanarak
+      const shipmentService = new ShipmentService();
+      const readyForShipment = await db
+        .select({
+          locationId: products.locationId,
+          locationName: locations.name,
+          count: count(products.id),
+        })
+        .from(products)
+        .leftJoin(locations, eq(products.locationId, locations.id))
+        .where(eq(products.status, 'READY_FOR_SHIPMENT'))
+        .groupBy(products.locationId, locations.name);
+
+      if (readyForShipment.length > 0) {
+        alerts.push({
+          type: 'READY_FOR_SHIPMENT',
+          message: `${readyForShipment.reduce((sum, item) => sum + item.count, 0)} ürün sevkiyata hazır`,
+          details: readyForShipment,
+          severity: 'info',
+          count: readyForShipment.reduce((sum, item) => sum + item.count, 0),
+          action: 'Sevkiyat işlemlerini başlatın',
+        });
+      }
+
+      // Arızalı ürünler - Issue service kullanarak
+      const issueService = new IssueService();
+      const defectiveProducts = await db
+        .select({
+          locationId: products.locationId,
+          locationName: locations.name,
+          count: count(products.id),
+        })
+        .from(products)
+        .leftJoin(locations, eq(products.locationId, locations.id))
+        .where(eq(products.status, 'FIRST_PRODUCTION_ISSUE'))
+        .groupBy(products.locationId, locations.name);
+
+      if (defectiveProducts.length > 0) {
+        alerts.push({
+          type: 'DEFECTIVE_PRODUCTS',
+          message: `${defectiveProducts.reduce((sum, item) => sum + item.count, 0)} arızalı ürün`,
+          details: defectiveProducts,
+          severity: 'error',
+          count: defectiveProducts.reduce((sum, item) => sum + item.count, 0),
+          action: 'Arızalı ürünleri servise gönderin',
+        });
+      }
+
+      return alerts;
+    } catch (error) {
+      console.error('Error in getStockAlerts:', error);
+      throw error;
     }
+  }
 
-    // Sevkiyata hazır ürünler
-    const readyForShipment = await db
-      .select({
-        locationId: products.locationId,
-        locationName: locations.name,
-        count: count(products.id),
-      })
-      .from(products)
-      .leftJoin(locations, eq(products.locationId, locations.id))
-      .where(eq(products.status, 'READY_FOR_SHIPMENT'))
-      .groupBy(products.locationId, locations.name);
+  /**
+   * Konum kapasitesini günceller
+   */
+  async updateLocationCapacity(locationId: string, capacity: number) {
+    try {
+      await db
+        .update(locations)
+        .set({ 
+          capacity,
+          updatedAt: new Date()
+        })
+        .where(eq(locations.id, locationId));
 
-    if (readyForShipment.length > 0) {
-      alerts.push({
-        type: 'READY_FOR_SHIPMENT',
-        message: `${readyForShipment.reduce((sum, item) => sum + item.count, 0)} ürün sevkiyata hazır`,
-        details: readyForShipment,
-      });
+      return { success: true, message: 'Konum kapasitesi güncellendi' };
+    } catch (error) {
+      console.error('Error updating location capacity:', error);
+      throw error;
     }
+  }
 
-    // Arızalı ürünler
-    const defectiveProducts = await db
-      .select({
-        locationId: products.locationId,
-        locationName: locations.name,
-        count: count(products.id),
-      })
-      .from(products)
-      .leftJoin(locations, eq(products.locationId, locations.id))
-      .where(eq(products.status, 'FIRST_PRODUCTION_ISSUE'))
-      .groupBy(products.locationId, locations.name);
+  /**
+   * Konumun mevcut ürün sayısını günceller
+   */
+  async updateLocationCurrentCount(locationId: string) {
+    try {
+      const productCount = await db
+        .select({ count: count() })
+        .from(products)
+        .where(eq(products.locationId, locationId));
 
-    if (defectiveProducts.length > 0) {
-      alerts.push({
-        type: 'DEFECTIVE_PRODUCTS',
-        message: `${defectiveProducts.reduce((sum, item) => sum + item.count, 0)} arızalı ürün`,
-        details: defectiveProducts,
-      });
+      await db
+        .update(locations)
+        .set({ 
+          currentCount: productCount[0]?.count || 0,
+          updatedAt: new Date()
+        })
+        .where(eq(locations.id, locationId));
+
+      return { 
+        success: true, 
+        currentCount: productCount[0]?.count || 0,
+        message: 'Konum ürün sayısı güncellendi' 
+      };
+    } catch (error) {
+      console.error('Error updating location current count:', error);
+      throw error;
     }
+  }
 
-    return alerts;
+  /**
+   * Konum kapasite durumunu kontrol eder
+   */
+  async checkLocationCapacity(locationId: string) {
+    try {
+      const location = await this.getLocationById(locationId);
+      if (!location) {
+        throw new Error('Konum bulunamadı');
+      }
+
+      const currentCount = await db
+        .select({ count: count() })
+        .from(products)
+        .where(eq(products.locationId, locationId));
+
+      const current = currentCount[0]?.count || 0;
+      const capacity = location.capacity || 0;
+      const available = capacity - current;
+      const utilizationRate = capacity > 0 ? (current / capacity) * 100 : 0;
+
+      return {
+        locationId,
+        locationName: location.name,
+        current,
+        capacity,
+        available,
+        utilizationRate: Math.round(utilizationRate * 100) / 100,
+        status: utilizationRate >= 90 ? 'FULL' : utilizationRate >= 75 ? 'WARNING' : 'OK'
+      };
+    } catch (error) {
+      console.error('Error checking location capacity:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Tüm konumların kapasite durumunu getirir
+   */
+  async getAllLocationCapacities() {
+    try {
+      const allLocations = await this.getLocations();
+      const capacityData = [];
+
+      for (const location of allLocations) {
+        const capacityInfo = await this.checkLocationCapacity(location.id);
+        capacityData.push(capacityInfo);
+      }
+
+      return capacityData;
+    } catch (error) {
+      console.error('Error getting all location capacities:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Depo analitikleri ve raporları
+   */
+  async getWarehouseAnalytics() {
+    try {
+      // Depo analitikleri
+      
+      // Toplam istatistikler
+      const totalStats = await this.getWarehouseStats();
+      
+      // Konum bazlı analitikler
+      const locationAnalytics = await this.getAllLocationCapacities();
+      
+      // Ürün durumu analitikleri
+      const productStatusAnalytics = await db
+        .select({
+          status: products.status,
+          count: count(products.id)
+        })
+        .from(products)
+        .groupBy(products.status);
+
+      // Üretici bazlı analitikler - Company service kullanarak
+      const companyService = new CompanyService(db);
+      const manufacturerAnalytics = await db
+        .select({
+          manufacturerId: productModels.manufacturerId,
+          manufacturerName: companies.name,
+          count: count(products.id)
+        })
+        .from(products)
+        .leftJoin(productModels, eq(products.productModelId, productModels.id))
+        .leftJoin(companies, eq(productModels.manufacturerId, companies.id))
+        .where(isNotNull(productModels.manufacturerId))
+        .groupBy(productModels.manufacturerId, companies.name);
+
+      // Aylık trend analizi (son 12 ay)
+      const monthlyTrends = await db
+        .select({
+          month: sql<string>`DATE_TRUNC('month', ${products.createdAt})`,
+          count: count(products.id)
+        })
+        .from(products)
+        .where(
+          gte(products.createdAt, sql`NOW() - INTERVAL '12 months'`)
+        )
+        .groupBy(sql`DATE_TRUNC('month', ${products.createdAt})`)
+        .orderBy(sql`DATE_TRUNC('month', ${products.createdAt})`);
+
+      // En çok kullanılan konumlar
+      const topLocations = await db
+        .select({
+          locationId: products.locationId,
+          locationName: locations.name,
+          count: count(products.id)
+        })
+        .from(products)
+        .leftJoin(locations, eq(products.locationId, locations.id))
+        .where(isNotNull(products.locationId))
+        .groupBy(products.locationId, locations.name)
+        .orderBy(desc(count(products.id)))
+        .limit(10);
+
+      return {
+        totalStats,
+        locationAnalytics,
+        productStatusAnalytics,
+        manufacturerAnalytics,
+        monthlyTrends,
+        topLocations
+      };
+    } catch (error) {
+      console.error('Error getting warehouse analytics:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Depo performans raporu
+   */
+  async getWarehousePerformanceReport() {
+    try {
+      const analytics = await this.getWarehouseAnalytics();
+      
+      // Performans metrikleri
+      const performanceMetrics = {
+        totalLocations: analytics.totalStats?.totalLocations || 0,
+        usedLocations: analytics.totalStats?.usedLocations || 0,
+        utilizationRate: analytics.totalStats?.totalLocations > 0 
+          ? (analytics.totalStats.usedLocations / analytics.totalStats.totalLocations) * 100 
+          : 0,
+        totalProducts: analytics.totalStats?.totalStockProducts || 0,
+        averageProductsPerLocation: analytics.totalStats?.usedLocations > 0
+          ? (analytics.totalStats.totalStockProducts / analytics.totalStats.usedLocations)
+          : 0
+      };
+
+      // Kapasite kullanım analizi
+      const capacityAnalysis = analytics.locationAnalytics.map(location => ({
+        ...location,
+        efficiency: location.capacity > 0 ? (location.current / location.capacity) * 100 : 0
+      }));
+
+      // Öneriler
+      const recommendations = [];
+      
+      if (performanceMetrics.utilizationRate < 50) {
+        recommendations.push({
+          type: 'warning',
+          message: 'Konum kullanım oranı düşük. Gereksiz konumları değerlendirin.',
+          priority: 'medium'
+        });
+      }
+
+      const fullLocations = capacityAnalysis.filter(loc => loc.status === 'FULL');
+      if (fullLocations.length > 0) {
+        recommendations.push({
+          type: 'error',
+          message: `${fullLocations.length} konum kapasitesi dolu. Yeni konum ekleyin veya ürünleri taşıyın.`,
+          priority: 'high'
+        });
+      }
+
+      const warningLocations = capacityAnalysis.filter(loc => loc.status === 'WARNING');
+      if (warningLocations.length > 0) {
+        recommendations.push({
+          type: 'warning',
+          message: `${warningLocations.length} konum kapasitesi %75'in üzerinde. Dikkatli takip edin.`,
+          priority: 'medium'
+        });
+      }
+
+      return {
+        performanceMetrics,
+        capacityAnalysis,
+        recommendations,
+        analytics
+      };
+    } catch (error) {
+      console.error('Error getting warehouse performance report:', error);
+      throw error;
+    }
   }
 }

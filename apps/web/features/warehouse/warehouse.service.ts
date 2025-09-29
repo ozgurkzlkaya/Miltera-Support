@@ -1,25 +1,83 @@
-import { client } from "../../lib/rpc";
+// Real API calls with fetch
+class WarehouseAPI {
+  private baseUrl = 'http://localhost:3015/api/v1/warehouse';
 
-// Warehouse API endpoints
-export const warehouseAPI = {
+  private async makeRequest(url: string, options: RequestInit = {}) {
+    const token = localStorage.getItem('auth_token');
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        ...options.headers,
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    return response.json();
+  }
+
   // Location Management
-  getLocations: () => client.api.v1.warehouse.locations.get(),
-  getLocation: (id: string) => client.api.v1.warehouse.locations[":id"].get({ param: { id } }),
-  createLocation: (data: any) => client.api.v1.warehouse.locations.post({ json: data }),
-  updateLocation: (id: string, data: any) => client.api.v1.warehouse.locations[":id"].put({ param: { id }, json: data }),
+  async getLocations() {
+    return this.makeRequest(`${this.baseUrl}/locations`);
+  }
+
+  async getLocation(id: string) {
+    return this.makeRequest(`${this.baseUrl}/locations/${id}`);
+  }
+
+  async createLocation(data: any) {
+    return this.makeRequest(`${this.baseUrl}/locations`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateLocation(id: string, data: any) {
+    return this.makeRequest(`${this.baseUrl}/locations/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
 
   // Inventory Management
-  getInventory: () => client.api.v1.warehouse.inventory.get(),
-  getLocationInventory: (id: string) => client.api.v1.warehouse.locations[":id"].inventory.get({ param: { id } }),
+  async getInventory() {
+    return this.makeRequest(`${this.baseUrl}/inventory`);
+  }
+
+  async getLocationInventory(id: string) {
+    return this.makeRequest(`${this.baseUrl}/locations/${id}/inventory`);
+  }
 
   // Statistics
-  getStats: () => client.api.v1.warehouse.stats.get(),
-  getStockAlerts: () => client.api.v1.warehouse.alerts.get(),
+  async getStats() {
+    return this.makeRequest(`${this.baseUrl}/stats`);
+  }
+
+  async getStockAlerts() {
+    return this.makeRequest(`${this.baseUrl}/alerts`);
+  }
 
   // Additional operations
-  bulkMoveProducts: (data: any) => client.api.v1.warehouse.move.post({ json: data }),
-  performInventoryCount: (data: any) => client.api.v1.warehouse.count.post({ json: data }),
-};
+  async bulkMoveProducts(data: any) {
+    return this.makeRequest(`${this.baseUrl}/move`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async performInventoryCount(data: any) {
+    return this.makeRequest(`${this.baseUrl}/count`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+}
+
+export const warehouseAPI = new WarehouseAPI();
 
 // Types
 export interface Location {

@@ -83,42 +83,22 @@ const columns: TableColumn[] = [
 ];
 
 export default function ProductModelsPage() {
-  const {
-    query,
-    handlePaginationChange,
-    handleSortingChange,
-    handleFilterChange,
-    handleGlobalFilterChange,
-  } = useDataTableQuery();
+  const query = {
+    page: 1,
+    limit: 20,
+    sort: '',
+    filter: '',
+    search: ''
+  };
 
-  const productModelsQueryResult = useProductModels({
-    query,
-    config: {
-      placeholderData: keepPreviousData,
-    },
-  });
+  const productModelsQueryResult = useProductModels();
 
-  const {
-    query: productTypeQuery,
-    handleFilterChange: handleProductTypeFilterChange,
-  } = useDataTableQuery();
+  const productTypesQueryResult = useProductTypes();
 
-  const { data: { data: productTypes } = { data: [] } } = useProductTypes({
-    query: productTypeQuery,
-    config: {
-      placeholderData: keepPreviousData,
-    },
-  });
+  const companiesQueryResult = useCompanies();
 
-  const { query: companyQuery, handleFilterChange: handleCompanyFilterChange } =
-    useDataTableQuery();
-
-  const { data: { data: companies } = { data: [] } } = useCompanies({
-    query: companyQuery,
-    config: {
-      placeholderData: keepPreviousData,
-    },
-  });
+  const { data: { data: companies } = { data: [] } } = companiesQueryResult;
+  const { data: { data: productTypes } = { data: [] } } = productTypesQueryResult;
 
   const createMutation = useCreateProductModel();
   const updateMutation = useUpdateProductModel();
@@ -132,13 +112,6 @@ export default function ProductModelsPage() {
       required: true,
       placeholder: "e.g., GW-2000",
       layout: { row: 0, column: 0 }, // First row, first column
-      validation: {
-        required: "Model name is required",
-        minLength: {
-          value: 2,
-          message: "Model name must be at least 2 characters",
-        },
-      },
     },
     {
       id: "description",
@@ -149,11 +122,10 @@ export default function ProductModelsPage() {
     },
     {
       id: "productTypeId",
-      accessorKey: "productType.id",
       label: "Product Type",
       type: "autocomplete",
       required: true,
-      options: productTypes?.map((productType) => ({
+      options: productTypes?.map((productType: any) => ({
         label: productType.name,
         value: productType.id,
       })),
@@ -173,20 +145,17 @@ export default function ProductModelsPage() {
       //     value: productType.id,
       //   }));
       // },
-      searchable: true,
       layout: { row: 2, column: 0 }, // Second row, first column
     },
     {
       id: "manufacturerId",
-      accessorKey: "manufacturer.id",
       label: "Manufacturer",
       type: "autocomplete",
       required: true,
-      options: companies?.map((company) => ({
+      options: companies?.map((company: any) => ({
         label: company.name,
         value: company.id,
       })),
-      searchable: true,
       layout: { row: 2, column: 1 }, // Second row, second column
     },
   ];
@@ -198,15 +167,11 @@ export default function ProductModelsPage() {
         columns={columns}
         queryResult={productModelsQueryResult}
         formFields={formFields}
-        onAdd={(data) => createMutation.mutate({ payload: data })}
-        onEdit={(id, data) => updateMutation.mutate({ id, payload: data })}
-        onDelete={(id) => deleteMutation.mutate({ id })}
+        onAdd={(data) => createMutation.mutate(data)}
+        onEdit={(id, data) => updateMutation.mutate({ id, data })}
+        onDelete={(id) => deleteMutation.mutate(id)}
         addButtonText="Add Product Model"
         selectable={true}
-        onPaginationChange={handlePaginationChange}
-        onSortingChange={handleSortingChange}
-        onFilterChange={handleFilterChange}
-        onGlobalFilterChange={handleGlobalFilterChange}
       />
     </Box>
   );

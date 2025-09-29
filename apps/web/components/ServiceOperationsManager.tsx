@@ -74,10 +74,10 @@ const statusOptions = [
 ];
 
 const tspOptions = [
-  { value: 1, label: "John Doe" },
-  { value: 2, label: "Jane Smith" },
-  { value: 3, label: "Mike Johnson" },
-  { value: 4, label: "Sarah Wilson" },
+  { value: "1", label: "John Doe" },
+  { value: "2", label: "Jane Smith" },
+  { value: "3", label: "Mike Johnson" },
+  { value: "4", label: "Sarah Wilson" },
 ];
 
 interface ServiceOperationsManagerProps {
@@ -190,7 +190,7 @@ export const ServiceOperationsManager = ({
       id: "operationDate",
       label: "Date",
       width: 120,
-      format: (value) => value ? new Date(value).toLocaleDateString() : 'N/A',
+      // format: (value) => value ? new Date(value).toLocaleDateString() : 'N/A',
     },
     {
       id: "duration",
@@ -214,7 +214,7 @@ export const ServiceOperationsManager = ({
       type: "autocomplete",
       required: true,
       options: productOptions,
-      searchable: true,
+      // searchable: true,
       layout: { row: 0, column: 0 },
     },
     {
@@ -231,7 +231,7 @@ export const ServiceOperationsManager = ({
       type: "autocomplete",
       required: true,
       options: tspOptions,
-      searchable: true,
+      // searchable: true,
       layout: { row: 0, column: 2 },
     },
     {
@@ -246,7 +246,7 @@ export const ServiceOperationsManager = ({
       label: "Duration (minutes)",
       type: "number",
       required: false,
-      helperText: "Duration in minutes",
+      // helperText: "Duration in minutes",
       layout: { row: 1, column: 1 },
     },
     {
@@ -284,8 +284,8 @@ export const ServiceOperationsManager = ({
   ];
 
   const handleAdd = (data: any) => {
-    const product = productOptions.find(p => p.value === parseInt(data.productId));
-    const performer = tspOptions.find(t => t.value === parseInt(data.performedById));
+    const product = productOptions.find((p: any) => p.value === parseInt(data.productId));
+    const performer = tspOptions.find(t => t.value === data.performedById);
 
     const newOperation = {
       ...data,
@@ -307,8 +307,8 @@ export const ServiceOperationsManager = ({
   };
 
   const handleEdit = (id: string | number, data: any) => {
-    const product = productOptions.find(p => p.value === parseInt(data.productId));
-    const performer = tspOptions.find(t => t.value === parseInt(data.performedById));
+    const product = productOptions.find((p: any) => p.value === parseInt(data.productId));
+    const performer = tspOptions.find(t => t.value === data.performedById);
 
     const updatedOperations = operations.map(operation =>
       operation.id === Number(id)
@@ -363,12 +363,8 @@ export const ServiceOperationsManager = ({
 
   const bulkActions: BulkAction[] = [
     {
-      id: "delete",
       label: "Delete Selected",
-      icon: <DeleteIcon />,
-      color: "error",
       action: handleBulkDelete,
-      confirmMessage: "Are you sure you want to delete the selected service operations? This action cannot be undone.",
     },
   ];
 
@@ -404,14 +400,14 @@ export const ServiceOperationsManager = ({
       <DataTable
         title="Service Operations"
         columns={enhancedColumns}
-        data={filteredOperations}
+        queryResult={{ data: filteredOperations, isLoading: false, error: null }}
         formFields={formFields}
         onAdd={handleAdd}
         onEdit={handleEdit}
         onDelete={handleDeleteRequest}
-        onBulkDelete={handleBulkDelete}
-        searchable={true}
-        selectable={true}
+        // onBulkDelete={handleBulkDelete}
+        // searchable={true}
+        // selectable={true}
         addButtonText="Add Operation"
         bulkActions={bulkActions}
       />

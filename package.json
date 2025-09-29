@@ -1,7 +1,11 @@
 {
+  "_comment": "Miltera Fixlog - Ana Proje Yapılandırması",
+  "_description": "Bu dosya, Miltera Fixlog projesinin ana package.json dosyasıdır. Turbo monorepo yapısını kullanır.",
+  "_structure": "apps/api (Backend API) + apps/web (Frontend) + packages (Shared libraries)",
   "name": "miltera",
   "private": true,
   "scripts": {
+    "_comment_scripts": "Turbo monorepo komutları - tüm alt projeleri yönetir",
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
@@ -9,12 +13,14 @@
     "check-types": "turbo run check-types"
   },
   "devDependencies": {
+    "_comment_deps": "Development dependencies - build tools ve linter'lar",
     "prettier": "^3.5.3",
     "turbo": "^2.5.4",
     "typescript": "5.8.2"
   },
   "packageManager": "pnpm@9.0.0",
   "engines": {
+    "_comment_engines": "Node.js versiyon gereksinimleri",
     "node": ">=18"
   }
 }

@@ -26,6 +26,7 @@ import {
   MenuItem,
   Alert,
   CircularProgress,
+  Snackbar,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -85,6 +86,9 @@ const ShipmentsPage = () => {
     type: '',
     search: '',
   });
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
 
   // Gerçek veri çekme
 
@@ -97,7 +101,7 @@ const ShipmentsPage = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3011/api/v1/shipments', {
+      const response = await fetch('http://localhost:3015/api/v1/shipments', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -120,7 +124,7 @@ const ShipmentsPage = () => {
   const fetchStats = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3011/api/v1/shipments/stats/overview', {
+      const response = await fetch('http://localhost:3015/api/v1/shipments/stats/overview', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -194,6 +198,99 @@ const ShipmentsPage = () => {
 
   const handleCreateShipment = () => {
     setOpenCreateDialog(true);
+  };
+
+  // Status update handler
+  const handleStatusUpdate = async (shipmentId: string, currentStatus: string) => {
+    try {
+      const statusProgression = ['PREPARING', 'SHIPPED', 'DELIVERED'];
+      const currentIndex = statusProgression.indexOf(currentStatus);
+      const nextIndex = (currentIndex + 1) % statusProgression.length;
+      const newStatus = statusProgression[nextIndex];
+
+      const token = localStorage.getItem('token');
+      const headers: any = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const response = await fetch(`http://localhost:3015/api/v1/shipments/${shipmentId}/status`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (response.ok) {
+        // Update local state
+        setShipments(prevShipments =>
+          prevShipments.map(shipment =>
+            shipment.id === shipmentId
+              ? { ...shipment, status: newStatus as any }
+              : shipment
+          )
+        );
+        
+        setSnackbarMessage(`Sevkiyat durumu "${getStatusText(newStatus)}" olarak güncellendi`);
+        setSnackbarSeverity('success');
+        setSnackbarOpen(true);
+        
+        // Refresh stats
+        fetchStats();
+      } else {
+        const errorData = await response.json();
+        setSnackbarMessage(errorData.message || 'Durum güncellenirken hata oluştu');
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
+      }
+    } catch (error) {
+      console.error('Error updating shipment status:', error);
+      setSnackbarMessage('Durum güncellenirken hata oluştu');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    }
+  };
+
+  // Type update handler
+  const handleTypeUpdate = async (shipmentId: string, currentType: string) => {
+    try {
+      const typeProgression = ['SALES', 'SERVICE_RETURN', 'SERVICE_SEND'];
+      const currentIndex = typeProgression.indexOf(currentType);
+      const nextIndex = (currentIndex + 1) % typeProgression.length;
+      const newType = typeProgression[nextIndex];
+
+      const token = localStorage.getItem('token');
+      const headers: any = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const response = await fetch(`http://localhost:3015/api/v1/shipments/${shipmentId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ type: newType }),
+      });
+
+      if (response.ok) {
+        // Update local state
+        setShipments(prevShipments =>
+          prevShipments.map(shipment =>
+            shipment.id === shipmentId
+              ? { ...shipment, type: newType as any }
+              : shipment
+          )
+        );
+        
+        setSnackbarMessage(`Sevkiyat türü "${getTypeText(newType)}" olarak güncellendi`);
+        setSnackbarSeverity('success');
+        setSnackbarOpen(true);
+      } else {
+        const errorData = await response.json();
+        setSnackbarMessage(errorData.message || 'Tür güncellenirken hata oluştu');
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
+      }
+    } catch (error) {
+      console.error('Error updating shipment type:', error);
+      setSnackbarMessage('Tür güncellenirken hata oluştu');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    }
   };
 
   const filteredShipments = shipments.filter((shipment) => {
@@ -352,6 +449,9 @@ const ShipmentsPage = () => {
                       size="small"
                       color="primary"
                       variant="outlined"
+                      onClick={() => handleTypeUpdate(shipment.id, shipment.type)}
+                      sx={{ cursor: 'pointer', '&:hover': { opacity: 0.8 }, transition: 'opacity 0.2s' }}
+                      title="Türü Değiştir"
                     />
                   </TableCell>
                   <TableCell>
@@ -359,6 +459,9 @@ const ShipmentsPage = () => {
                       label={getStatusText(shipment.status)}
                       size="small"
                       color={getStatusColor(shipment.status) as any}
+                      onClick={() => handleStatusUpdate(shipment.id, shipment.status)}
+                      sx={{ cursor: 'pointer', '&:hover': { opacity: 0.8 }, transition: 'opacity 0.2s' }}
+                      title="Durumu Değiştir"
                     />
                   </TableCell>
                   <TableCell>{shipment.company?.name || 'Müşteri bilgisi yok'}</TableCell>
@@ -546,6 +649,22 @@ const ShipmentsPage = () => {
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* Snackbar for notifications */}
+        <Snackbar
+          open={snackbarOpen}
+          autoHideDuration={6000}
+          onClose={() => setSnackbarOpen(false)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        >
+          <Alert
+            onClose={() => setSnackbarOpen(false)}
+            severity={snackbarSeverity}
+            sx={{ width: '100%' }}
+          >
+            {snackbarMessage}
+          </Alert>
+        </Snackbar>
       </Box>
     </Layout>
   );

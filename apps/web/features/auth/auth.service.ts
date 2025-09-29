@@ -1,132 +1,132 @@
-// Basit auth service - Better-auth yerine
-const API_BASE_URL = "http://localhost:3011/api/v1/auth";
+﻿import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import { useCallback } from "react";
 
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: "CUSTOMER" | "TSP" | "ADMIN" | "USER";
-  companyId?: string;
-}
-
-export interface AuthResponse {
-  success: boolean;
-  user: User;
-  token: string;
-}
-
-// Sign in fonksiyonu
-export const signIn = {
-  email: async (credentials: { email: string; password: string }, callbacks?: {
-    onSuccess?: () => void;
-    onError?: (error: any) => void;
-  }) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/sign-in/email`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(credentials),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Auth service: API hatası:', errorText);
-        throw new Error(`Sign in failed: ${response.status} ${response.statusText}`);
-      }
-
-      const data: AuthResponse = await response.json();
-      // Token'ı localStorage'a kaydet
-      localStorage.setItem('auth_token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      
-      // Custom event dispatch et - AuthProvider'ın dinlemesi için
-      window.dispatchEvent(new CustomEvent('custom-storage-change'));
-      
-      callbacks?.onSuccess?.();
-      return data;
-    } catch (error) {
-      console.error('Auth service: Hata:', error);
-      callbacks?.onError?.(error);
-      throw error;
-    }
-  }
-};
-
-// Sign up fonksiyonu
-export const signUp = {
-  email: async (userData: { email: string; password: string; name: string; role?: string }, callbacks?: {
-    onSuccess?: () => void;
-    onError?: (error: any) => void;
-  }) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/sign-up/email`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userData),
-      });
-
-      if (!response.ok) {
-        throw new Error('Sign up failed');
-      }
-
-      const data: AuthResponse = await response.json();
-      
-      // Token'ı localStorage'a kaydet
-      localStorage.setItem('auth_token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      
-      callbacks?.onSuccess?.();
-      return data;
-    } catch (error) {
-      callbacks?.onError?.(error);
-      throw error;
-    }
-  }
-};
-
-// Sign out fonksiyonu
-export const signOut = async () => {
-  localStorage.removeItem('auth_token');
-  localStorage.removeItem('user');
-  window.location.href = '/auth';
-};
-
-// Session kontrolü
-export const getSession = async (): Promise<{ user: User | null }> => {
-  try {
+export const authClient = {
+  resetPassword: async (data: any) => {
     const token = localStorage.getItem('auth_token');
-    if (!token) {
-      return { user: null };
-    }
-
-    const response = await fetch(`${API_BASE_URL}/get-session`, {
+    const response = await fetch('http://localhost:3015/api/v1/auth/reset-password', {
+      method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
       },
+      body: JSON.stringify(data)
     });
-
-    if (!response.ok) {
-      return { user: null };
-    }
-
-    const data = await response.json();
-    return { user: data.user };
-  } catch (error) {
-    return { user: null };
+    return await response.json();
+  },
+  requestPasswordReset: async (data: any) => {
+    const response = await fetch('http://localhost:3015/api/v1/auth/forgot-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data)
+    });
+    return await response.json();
+  },
+  signIn: async (data: any) => {
+    const response = await fetch('http://localhost:3015/api/v1/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data)
+    });
+    return await response.json();
+  },
+  signUp: async (data: any) => {
+    const response = await fetch('http://localhost:3015/api/v1/auth/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data)
+    });
+    return await response.json();
+  },
+  signOut: async () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user');
+    document.cookie = 'authToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    
+    // Custom event dispatch et
+    window.dispatchEvent(new Event('custom-storage-change'));
+    
+    return { success: true };
+  },
+  changePassword: async (data: any) => {
+    const token = localStorage.getItem('auth_token');
+    const response = await fetch('http://localhost:3015/api/v1/auth/change-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(data)
+    });
+    return await response.json();
   }
 };
 
-// Geçici useSession hook - Better-auth uyumluluğu için
-export const useSession = () => {
-  return {
-    data: null,
-    isPending: false,
-    error: null
-  };
+export const useLogin = () => {
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  return useMutation({
+    mutationFn: async (data: { email: string; password: string }) => {
+      const response = await fetch('http://localhost:3015/api/v1/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+      });
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      // API response'unu kontrol et
+      if (data && data.success && data.data && data.data.token && data.data.user) {
+        localStorage.setItem('authToken', data.data.token);
+        localStorage.setItem('auth_token', data.data.token); // AuthProvider için
+        localStorage.setItem('user', JSON.stringify(data.data.user)); // Kullanıcı bilgilerini kaydet
+        document.cookie = `authToken=${data.data.token}; path=/; max-age=3600`;
+        queryClient.invalidateQueries({ queryKey: ["auth"] });
+        
+        // Custom event dispatch et
+        window.dispatchEvent(new Event('custom-storage-change'));
+        
+        window.location.replace('/dashboard');
+      } else {
+        // API başarısız ama HTTP 200 döndü
+        throw new Error(data?.message || "Giriş başarısız. Lütfen bilgilerinizi kontrol edin.");
+      }
+    },
+  });
 };
 
-// Export'lar yukarıda zaten yapıldı
+export const useLogout = () => {
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  return useMutation({
+    mutationFn: async () => {
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
+      document.cookie = 'authToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      return { success: true };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["auth"] });
+      
+      // Custom event dispatch et
+      window.dispatchEvent(new Event('custom-storage-change'));
+      
+      router.push('/auth');
+    },
+  });
+};
+
+export const signIn = authClient.signIn;
+export const signUp = authClient.signUp;
+export const signOut = authClient.signOut;

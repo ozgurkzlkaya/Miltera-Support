@@ -5,6 +5,7 @@ import { db } from '../db';
 import { users } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { auth } from './auth';
+import { verifyToken } from './auth';
 
 import env from '../config/env';
 
@@ -35,30 +36,50 @@ const connectedUsers = new Map<string, UserConnection>();
 // Initialize WebSocket server
 export const initializeWebSocket = (httpServer: HTTPServer) => {
   io = new SocketIOServer(httpServer, {
+    path: "/socket.io",
     cors: {
-      origin: env.FRONTEND_URL,
+      // Be permissive in dev to avoid handshake failures
+      origin: (origin: any, callback: any) => callback(null, true),
       methods: ["GET", "POST"],
       credentials: true
     },
-    transports: ['websocket', 'polling']
+    transports: ['websocket', 'polling'],
+    allowEIO3: true,
   });
 
   // Authentication middleware
   io.use(async (socket, next) => {
     try {
-      const token = socket.handshake.auth.token || socket.handshake.headers.authorization;
+      const token =
+        (socket.handshake.auth && (socket.handshake.auth as any).token) ||
+        (socket.handshake.query && (socket.handshake.query as any).token) ||
+        socket.handshake.headers.authorization;
       
       if (!token) {
-        return next(new Error('Authentication token required'));
+        // Allow anonymous connection but mark as unauthenticated
+        (socket as any).data = { user: null };
+        return next();
       }
 
-      // Verify JWT token using better-auth
-      const headers = new Headers();
-      headers.set('authorization', token.startsWith('Bearer ') ? token : `Bearer ${token}`);
-      const session = await auth.api.getSession({ headers });
-      
-      if (!session || !session.user) {
-        return next(new Error('Invalid token'));
+      // Try to verify using our JWT util first (faster, no HTTP call)
+      const bearer = token.startsWith('Bearer ') ? token.substring(7) : token;
+      let userId: string | null = null;
+      try {
+        const payload: any = verifyToken(bearer);
+        userId = typeof payload === 'string' ? payload : (payload?.id || payload?.userId || null);
+      } catch (_) {
+        userId = null;
+      }
+
+      // Fallback to better-auth session if JWT verify failed
+      if (!userId) {
+        const headers = new Headers();
+        headers.set('authorization', token.startsWith('Bearer ') ? token : `Bearer ${token}`);
+        const session = await auth.api.getSession({ headers });
+        if (!session || !session.user) {
+          return next(new Error('Invalid token'));
+        }
+        userId = (session.user as any).id;
       }
 
       // Get user details from database
@@ -70,7 +91,7 @@ export const initializeWebSocket = (httpServer: HTTPServer) => {
           companyId: users.companyId,
         })
         .from(users)
-        .where(eq(users.id, session.user.id))
+        .where(eq(users.id, userId!))
         .limit(1);
 
       if (!user[0]) {
@@ -87,6 +108,15 @@ export const initializeWebSocket = (httpServer: HTTPServer) => {
   // Connection handler
   io.on('connection', (socket) => {
     const user = socket.data.user;
+    
+    if (!user) {
+      console.log('Anonymous WebSocket connection established');
+      // Allow connection but do not join user-specific rooms
+      socket.on('disconnect', () => {
+        console.log('Anonymous WebSocket disconnected');
+      });
+      return;
+    }
     
     console.log(`User connected: ${user.email} (${user.id})`);
 
@@ -116,7 +146,10 @@ export const initializeWebSocket = (httpServer: HTTPServer) => {
       connectedUsers.delete(socket.id);
       
       // Update last seen in Redis
-      redisClient.setex(`user:${user.id}:lastSeen`, 3600, new Date().toISOString());
+      if (redisClient) {
+        // @ts-ignore - optional client
+        redisClient.setex(`user:${user.id}:lastSeen`, 3600, new Date().toISOString());
+      }
     });
 
     // Handle custom events
@@ -170,8 +203,10 @@ export const sendNotificationToUser = (userId: string, notification: Notificatio
   io.to(`user:${userId}`).emit('notification', notification);
   
   // Store notification in Redis for offline users
-  redisClient.lpush(`notifications:${userId}`, JSON.stringify(notification));
-  redisClient.expire(`notifications:${userId}`, 86400); // 24 hours
+  if (redisClient) {
+    redisClient.lpush(`notifications:${userId}`, JSON.stringify(notification));
+    redisClient.expire(`notifications:${userId}`, 86400); // 24 hours
+  }
 };
 
 // Send notification to all users with specific role
@@ -225,6 +260,7 @@ export const isUserOnline = (userId: string) => {
 // Get user's offline notifications
 export const getOfflineNotifications = async (userId: string) => {
   try {
+    if (!redisClient) return [];
     const notifications = await redisClient.lrange(`notifications:${userId}`, 0, -1);
     return notifications.map(notification => JSON.parse(notification));
   } catch (error) {
@@ -236,6 +272,7 @@ export const getOfflineNotifications = async (userId: string) => {
 // Clear user's offline notifications
 export const clearOfflineNotifications = async (userId: string) => {
   try {
+    if (!redisClient) return;
     await redisClient.del(`notifications:${userId}`);
   } catch (error) {
     console.error('Error clearing offline notifications:', error);
@@ -249,7 +286,9 @@ const markNotificationAsRead = async (userId: string, notificationId: string) =>
     console.log(`Marking notification ${notificationId} as read for user ${userId}`);
     
     // Store read status in Redis for now
-    await redisClient.setex(`notification:${notificationId}:read:${userId}`, 86400, 'true');
+    if (redisClient) {
+      await redisClient.setex(`notification:${notificationId}:read:${userId}`, 86400, 'true');
+    }
   } catch (error) {
     console.error('Error marking notification as read:', error);
   }
@@ -262,8 +301,12 @@ export const getUnreadNotificationCount = async (userId: string): Promise<number
     let unreadCount = 0;
     
     for (const notification of notifications) {
-      const isRead = await redisClient.get(`notification:${notification.timestamp}:read:${userId}`);
-      if (!isRead) {
+      if (redisClient) {
+        const isRead = await redisClient.get(`notification:${notification.timestamp}:read:${userId}`);
+        if (!isRead) {
+          unreadCount++;
+        }
+      } else {
         unreadCount++;
       }
     }

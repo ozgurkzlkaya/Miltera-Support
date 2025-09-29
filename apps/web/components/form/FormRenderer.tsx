@@ -23,7 +23,7 @@ import {
 import type { UseFormReturn } from "./useForm";
 import type { FormField, FormFieldOption } from "./types";
 import { useCallback, useEffect, useState } from "react";
-import { debounce } from "lodash-es";
+// import { debounce } from "lodash-es";
 import { formatDateMuiInput } from "../../utils/mui";
 
 interface FormRendererProps<T extends FieldValues = FieldValues> {
@@ -159,7 +159,7 @@ const FormFieldRenderer = <T extends FieldValues = FieldValues>({
   rules,
 }: FormFieldRendererProps<T>) => {
   const isEdit = mode === "edit";
-  const value = useWatch({ control, name: field.id });
+  const value = useWatch({ control, name: field.id as any });
   const [options, setOptions] = useState<FormFieldOption[]>(
     field.options || []
   );
@@ -194,7 +194,13 @@ const FormFieldRenderer = <T extends FieldValues = FieldValues>({
   };
 
   const debouncedHandleInputChange = useCallback(
-    debounce(handleInputChange, 300),
+    (() => {
+      let timeoutId: NodeJS.Timeout;
+      return (value: any) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => handleInputChange(null as any, value, "input"), 300);
+      };
+    })(),
     []
   );
 
@@ -207,14 +213,14 @@ const FormFieldRenderer = <T extends FieldValues = FieldValues>({
   return (
     <Controller
       key={field.id}
-      name={field.id}
+      name={field.id as any}
       control={control}
-      rules={rules}
+      rules={rules as any}
       render={({
         field: controllerField,
         fieldState,
       }: {
-        field: ControllerRenderProps<T, string>;
+        field: ControllerRenderProps<T, any>;
         fieldState: { error?: FieldError };
       }) => {
         const helperText = fieldState.error?.message || field.helperText;
@@ -245,7 +251,7 @@ const FormFieldRenderer = <T extends FieldValues = FieldValues>({
                 value={
                   multiple
                     ? options.filter((opt) =>
-                        (controllerField.value || []).includes(opt.value)
+                        (controllerField.value as any[] || []).includes(opt.value)
                       )
                     : options.find(
                         (opt) => opt.value === controllerField.value
@@ -294,18 +300,16 @@ const FormFieldRenderer = <T extends FieldValues = FieldValues>({
                       field.placeholder ||
                       (field.loadOptions ? "Type to search..." : "")
                     }
-                    slotProps={{
-                      input: {
-                        ...params.InputProps,
-                        endAdornment: (
-                          <>
-                            {isLoading && (
-                              <CircularProgress color="inherit" size={20} />
-                            )}
-                            {params.InputProps.endAdornment}
-                          </>
-                        ),
-                      },
+                    InputProps={{
+                      ...params.InputProps,
+                      endAdornment: (
+                        <>
+                          {isLoading && (
+                            <CircularProgress color="inherit" size={20} />
+                          )}
+                          {params.InputProps.endAdornment}
+                        </>
+                      ),
                     }}
                   />
                 )}
@@ -359,9 +363,7 @@ const FormFieldRenderer = <T extends FieldValues = FieldValues>({
                 {...commonProps}
                 helperText={helperText}
                 type={field.type}
-                slotProps={{
-                  inputLabel: { shrink: true },
-                }}
+                InputLabelProps={{ shrink: true }}
                 value={formatDateMuiInput(controllerField.value)}
               />
             );
@@ -383,11 +385,9 @@ const FormFieldRenderer = <T extends FieldValues = FieldValues>({
                     });
                   }
                 }}
-                slotProps={{
-                  input: {
-                    readOnly: true,
-                    sx: { cursor: "pointer" },
-                  },
+                InputProps={{
+                  readOnly: true,
+                  sx: { cursor: "pointer" },
                 }}
               />
             );

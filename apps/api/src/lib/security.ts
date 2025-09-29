@@ -25,6 +25,11 @@ export const rateLimitMiddleware = async (c: Context, next: Next) => {
   const key = `rate_limit:${clientIP}`;
   
   try {
+    if (!redisClient) {
+      // Redis disabled, skip rate limiting
+      return next();
+    }
+    
     const current = await redisClient.get(key);
     const requests = current ? parseInt(current) : 0;
     

@@ -320,7 +320,7 @@ const AdvancedDashboardAnalytics: React.FC = () => {
           timestamp: activity.timestamp,
           status: activity.status || '',
           priority: activity.priority || '',
-          user: activity.user || 'Sistem'
+          user: (activity as any).user || 'Sistem'
         })),
         performance: {
           averageResolutionTime: performanceReport.teamPerformance?.averageResolutionTime || 0,

@@ -1,0 +1,216 @@
+import {
+  MutationOptions,
+  anyOptions,
+  useMutation,
+  useany,
+} from "@tanstack/react-any";
+import {
+  getanyClient,
+  mergeMutationConfig,
+  MutationConfig,
+  type anyConfig,
+} from "../../lib/react-any";
+import { callRPC, client } from "../../lib/rpc";
+import {
+  type any,
+  temporaryObjectany,
+} from "@miltera/helpers/any-builder";
+
+const getCompanies = async (any?: any) => {
+  const result = await callRPC(
+    client.api.v1["companies"].$get({
+      any: any ? temporaryObjectany(any) : undefined,
+    })
+  );
+
+  return result;
+};
+
+const getCompany = async (id: string) => {
+  const result = await callRPC(
+    client.api.v1["companies"][":id"].$get({
+      param: {
+        id,
+      },
+    })
+  );
+
+  return result;
+};
+
+const createCompany = async (payload: any) => {
+  const result = await callRPC(
+    client.api.v1["companies"].$post({
+      json: payload,
+    })
+  );
+
+  return result;
+};
+
+const updateCompany = async (id: string, payload: any) => {
+  const result = await callRPC(
+    client.api.v1["companies"][":id"].$put({
+      param: {
+        id,
+      },
+      //@ts-expect-error
+      json: payload
+    })
+  );
+
+  return result;
+};
+
+const deleteCompany = async (id: string) => {
+  await callRPC(
+    client.api.v1["companies"][":id"].$delete({
+      param: {
+        id,
+      },
+    })
+  );
+};
+
+const companyQueries = {
+  _all: () => ["companies"] as const,
+  _list: () => [...companyQueries._all(), "list"] as const,
+  _detail: () => [...companyQueries._all(), "detail"] as const,
+
+  list: (any?: any) =>
+    anyOptions({
+      anyKey: [...companyQueries._list(), any] as const,
+      anyFn: () => getCompanies(any),
+    }),
+  detail: (id: string) =>
+    anyOptions({
+      anyKey: [...companyQueries._detail(), id] as const,
+      anyFn: () => getCompany(id),
+    }),
+};
+
+const companyMutations = {
+  create: () =>
+    ({
+      mutationKey: [...companyQueries._all(), "create"] as const,
+      mutationFn: ({ payload }: { payload: any }) =>
+        createCompany(payload),
+      onSuccess() {
+        const anyClient = getanyClient();
+
+        anyClient.invalidateQueries({
+          anyKey: companyQueries._list(),
+        });
+      },
+    }) satisfies MutationOptions<any, any, any>,
+  update: () =>
+    ({
+      mutationKey: [...companyQueries._all(), "update"] as const,
+      mutationFn: ({ id, payload }: { id: string; payload: any }) =>
+        updateCompany(id, payload),
+      onSuccess(_, { id }) {
+        const anyClient = getanyClient();
+
+        anyClient.invalidateQueries({
+          anyKey: companyQueries._list(),
+        });
+        anyClient.invalidateQueries(companyQueries.detail(id));
+      },
+    }) satisfies MutationOptions<any, any, any>,
+  delete: () =>
+    ({
+      mutationKey: [...companyQueries._all(), "delete"] as const,
+      mutationFn: ({ id }: { id: string }) => deleteCompany(id),
+      onSuccess() {
+        const anyClient = getanyClient();
+
+        anyClient.invalidateQueries({
+          anyKey: companyQueries._list(),
+        });
+      },
+    }) satisfies MutationOptions<any, any, any>,
+};
+
+type UseCompaniesOptions = {
+  any?: any;
+  config?: anyConfig<(typeof companyQueries)["list"]>;
+};
+
+type UseCompanyOptions = {
+  id: string | null;
+  config?: anyConfig<(typeof companyQueries)["detail"]>;
+};
+
+type UseCreateCompanyOptions = {
+  mutationConfig?: MutationConfig<
+    ReturnType<typeof companyMutations.create>
+  >;
+};
+
+type UseUpdateCompanyOptions = {
+  mutationConfig?: MutationConfig<
+    ReturnType<typeof companyMutations.update>
+  >;
+};
+
+type UseDeleteCompanyOptions = {
+  mutationConfig?: MutationConfig<
+    ReturnType<typeof companyMutations.delete>
+  >;
+};
+
+const useCompanies = ({ any, config }: UseCompaniesOptions = {}) => {
+  return useany({
+    ...companyQueries.list(any),
+    ...config,
+  });
+};
+
+const useCompany = ({ id, config }: UseCompanyOptions) => {
+  return useany({
+    ...companyQueries.detail(id ?? ""),
+    ...config,
+    enabled: !!id && config?.enabled !== false,
+  });
+};
+
+const useCreateCompany = ({
+  mutationConfig,
+}: UseCreateCompanyOptions = {}) => {
+  return useMutation(
+    mergeMutationConfig(companyMutations.create(), mutationConfig ?? {})
+  );
+};
+
+const useUpdateCompany = ({
+  mutationConfig,
+}: UseUpdateCompanyOptions = {}) => {
+  return useMutation(
+    mergeMutationConfig(companyMutations.update(), mutationConfig ?? {})
+  );
+};
+
+const useDeleteCompany = ({
+  mutationConfig,
+}: UseDeleteCompanyOptions = {}) => {
+  return useMutation(
+    mergeMutationConfig(companyMutations.delete(), mutationConfig ?? {})
+  );
+};
+
+export { getCompanies, getCompany };
+export { companyQueries, useCompanies, useCompany };
+export {
+  companyMutations,
+  useCreateCompany,
+  useUpdateCompany,
+  useDeleteCompany,
+};
+
+export type {
+  UseCompaniesOptions,
+  UseCompanyOptions,
+  UseCreateCompanyOptions,
+  UseUpdateCompanyOptions,
+  UseDeleteCompanyOptions,
+};

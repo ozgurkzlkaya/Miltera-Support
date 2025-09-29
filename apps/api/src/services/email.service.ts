@@ -1,6 +1,7 @@
 import { db } from '../db';
-import { users, companies, shipments, issues, products } from '../db/schema';
+import { users, companies, shipments, issues, products, serviceOperations } from '../db/schema';
 import { eq } from 'drizzle-orm';
+import sgMail from '@sendgrid/mail';
 
 export interface EmailTemplate {
   subject: string;
@@ -44,25 +45,79 @@ export interface ProductStatusEmailData {
   statusChangeDate: string;
 }
 
+export interface TSPAssignmentEmailData {
+  issueId: string;
+  issueNumber: string;
+  technicianName: string;
+  technicianEmail: string;
+  priority: string;
+  assignedAt: string;
+}
+
 export class EmailService {
-  // E-posta gönderme fonksiyonu (şimdilik console.log ile simüle ediyoruz)
+  private isInitialized = false;
+
+  constructor() {
+    this.initializeSendGrid();
+  }
+
+  private initializeSendGrid() {
+    try {
+      const apiKey = process.env.SENDGRID_API_KEY;
+      if (apiKey) {
+        sgMail.setApiKey(apiKey);
+        this.isInitialized = true;
+        console.log('✅ SendGrid initialized successfully');
+      } else {
+        console.warn('⚠️ SENDGRID_API_KEY not found, using console mode');
+      }
+    } catch (error) {
+      console.error('❌ SendGrid initialization failed:', error);
+    }
+  }
+
+  // E-posta gönderme fonksiyonu (SendGrid + fallback)
   private async sendEmail(to: string[], subject: string, body: string): Promise<boolean> {
     try {
-      // TODO: Gerçek e-posta servisi entegrasyonu (SendGrid, AWS SES, vb.)
-      console.log('=== E-POSTA GÖNDERİLİYOR ===');
-      console.log('Kime:', to.join(', '));
-      console.log('Konu:', subject);
-      console.log('İçerik:', body);
-      console.log('==============================');
-      
-      // Simüle edilmiş gecikme
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      return true;
+      if (this.isInitialized && process.env.SENDGRID_API_KEY) {
+        // Gerçek SendGrid ile gönder
+        const msg = {
+          to: to,
+          from: process.env.SENDGRID_FROM_EMAIL || 'noreply@miltera.com',
+          subject: subject,
+          text: body,
+          html: this.convertToHtml(body),
+        };
+
+        await sgMail.send(msg);
+        console.log('✅ Email sent via SendGrid to:', to.join(', '));
+        return true;
+      } else {
+        // Fallback: Console mode
+        console.log('=== E-POSTA GÖNDERİLİYOR (Console Mode) ===');
+        console.log('Kime:', to.join(', '));
+        console.log('Konu:', subject);
+        console.log('İçerik:', body);
+        console.log('==========================================');
+        
+        // Simüle edilmiş gecikme
+        await new Promise(resolve => setTimeout(resolve, 500));
+        return true;
+      }
     } catch (error) {
-      console.error('E-posta gönderme hatası:', error);
+      console.error('❌ E-posta gönderme hatası:', error);
       return false;
     }
+  }
+
+  // Text'i HTML'e çevir
+  private convertToHtml(text: string): string {
+    return text
+      .replace(/\n/g, '<br>')
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/^- (.*$)/gm, '<li>$1</li>')
+      .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
   }
 
   // Satış sebebiyle gönderim bildirimi
@@ -448,9 +503,96 @@ export class EmailService {
   // Servis operasyonu bildirimi
   async sendServiceOperationNotification(operationId: string): Promise<boolean> {
     try {
-      // TODO: Servis operasyonu detaylarını al ve bildirim gönder
-      console.log('Servis operasyonu bildirimi gönderiliyor:', operationId);
-      return true;
+      const op = await db
+        .select({
+          id: serviceOperations.id,
+          operationType: serviceOperations.operationType,
+          status: serviceOperations.status,
+          description: serviceOperations.description,
+          findings: serviceOperations.findings,
+          actionsTaken: serviceOperations.actionsTaken,
+          operationDate: serviceOperations.operationDate,
+          product: {
+            id: products.id,
+            serialNumber: products.serialNumber,
+            ownerId: products.ownerId,
+          },
+          issue: {
+            id: issues.id,
+            issueNumber: issues.issueNumber,
+            companyId: issues.companyId,
+          },
+          technician: {
+            id: users.id,
+            email: users.email,
+            name: users.name,
+            firstName: users.firstName,
+            lastName: users.lastName,
+          },
+        })
+        .from(serviceOperations)
+        .leftJoin(products, eq(serviceOperations.productId, products.id))
+        .leftJoin(issues, eq(serviceOperations.issueId, issues.id))
+        .leftJoin(users, eq(serviceOperations.performedBy, users.id))
+        .where(eq(serviceOperations.id, operationId))
+        .limit(1);
+
+      if (!op[0]) {
+        console.error('Servis operasyonu bulunamadı:', operationId);
+        return false;
+      }
+
+      const data = op[0];
+
+      // Alıcı listesi: teknisyen, adminler, müşteri yetkilisi (varsa)
+      const recipients: string[] = [];
+
+      if (data.technician?.email) {
+        recipients.push(data.technician.email);
+      }
+
+      const adminEmails = await this.getAdminEmails();
+      recipients.push(...adminEmails);
+
+      // Müşteri yetkilisi e-postası (ürün sahibinden veya issue.companyId'den)
+      let customerEmails: string[] = [];
+      const companyId = data.issue?.companyId;
+      if (companyId) {
+        const company = await db
+          .select({
+            contactPersonEmail: companies.contactPersonEmail,
+          })
+          .from(companies)
+          .where(eq(companies.id, companyId))
+          .limit(1);
+        if (company[0]?.contactPersonEmail) customerEmails.push(company[0].contactPersonEmail);
+        // Ayrıca şirkete bağlı kullanıcılar
+        customerEmails.push(...(await this.getCustomerEmails(companyId)));
+      }
+      recipients.push(...customerEmails);
+
+      // Alıcı yoksa gönderme
+      if (recipients.length === 0) return false;
+
+      const subject = `Servis Operasyonu: ${data.operationType} (${data.product?.serialNumber || 'Seri No Yok'})`;
+      const body = [
+        `Servis operasyonu bilgileri:`,
+        '',
+        `- Operasyon Türü: ${data.operationType}`,
+        `- Durum: ${data.status}`,
+        `- Ürün Seri No: ${data.product?.serialNumber || '—'}`,
+        data.issue?.issueNumber ? `- İlgili Arıza: ${data.issue.issueNumber}` : undefined,
+        `- Tarih: ${data.operationDate ? new Date(data.operationDate as unknown as string).toLocaleString('tr-TR') : new Date().toLocaleString('tr-TR')}`,
+        data.description ? `- Açıklama: ${data.description}` : undefined,
+        data.findings ? `- Bulgular: ${data.findings}` : undefined,
+        data.actionsTaken ? `- Yapılan İşlemler: ${data.actionsTaken}` : undefined,
+        '',
+        `Miltera Teknik Servis`
+      ]
+        .filter(Boolean)
+        .join('\n');
+
+      return await this.sendEmail(Array.from(new Set(recipients)), subject, body);
     } catch (error) {
       console.error('Servis operasyonu bildirimi hatası:', error);
       return false;
@@ -460,9 +602,95 @@ export class EmailService {
   // Tamir tamamlama bildirimi
   async sendRepairCompletionNotification(issueId: string, operationId: string): Promise<boolean> {
     try {
-      // TODO: Tamir tamamlama detaylarını al ve bildirim gönder
-      console.log('Tamir tamamlama bildirimi gönderiliyor:', issueId, operationId);
-      return true;
+      // Arıza ve operasyon detaylarını al
+      const issueRes = await db
+        .select({
+          id: issues.id,
+          issueNumber: issues.issueNumber,
+          companyId: issues.companyId,
+          productId: issues.productId,
+        })
+        .from(issues)
+        .where(eq(issues.id, issueId))
+        .limit(1);
+
+      const opRes = await db
+        .select({
+          id: serviceOperations.id,
+          operationType: serviceOperations.operationType,
+          completedAt: serviceOperations.completedAt,
+          performedBy: serviceOperations.performedBy,
+          productId: serviceOperations.productId,
+        })
+        .from(serviceOperations)
+        .where(eq(serviceOperations.id, operationId))
+        .limit(1);
+
+      if (!issueRes[0] || !opRes[0]) {
+        console.error('Arıza veya operasyon bulunamadı:', issueId, operationId);
+        return false;
+      }
+
+      const issueData = issueRes[0];
+      const opData = opRes[0];
+
+      // Alıcılar: müşteri yetkilisi + adminler + teknisyen
+      const recipients: string[] = [];
+
+      if (issueData.companyId) {
+        const company = await db
+          .select({
+            contactPersonEmail: companies.contactPersonEmail,
+          })
+          .from(companies)
+          .where(eq(companies.id, issueData.companyId))
+          .limit(1);
+        if (company[0]?.contactPersonEmail) recipients.push(company[0].contactPersonEmail);
+        recipients.push(...(await this.getCustomerEmails(issueData.companyId)));
+      }
+
+      recipients.push(...(await this.getAdminEmails()));
+
+      if (opData.performedBy) {
+        const tech = await db
+          .select({ email: users.email })
+          .from(users)
+          .where(eq(users.id, opData.performedBy))
+          .limit(1);
+        if (tech[0]?.email) recipients.push(tech[0].email);
+      }
+
+      if (recipients.length === 0) return false;
+
+      // Ürün seri no
+      let serial: string | null = null;
+      const prodId = opData.productId || issueData.productId;
+      if (prodId) {
+        const prod = await db
+          .select({ serialNumber: products.serialNumber })
+          .from(products)
+          .where(eq(products.id, prodId))
+          .limit(1);
+        serial = prod[0]?.serialNumber ?? null;
+      }
+
+      const subject = `Tamir Tamamlandı - ${issueData.issueNumber}${serial ? ` (${serial})` : ''}`;
+      const body = [
+        `Merhaba,`,
+        '',
+        `${issueData.issueNumber} numaralı arıza için tamir işlemi tamamlanmıştır.`,
+        serial ? `- Ürün Seri No: ${serial}` : undefined,
+        `- Operasyon: ${opData.operationType}`,
+        `- Tamamlanma Tarihi: ${opData.completedAt ? new Date(opData.completedAt as unknown as string).toLocaleString('tr-TR') : new Date().toLocaleString('tr-TR')}`,
+        '',
+        `Detaylar için portaldaki arıza kaydını inceleyebilirsiniz.`,
+        '',
+        `Miltera Teknik Servis`,
+      ]
+        .filter(Boolean)
+        .join('\n');
+
+      return await this.sendEmail(Array.from(new Set(recipients)), subject, body);
     } catch (error) {
       console.error('Tamir tamamlama bildirimi hatası:', error);
       return false;
@@ -639,8 +867,12 @@ Miltera Teknik Servis
 
   // Kullanıcı e-posta listelerini alma
   private async getAccountingEmails(): Promise<string[]> {
-    // TODO: Muhasebe kullanıcılarının e-posta adreslerini veritabanından al
-    return ['muhasebe@miltera.com'];
+    // Şimdilik admin kullanıcılarını muhasebe alıcısı olarak kullan
+    const admins = await db
+      .select({ email: users.email })
+      .from(users)
+      .where(eq(users.role, 'ADMIN'));
+    return admins.map(a => a.email).filter(Boolean);
   }
 
   private async getAdminEmails(): Promise<string[]> {
@@ -668,5 +900,44 @@ Miltera Teknik Servis
       .where(eq(users.companyId, companyId));
 
     return customers.map(customer => customer.email);
+  }
+
+  /**
+   * TSP atama bildirimi gönder
+   */
+  async sendIssueAssignmentNotification(data: TSPAssignmentEmailData): Promise<boolean> {
+    const subject = `Yeni Arıza Ataması - ${data.issueNumber}`;
+    const body = this.generateTSPAssignmentEmail(data);
+    
+    return await this.sendEmail([data.technicianEmail], subject, body);
+  }
+
+  private generateTSPAssignmentEmail(data: TSPAssignmentEmailData): string {
+    const getPriorityLabel = (priority: string) => {
+      const priorityLabels: { [key: string]: string } = {
+        'LOW': 'Düşük',
+        'MEDIUM': 'Orta',
+        'HIGH': 'Yüksek',
+        'CRITICAL': 'Kritik'
+      };
+      return priorityLabels[priority] || priority;
+    };
+
+    return `
+Yeni arıza ataması bildirimi.
+
+Merhaba ${data.technicianName},
+
+Size yeni bir arıza atanmıştır:
+
+Arıza Detayları:
+- Arıza Numarası: ${data.issueNumber}
+- Öncelik: ${getPriorityLabel(data.priority)}
+- Atama Tarihi: ${new Date(data.assignedAt).toLocaleString('tr-TR')}
+
+Lütfen sistem üzerinden arıza detaylarını inceleyin ve gerekli işlemleri başlatın.
+
+Miltera Teknik Servis
+    `.trim();
   }
 } 

@@ -123,57 +123,62 @@ const generateSerialRange = (
   return serials;
 };
 
-// Mock API function for searching products with pagination
+// Real API function for searching products with pagination
 const searchProducts = async (
   params: ProductSearchParams
 ): Promise<ProductSearchResult> => {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 300));
+  try {
+    const token = localStorage.getItem('auth_token');
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` })
+    };
 
-  // Expanded mock product data (simulating database)
-  const allProducts = Array.from({ length: 2500 }, (_, index) => ({
-    value: index + 1,
-    label: `Product-${String(index + 1).padStart(4, "0")} (SN${String(index + 1).padStart(6, "0")})`,
-    serial: `SN${String(index + 1).padStart(6, "0")}`,
-    status: ["ACTIVE", "IN_STOCK", "IN_SERVICE", "MAINTENANCE"][index % 4],
-  }));
+    // Build query parameters
+    const queryParams = new URLSearchParams({
+      page: params.page.toString(),
+      limit: params.pageSize.toString(),
+    });
 
-  let filtered = allProducts;
+    if (params.searchQuery) {
+      queryParams.append('search', params.searchQuery);
+    }
 
-  // Filter by serial range if provided
-  if (params.serialRangeStart && params.serialRangeEnd) {
-    filtered = filtered.filter((product) =>
-      isSerialInRange(
-        product.serial,
-        params.serialRangeStart!,
-        params.serialRangeEnd!
-      )
-    );
+    const response = await fetch(`http://localhost:3015/api/v1/products?${queryParams.toString()}`, { headers });
+    
+    if (response.ok) {
+      const data = await response.json();
+      const products = (data.data || []).map((product: any) => ({
+        value: product.id,
+        label: `${product.serialNumber} (${product.status})`,
+        serial: product.serialNumber,
+        status: product.status,
+      }));
+
+      return {
+        products,
+        totalCount: data.pagination?.total || products.length,
+        totalPages: data.pagination?.totalPages || Math.ceil(products.length / params.pageSize),
+        currentPage: params.page,
+      };
+    }
+
+    // Fallback to empty result if API fails
+    return {
+      products: [],
+      totalCount: 0,
+      totalPages: 0,
+      currentPage: params.page,
+    };
+  } catch (error) {
+    console.error('Error searching products:', error);
+    return {
+      products: [],
+      totalCount: 0,
+      totalPages: 0,
+      currentPage: params.page,
+    };
   }
-  // Otherwise, filter by search query
-  else if (params.searchQuery) {
-    filtered = filtered.filter(
-      (product) =>
-        product.label
-          .toLowerCase()
-          .includes(params.searchQuery.toLowerCase()) ||
-        product.serial.toLowerCase().includes(params.searchQuery.toLowerCase())
-    );
-  }
-
-  // Calculate pagination
-  const totalCount = filtered.length;
-  const totalPages = Math.ceil(totalCount / params.pageSize);
-  const startIndex = (params.page - 1) * params.pageSize;
-  const endIndex = startIndex + params.pageSize;
-  const paginatedProducts = filtered.slice(startIndex, endIndex);
-
-  return {
-    products: paginatedProducts,
-    totalCount,
-    totalPages,
-    currentPage: params.page,
-  };
 };
 
 export const ProductSelectionModal = ({
@@ -312,7 +317,7 @@ export const ProductSelectionModal = ({
     );
 
     // Create product IDs based on the serial range
-    // Since our mock data creates products with serial format SN000001, SN000002, etc.
+    // Products are created with serial format SN000001, SN000002, etc.
     // and the product ID matches the serial number (e.g., SN000001 has ID 1)
     const productIdsInRange: number[] = [];
     

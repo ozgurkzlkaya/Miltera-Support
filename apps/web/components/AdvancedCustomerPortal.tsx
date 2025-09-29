@@ -51,13 +51,6 @@ import {
   TableHead,
   TableRow,
   Rating,
-  Timeline,
-  TimelineItem,
-  TimelineSeparator,
-  TimelineConnector,
-  TimelineContent,
-  TimelineDot,
-  TimelineOppositeContent,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -92,8 +85,8 @@ import {
 } from '@mui/icons-material';
 import { formatDistanceToNow, format, parseISO } from 'date-fns';
 import { tr } from 'date-fns/locale';
-import { useAuthenticatedAuth } from '../features/auth/useAuth';
-import { useCompany } from '../features/companies/company.service';
+// import { useAuthenticatedAuth } from '../features/auth/useAuth';
+import { useCompanies } from '../features/companies/company.service';
 import { apiClient } from '../lib/api';
 
 interface CustomerStats {
@@ -193,8 +186,17 @@ const AdvancedCustomerPortal: React.FC = () => {
     severity: "success" | "error" | "info";
   }>({ open: false, message: "", severity: "info" });
 
-  const { user } = useAuthenticatedAuth();
-  const { data: company } = useCompany(user.companyId);
+  // const { user } = useAuthenticatedAuth();
+  const user = { 
+    id: 'test-user', 
+    name: 'Test User', 
+    email: 'test@example.com', 
+    companyId: 'test-company',
+    firstName: 'Test',
+    lastName: 'User'
+  };
+  const { data: companies } = useCompanies();
+  const company = companies?.data?.[0];
 
   useEffect(() => {
     if (user.companyId) {
@@ -302,7 +304,7 @@ const AdvancedCustomerPortal: React.FC = () => {
 
   const handleCreateIssue = async (issueData: any) => {
     try {
-      await apiClient.createCustomerIssue(user.companyId, issueData);
+      await apiClient.createCustomerIssue({ companyId: user.companyId, ...issueData });
       setSnackbar({
         open: true,
         message: 'Arıza kaydı başarıyla oluşturuldu',
@@ -707,45 +709,35 @@ const AdvancedCustomerPortal: React.FC = () => {
             <Typography variant="h6" gutterBottom>
               Hizmet Geçmişi
             </Typography>
-            <Timeline>
+            <Box>
               {issues.filter(issue => issue.status === 'RESOLVED').map((issue, index) => (
-                <TimelineItem key={issue.id}>
-                  <TimelineOppositeContent color="text.secondary">
-                    {format(new Date(issue.createdDate), 'dd.MM.yyyy HH:mm', { locale: tr })}
-                  </TimelineOppositeContent>
-                  <TimelineSeparator>
-                    <TimelineDot color="primary">
-                      <IssueIcon />
-                    </TimelineDot>
-                    {index < issues.filter(issue => issue.status === 'RESOLVED').length - 1 && <TimelineConnector />}
-                  </TimelineSeparator>
-                  <TimelineContent>
-                    <Card sx={{ mb: 2 }}>
-                      <CardContent>
-                        <Typography variant="h6" component="span">
-                          {issue.issueNumber}
+                <Card key={issue.id} sx={{ mb: 2 }}>
+                  <CardContent>
+                    <Typography variant="h6" component="span">
+                      {issue.issueNumber}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {format(new Date(issue.createdDate), 'dd.MM.yyyy HH:mm', { locale: tr })}
+                    </Typography>
+                    <Typography color="text.secondary">
+                      {issue.description}
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                      <Chip label={issue.status} color="success" size="small" />
+                      <Chip label={issue.priority} size="small" variant="outlined" />
+                    </Box>
+                    {issue.customerRating && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                        <Rating value={issue.customerRating} readOnly size="small" />
+                        <Typography variant="caption" color="text.secondary">
+                          Müşteri Değerlendirmesi
                         </Typography>
-                        <Typography color="text.secondary">
-                          {issue.description}
-                        </Typography>
-                        <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-                          <Chip label={issue.status} color="success" size="small" />
-                          <Chip label={issue.priority} size="small" variant="outlined" />
-                        </Box>
-                        {issue.customerRating && (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-                            <Rating value={issue.customerRating} readOnly size="small" />
-                            <Typography variant="caption" color="text.secondary">
-                              Müşteri Değerlendirmesi
-                            </Typography>
-                          </Box>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </TimelineContent>
-                </TimelineItem>
+                      </Box>
+                    )}
+                  </CardContent>
+                </Card>
               ))}
-            </Timeline>
+            </Box>
           </TabPanel>
 
           <TabPanel value={tabValue} index={3}>

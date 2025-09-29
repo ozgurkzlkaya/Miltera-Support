@@ -6,19 +6,21 @@ export const ServiceOperationSchema = z.object({
   issueId: z.string().uuid().nullable(),
   issueProductId: z.string().uuid().nullable(),
   operationType: z.enum([
-    'HARDWARE_VERIFICATION',
-    'CONFIGURATION',
-    'PRE_TEST',
-    'REPAIR',
-    'FINAL_TEST',
-    'QUALITY_CHECK'
+    'INITIAL_TEST',           // İlk Test (Fabrikasyon sonrası)
+    'FABRICATION_TEST',       // Fabrikasyon Testi
+    'HARDWARE_VERIFICATION',  // Donanım Doğrulama
+    'CONFIGURATION',          // Konfigürasyon
+    'PRE_TEST',              // Ön Test
+    'REPAIR',                // Tamir
+    'FINAL_TEST',            // Final Test
+    'QUALITY_CHECK'          // Kalite Kontrolü
   ]),
   status: z.enum(['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']),
   description: z.string().min(1, "Açıklama gerekli"),
   findings: z.string().optional(),
   actionsTaken: z.string().optional(),
   isUnderWarranty: z.boolean().default(false),
-  cost: z.number().positive().optional(),
+  cost: z.number().nonnegative().optional(),
   duration: z.number().int().positive().optional(),
   operationDate: z.string().datetime(),
   createdAt: z.string().datetime(),
@@ -47,24 +49,36 @@ export const ServiceOperationCreateSchema = z.object({
   issueId: z.string().uuid().optional().or(z.literal("")),
   issueProductId: z.string().uuid().optional().or(z.literal("")),
   operationType: z.enum([
-    'HARDWARE_VERIFICATION',
-    'CONFIGURATION',
-    'PRE_TEST',
-    'REPAIR',
-    'FINAL_TEST',
-    'QUALITY_CHECK'
+    'INITIAL_TEST',           // İlk Test (Fabrikasyon sonrası)
+    'FABRICATION_TEST',       // Fabrikasyon Testi
+    'HARDWARE_VERIFICATION',  // Donanım Doğrulama
+    'CONFIGURATION',          // Konfigürasyon
+    'PRE_TEST',              // Ön Test
+    'REPAIR',                // Tamir
+    'FINAL_TEST',            // Final Test
+    'QUALITY_CHECK'          // Kalite Kontrolü
   ]),
   description: z.string().min(1, "Açıklama gerekli"),
   findings: z.string().optional().or(z.literal("")),
   actionsTaken: z.string().optional().or(z.literal("")),
   isUnderWarranty: z.boolean().default(false),
-  cost: z.number().positive().optional(),
+  cost: z.number().nonnegative().optional(),
   duration: z.number().int().positive().optional(),
   performedBy: z.string().uuid("Geçerli bir kullanıcı ID'si gerekli"),
 });
 
 export const ServiceOperationUpdateSchema = z.object({
   status: z.enum(['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']).optional(),
+  operationType: z.enum([
+    'INITIAL_TEST',           // İlk Test (Fabrikasyon sonrası)
+    'FABRICATION_TEST',       // Fabrikasyon Testi
+    'HARDWARE_VERIFICATION',  // Donanım Doğrulama
+    'CONFIGURATION',          // Konfigürasyon
+    'PRE_TEST',              // Ön Test
+    'REPAIR',                // Tamir
+    'FINAL_TEST',            // Final Test
+    'QUALITY_CHECK'          // Kalite Kontrolü
+  ]).optional(),
   description: z.string().min(1, "Açıklama gerekli").optional(),
   findings: z.string().optional(),
   actionsTaken: z.string().optional(),
@@ -79,18 +93,20 @@ export const ServiceWorkflowSchema = z.object({
   issueId: z.string().uuid(),
   operations: z.array(z.object({
     operationType: z.enum([
-      'HARDWARE_VERIFICATION',
-      'CONFIGURATION',
-      'PRE_TEST',
-      'REPAIR',
-      'FINAL_TEST',
-      'QUALITY_CHECK'
+      'INITIAL_TEST',           // İlk Test (Fabrikasyon sonrası)
+      'FABRICATION_TEST',       // Fabrikasyon Testi
+      'HARDWARE_VERIFICATION',  // Donanım Doğrulama
+      'CONFIGURATION',          // Konfigürasyon
+      'PRE_TEST',              // Ön Test
+      'REPAIR',                // Tamir
+      'FINAL_TEST',            // Final Test
+      'QUALITY_CHECK'          // Kalite Kontrolü
     ]),
     description: z.string().min(1, "Açıklama gerekli"),
     findings: z.string().optional(),
     actionsTaken: z.string().optional(),
     isUnderWarranty: z.boolean().default(false),
-    cost: z.number().positive().optional(),
+    cost: z.number().nonnegative().optional(),
     duration: z.number().int().positive().optional(),
     performedBy: z.string().uuid("Geçerli bir kullanıcı ID'si gerekli"),
   })).min(1, "En az bir operasyon gerekli"),

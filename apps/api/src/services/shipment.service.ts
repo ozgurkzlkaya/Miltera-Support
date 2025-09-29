@@ -203,6 +203,24 @@ export class ShipmentService {
     return shipment;
   }
 
+  // Sevkiyat silme
+  async deleteShipment(shipmentId: string) {
+    try {
+      const result = await db.delete(shipments)
+        .where(eq(shipments.id, shipmentId))
+        .returning({ id: shipments.id });
+      
+      if (result.length === 0) {
+        throw new Error('Shipment not found');
+      }
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting shipment:', error);
+      throw error;
+    }
+  }
+
   // Sevkiyat istatistikleri
   async getShipmentStats() {
     const allShipments = await db.select().from(shipments);

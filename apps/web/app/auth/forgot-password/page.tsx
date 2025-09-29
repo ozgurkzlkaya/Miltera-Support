@@ -34,20 +34,16 @@ const ForgotPasswordPage = () => {
 
   const onSubmit = (data: any) => {
     return new Promise<void>((resolve, reject) => {
-      authClient.requestPasswordReset(
-        {
-          email: data.email,
-          redirectTo: "/auth/change-password?reason=forgot",
-        },
-        {
-          onSuccess: () => {
-            resolve();
-          },
-          onError: (error) => {
-            reject(error);
-          },
-        }
-      );
+      authClient.requestPasswordReset({
+        email: data.email,
+        redirectTo: "/auth/change-password?reason=forgot",
+      })
+      .then(() => {
+        resolve();
+      })
+      .catch((error) => {
+        reject(error);
+      });
     });
   };
 

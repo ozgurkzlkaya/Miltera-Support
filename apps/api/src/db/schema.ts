@@ -1,4 +1,4 @@
-import { pgTable, text, integer, boolean, timestamp, uuid, decimal, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, boolean, timestamp, uuid, decimal, jsonb, real } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
 
 // Enums - PostgreSQL için enum olarak tanımlandı
@@ -29,6 +29,8 @@ export const issueStatusEnum = [
 export const issuePriorityEnum = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const;
 export const issueSourceEnum = ['CUSTOMER', 'TSP', 'FIRST_PRODUCTION'] as const;
 export const operationTypeEnum = [
+    'INITIAL_TEST',               // İlk Test (Fabrikasyon sonrası)
+    'FABRICATION_TEST',           // Fabrikasyon Testi
     'HARDWARE_VERIFICATION',      // Donanım Doğrulama
     'CONFIGURATION',              // Konfigürasyon
     'PRE_TEST',                   // Ön Test
@@ -85,6 +87,28 @@ export const users = pgTable('users', {
     companyId: uuid('company_id').references(() => companies.id), // Müşteri firması (CUSTOMER için)
     isActive: boolean('is_active').default(true).notNull(),
     mustChangePassword: boolean('must_change_password').default(false).notNull(),
+    
+    // User preferences
+    language: text('language').default('tr'),
+    timezone: text('timezone').default('Europe/Istanbul'),
+    dateFormat: text('date_format').default('DD/MM/YYYY'),
+    theme: text('theme').default('light'),
+    notifications: text('notifications'), // JSON string for notification preferences
+    
+    // Security settings
+    twoFactorAuth: boolean('two_factor_auth').default(false),
+    sessionTimeout: integer('session_timeout').default(30),
+    passwordExpiry: integer('password_expiry').default(90),
+    loginAlerts: boolean('login_alerts').default(true),
+    
+    // Additional user info
+    phone: text('phone'),
+    address: text('address'),
+    company: text('company'),
+    
+    // Password management
+    lastPasswordChange: timestamp('last_password_change'),
+    
     ...timestamps
 });
 
@@ -148,6 +172,8 @@ export const locations = pgTable('locations', {
     type: text('type').notNull(), // e.g., "WAREHOUSE", "SHELF", "SERVICE_AREA"
     address: text('address'),
     notes: text('notes'),
+    capacity: integer('capacity'), // Maximum number of products this location can hold
+    currentCount: integer('current_count').default(0), // Current number of products in this location
     ...timestamps
 });
 
@@ -249,7 +275,7 @@ export const issues = pgTable('issues', {
 // Service Operations table - Teknik Servis Operasyonları
 export const serviceOperations = pgTable('service_operations', {
     id: uuid('id').primaryKey().defaultRandom(),
-    issueId: uuid('issue_id').references(() => issues.id),
+    issueId: uuid('issue_id').references(() => issues.id, { onDelete: 'cascade' }),
     productId: uuid('product_id').references(() => products.id).notNull(),
     issueProductId: uuid('issue_product_id').references(() => issueProducts.id), // Issue product reference
     technicianId: uuid('technician_id').references(() => users.id).notNull(),
@@ -319,7 +345,7 @@ export const shipmentItems = pgTable('shipment_items', {
 // Issue Products table (for multiple products in one issue)
 export const issueProducts = pgTable('issue_products', {
     id: uuid('id').primaryKey().defaultRandom(),
-    issueId: uuid('issue_id').references(() => issues.id).notNull(),
+    issueId: uuid('issue_id').references(() => issues.id, { onDelete: 'cascade' }).notNull(),
     productId: uuid('product_id').references(() => products.id).notNull(),
     notes: text('notes'),
     ...timestamps
@@ -571,6 +597,91 @@ export const productHistoryRelations = relations(productHistory, ({ one }) => ({
         references: [locations.id],
     }),
 }));
+
+// Audit Logs table
+export const auditLogs = pgTable('audit_logs', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').notNull(),
+    action: text('action').notNull(), // CREATE, UPDATE, DELETE, LOGIN, etc.
+    entityType: text('entity_type').notNull(), // issue, product, user, etc.
+    entityId: uuid('entity_id').notNull(),
+    oldValues: text('old_values'), // JSON string of old values
+    newValues: text('new_values'), // JSON string of new values
+    ipAddress: text('ip_address'),
+    userAgent: text('user_agent'),
+    metadata: text('metadata'), // JSON string of additional metadata
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Scheduled Reports table
+export const scheduledReports = pgTable('scheduled_reports', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    description: text('description'),
+    reportType: text('report_type').notNull(), // issues, products, service_operations, etc.
+    schedule: text('schedule').notNull(), // Cron expression
+    format: text('format').notNull(), // pdf, excel, csv
+    recipients: text('recipients').notNull(), // JSON array of email addresses
+    smsRecipients: text('sms_recipients'), // JSON array of phone numbers
+    filters: text('filters'), // JSON object of filters
+    isActive: boolean('is_active').default(true).notNull(),
+    lastRun: timestamp('last_run'),
+    nextRun: timestamp('next_run'),
+    createdBy: uuid('created_by').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Performance Metrics table
+export const performanceMetrics = pgTable('performance_metrics', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    endpoint: text('endpoint').notNull(),
+    method: text('method').notNull(),
+    responseTime: integer('response_time').notNull(), // in milliseconds
+    statusCode: integer('status_code').notNull(),
+    userId: uuid('user_id'),
+    ipAddress: text('ip_address'),
+    userAgent: text('user_agent'),
+    timestamp: timestamp('timestamp').defaultNow().notNull(),
+    memoryUsage: integer('memory_usage'), // in bytes
+    cpuUsage: real('cpu_usage'), // percentage
+    errorMessage: text('error_message'),
+    metadata: text('metadata'), // JSON string
+});
+
+// Comments table for collaboration
+export const comments = pgTable('comments', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    content: text('content').notNull(),
+    authorId: uuid('author_id').notNull().references(() => users.id),
+    entityType: text('entity_type').notNull(), // issue, product, service_operation
+    entityId: uuid('entity_id').notNull(),
+    parentId: uuid('parent_id'), // for replies
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Mentions table for collaboration
+export const mentions = pgTable('mentions', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    commentId: uuid('comment_id').notNull().references(() => comments.id),
+    userId: uuid('user_id').notNull().references(() => users.id),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Inventory Count table
+export const inventoryCounts = pgTable('inventory_counts', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    locationId: uuid('location_id').notNull().references(() => locations.id),
+    countedBy: uuid('counted_by').notNull().references(() => users.id),
+    countedItems: text('counted_items').notNull(), // JSON array of counted items
+    totalItems: integer('total_items').notNull(),
+    completedAt: timestamp('completed_at').defaultNow().notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Notifications table for collaboration (already defined above)
 
 // Type definitions
 export type ProductStatus = typeof productStatusEnum[number];

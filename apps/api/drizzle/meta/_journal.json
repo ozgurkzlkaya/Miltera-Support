@@ -29,6 +29,27 @@
       "when": 1758266574303,
       "tag": "0003_smooth_bulldozer",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1758781876270,
+      "tag": "0004_mighty_mattie_franklin",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1758830038629,
+      "tag": "0005_stale_arachne",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1758878259425,
+      "tag": "0006_mixed_quasimodo",
+      "breakpoints": true
     }
   ]
 }

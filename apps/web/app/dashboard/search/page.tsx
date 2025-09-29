@@ -37,6 +37,7 @@ import { Layout } from '../../../components/Layout';
 import { AdvancedSearch, SearchOptions } from '../../../components/AdvancedSearch';
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
+import { Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 
 interface SearchResult {
   id: string;
@@ -91,11 +92,12 @@ export default function GlobalSearchPage() {
     setError(null);
 
     try {
-      const response = await fetch('/api/v1/search', {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('http://localhost:3015/api/v1/search', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`,
+          ...(token && { 'Authorization': `Bearer ${token}` })
         },
         body: JSON.stringify(options),
       });
@@ -110,18 +112,18 @@ export default function GlobalSearchPage() {
         const results = data.data;
         setSearchResults(prev => ({
           ...prev,
-          [options.entityType]: results.data || [],
+          [options.entityTypes.join(',')]: results.data || [],
         }));
         setTotalResults(results.totalCount || 0);
         
         // Update search stats
         setSearchStats(prev => ({
           ...prev,
-          [options.entityType]: results.totalCount || 0,
+          [options.entityTypes.join(',')]: results.totalCount || 0,
         }));
 
         // Set active tab to the searched entity type
-        const entityTypeIndex = ['products', 'issues', 'shipments', 'companies', 'users'].indexOf(options.entityType);
+        const entityTypeIndex = ['products', 'issues', 'shipments', 'companies', 'users'].indexOf(options.entityTypes[0]);
         if (entityTypeIndex !== -1) {
           setActiveTab(entityTypeIndex);
         }
@@ -297,10 +299,7 @@ export default function GlobalSearchPage() {
         <Box sx={{ mb: 3 }}>
           <AdvancedSearch
             onSearch={handleSearch}
-            onClear={handleClear}
             loading={loading}
-            showFilters={true}
-            placeholder="Ürün, arıza, sevkiyat, firma veya kullanıcı arayın..."
           />
         </Box>
 

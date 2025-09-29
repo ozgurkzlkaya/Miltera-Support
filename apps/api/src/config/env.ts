@@ -19,7 +19,7 @@ const envSchema = z.object({
   BETTER_AUTH_SECRET: z.string().optional().default("dev-secret-key-123"),
   BETTER_AUTH_URL: z.string().optional().default("http://localhost:3001"),
   REDIS_URL: z.string().optional().default("redis://localhost:6379"),
-  FRONTEND_URL: z.string().optional().default("http://localhost:3002"),
+  FRONTEND_URL: z.string().optional().default("http://localhost:3000"),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.string().optional(),
   SMTP_USER: z.string().optional(),

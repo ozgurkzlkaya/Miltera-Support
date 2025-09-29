@@ -102,6 +102,7 @@ import {
   AutoAwesome as AutoAwesomeIcon,
   Psychology as PsychologyIcon,
   Lightbulb as LightbulbIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -326,17 +327,17 @@ const UltraAdvancedSearch: React.FC = () => {
         },
       };
 
-      const response = await apiClient.search(searchParams);
+      const response = await apiClient.get('/search', { params: searchParams });
       
-      setResults(response.results || []);
-      setTotalResults(response.total || 0);
+      setResults((response.data as any)?.results || []);
+      setTotalResults((response.data as any)?.total || 0);
       
       // Update search history
       setSearchHistory(prev => [{
         query: searchFilters.query,
         filters: searchFilters,
         timestamp: new Date(),
-        resultCount: response.total || 0,
+        resultCount: (response.data as any)?.total || 0,
       }, ...prev.slice(0, 9)]);
       
     } catch (err) {

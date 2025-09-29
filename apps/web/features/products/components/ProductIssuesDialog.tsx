@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Box,
   Chip,
@@ -22,55 +23,30 @@ import {
   BugReport as BugIcon,
 } from "@mui/icons-material";
 
-// Mock issues data - would typically come from API calls
-const mockIssues = [
-  {
-    id: 1,
-    issueNumber: "ARZ-2024-001",
-    productId: "e91d06bf-2782-4e41-9b53-f6930da4bc26",
-    title: "Gateway Connection Timeout",
-    status: "IN_PROGRESS",
-    priority: "HIGH",
-    createdAt: "2024-06-01T10:30:00Z",
-    assignedTspName: "John Doe",
-  },
-  {
-    id: 2,
-    issueNumber: "ARZ-2024-002",
-    productId: 2,
-    title: "Energy Analyzer Calibration Required",
-    status: "WAITING_PARTS",
-    priority: "MEDIUM",
-    createdAt: "2024-06-01T14:20:00Z",
-    assignedTspName: "Jane Smith",
-  },
-  {
-    id: 3,
-    issueNumber: "ARZ-2024-003",
-    productId: 3,
-    title: "VPN Router Firmware Update",
-    status: "REPAIRED",
-    priority: "CRITICAL",
-    createdAt: "2024-06-01T16:45:00Z",
-    assignedTspName: "Mike Johnson",
-  },
-  {
-    id: 4,
-    issueNumber: "ARZ-2024-004",
-    productId: 1,
-    title: "Gateway Overheating Issue",
-    status: "OPEN",
-    priority: "HIGH",
-    createdAt: "2024-06-05T09:15:00Z",
-    assignedTspName: "John Doe",
-  },
-];
-
-const getProductIssues = (productId: number) => {
-  return mockIssues.filter((issue) => issue.productId === productId);
+// Get product issues from API
+const getProductIssues = async (productId: string) => {
+  try {
+    const token = localStorage.getItem('auth_token');
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` })
+    };
+    
+    const response = await fetch(`http://localhost:3015/api/v1/issues?productId=${productId}`, { headers });
+    if (response.ok) {
+      const data = await response.json();
+      return data.data || [];
+    }
+    return [];
+  } catch (error) {
+    console.error('Error fetching product issues:', error);
+    return [];
+  }
 };
 
 const ProductIssuesDialog = () => {
+  const [issuesDialog, setIssuesDialog] = useState<{ open: boolean; product: any }>({ open: false, product: null });
+  
   return (
     <Dialog
       open={issuesDialog.open}
@@ -105,7 +81,7 @@ const ProductIssuesDialog = () => {
           <Box>
             {(() => {
               const productIssues = getProductIssues(issuesDialog.product.id);
-              return productIssues.length > 0 ? (
+              return Array.isArray(productIssues) && productIssues.length > 0 ? (
                 <Stack spacing={2}>
                   {productIssues.map((issue: any) => (
                     <Card key={issue.id} variant="outlined">
@@ -122,12 +98,12 @@ const ProductIssuesDialog = () => {
                             <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
                               <Chip
                                 label={issue.status}
-                                color={getIssueStatusColor(issue.status) as any}
+                                color="primary"
                                 size="small"
                               />
                               <Chip
                                 label={issue.priority}
-                                color={getPriorityColor(issue.priority) as any}
+                                color="secondary"
                                 size="small"
                               />
                             </Stack>

@@ -44,7 +44,6 @@ import {
   Palette as PaletteIcon,
   Language as LanguageIcon,
   Save as SaveIcon,
-  Refresh as RefreshIcon,
   Edit as EditIcon,
   Lock as LockIcon,
   Email as EmailIcon,
@@ -56,6 +55,7 @@ import {
   Warning as WarningIcon
 } from '@mui/icons-material';
 import { Layout } from '../../../components/Layout';
+import { useAuth } from '../../../features/auth/useAuth';
 
 interface UserProfile {
   id: string;
@@ -118,21 +118,44 @@ function TabPanel(props: TabPanelProps) {
 }
 
 export default function SettingsPage() {
+  const auth = useAuth();
   const [activeTab, setActiveTab] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastPasswordChange, setLastPasswordChange] = useState<Date | null>(null);
   
-  // Profile state
+  // Tarih farkını hesaplayan fonksiyon
+  const getTimeAgo = (date: Date | null): string => {
+    if (!date) return 'Bilinmiyor';
+    
+    const now = new Date();
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    
+    if (diffInDays > 0) {
+      return `${diffInDays} gün önce`;
+    } else if (diffInHours > 0) {
+      return `${diffInHours} saat önce`;
+    } else if (diffInMinutes > 0) {
+      return `${diffInMinutes} dakika önce`;
+    } else {
+      return 'Az önce';
+    }
+  };
+  
+  // Profile state - gerçek kullanıcı bilgilerini kullan
   const [profile, setProfile] = useState<UserProfile>({
-    id: '1',
-    firstName: 'Ahmet',
-    lastName: 'Yılmaz',
-    email: 'ahmet.yilmaz@example.com',
-    phone: '+90 555 123 4567',
-    address: 'İstanbul, Türkiye',
-    company: 'Miltera Teknoloji',
-    role: 'ADMIN'
+    id: auth.user?.id || '',
+    firstName: auth.user?.name?.split(' ')[0] || '',
+    lastName: auth.user?.name?.split(' ').slice(1).join(' ') || '',
+    email: auth.user?.email || '',
+    phone: '',
+    address: '',
+    company: '',
+    role: auth.user?.role || 'USER'
   });
 
   // Preferences state
@@ -190,12 +213,87 @@ export default function SettingsPage() {
         setLoading(true);
         setError(null);
         
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        const token = localStorage.getItem('auth_token');
         
-        setProfileForm(profile);
-        setPreferencesForm(preferences);
-        setSecurityForm(security);
+        // Gerçek kullanıcı bilgilerini güncelle
+        const currentProfile = {
+          id: auth.user?.id || '',
+          firstName: auth.user?.name?.split(' ')[0] || '',
+          lastName: auth.user?.name?.split(' ').slice(1).join(' ') || '',
+          email: auth.user?.email || '',
+          phone: '',
+          address: '',
+          company: '',
+          role: auth.user?.role || 'USER'
+        };
+        
+        setProfile(currentProfile);
+        setProfileForm(currentProfile);
+        
+        // Gerçek preferences verilerini yükle
+        try {
+          const preferencesResponse = await fetch('http://localhost:3015/api/v1/auth/preferences', {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          if (preferencesResponse.ok) {
+            const preferencesData = await preferencesResponse.json();
+            setPreferences(preferencesData.data);
+            setPreferencesForm(preferencesData.data);
+          }
+        } catch (prefErr) {
+          console.log('Preferences not found, using defaults');
+        }
+        
+        // Gerçek security verilerini yükle
+        try {
+          const securityResponse = await fetch('http://localhost:3015/api/v1/auth/security', {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          if (securityResponse.ok) {
+            const securityData = await securityResponse.json();
+            
+            // sessionTimeout değerini validate et
+            const validSessionTimeouts = [15, 30, 60, 120];
+            const sessionTimeout = validSessionTimeouts.includes(securityData.data.sessionTimeout) 
+              ? securityData.data.sessionTimeout 
+              : 30;
+            
+            const validatedSecurityData = {
+              ...securityData.data,
+              sessionTimeout: sessionTimeout
+            };
+            
+            setSecurity(validatedSecurityData);
+            setSecurityForm(validatedSecurityData);
+          }
+        } catch (secErr) {
+          console.log('Security settings not found, using defaults');
+        }
+        
+        // Son şifre değişikliği tarihini al
+        try {
+          const userResponse = await fetch('http://localhost:3015/api/v1/auth/profile', {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          if (userResponse.ok) {
+            const userData = await userResponse.json();
+            if (userData.data && userData.data.lastPasswordChange) {
+              setLastPasswordChange(new Date(userData.data.lastPasswordChange));
+            }
+          }
+        } catch (userErr) {
+          console.log('User data not found, using defaults');
+        }
+        
       } catch (err) {
         console.error('Error loading settings:', err);
         setError('Ayarlar yüklenirken hata oluştu');
@@ -204,8 +302,10 @@ export default function SettingsPage() {
       }
     };
 
-    loadData();
-  }, []);
+    if (auth.user) {
+      loadData();
+    }
+  }, [auth.user]);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
@@ -215,8 +315,39 @@ export default function SettingsPage() {
     try {
       setSaving(true);
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Gerçek API çağrısı yap
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('http://localhost:3015/api/v1/auth/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          name: `${profileForm.firstName} ${profileForm.lastName}`.trim(),
+          email: profileForm.email,
+          phone: profileForm.phone,
+          address: profileForm.address,
+          company: profileForm.company
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Profil güncellenemedi');
+      }
+      
+      const result = await response.json();
+      
+      // localStorage'daki user bilgilerini güncelle
+      const updatedUser = {
+        ...auth.user,
+        name: `${profileForm.firstName} ${profileForm.lastName}`.trim(),
+        email: profileForm.email
+      };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      
+      // AuthProvider'a bildirim gönder
+      window.dispatchEvent(new Event('custom-storage-change'));
       
       setProfile(profileForm);
       setSnackbar({
@@ -225,6 +356,7 @@ export default function SettingsPage() {
         severity: 'success'
       });
     } catch (err) {
+      console.error('Profile update error:', err);
       setSnackbar({
         open: true,
         message: 'Profil güncellenirken hata oluştu',
@@ -239,8 +371,22 @@ export default function SettingsPage() {
     try {
       setSaving(true);
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Gerçek API çağrısı yap
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('http://localhost:3015/api/v1/auth/preferences', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(preferencesForm)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Tercihler güncellenemedi');
+      }
+      
+      const result = await response.json();
       
       setPreferences(preferencesForm);
       setSnackbar({
@@ -249,6 +395,7 @@ export default function SettingsPage() {
         severity: 'success'
       });
     } catch (err) {
+      console.error('Preferences update error:', err);
       setSnackbar({
         open: true,
         message: 'Tercihler güncellenirken hata oluştu',
@@ -263,8 +410,22 @@ export default function SettingsPage() {
     try {
       setSaving(true);
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Gerçek API çağrısı yap
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('http://localhost:3015/api/v1/auth/security', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(securityForm)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Güvenlik ayarları güncellenemedi');
+      }
+      
+      const result = await response.json();
       
       setSecurity(securityForm);
       setSnackbar({
@@ -273,6 +434,7 @@ export default function SettingsPage() {
         severity: 'success'
       });
     } catch (err) {
+      console.error('Security update error:', err);
       setSnackbar({
         open: true,
         message: 'Güvenlik ayarları güncellenirken hata oluştu',
@@ -305,8 +467,24 @@ export default function SettingsPage() {
     try {
       setSaving(true);
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Gerçek API çağrısı yap
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('http://localhost:3015/api/v1/auth/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Şifre değiştirilemedi');
+      }
       
       setPasswordForm({
         currentPassword: '',
@@ -317,15 +495,20 @@ export default function SettingsPage() {
         showConfirm: false
       });
       setOpenPasswordDialog(false);
+      
+      // Son şifre değişikliği tarihini güncelle
+      setLastPasswordChange(new Date());
+      
       setSnackbar({
         open: true,
         message: 'Şifre başarıyla değiştirildi',
         severity: 'success'
       });
-    } catch (err) {
+    } catch (err: any) {
+      console.error('Password change error:', err);
       setSnackbar({
         open: true,
-        message: 'Şifre değiştirilirken hata oluştu',
+        message: err.message || 'Şifre değiştirilirken hata oluştu',
         severity: 'error'
       });
     } finally {
@@ -333,17 +516,6 @@ export default function SettingsPage() {
     }
   };
 
-  const handleResetSettings = () => {
-    if (window.confirm('Tüm ayarları varsayılan değerlere sıfırlamak istediğinizden emin misiniz?')) {
-      setPreferencesForm(preferences);
-      setSecurityForm(security);
-      setSnackbar({
-        open: true,
-        message: 'Ayarlar varsayılan değerlere sıfırlandı',
-        severity: 'info'
-      });
-    }
-  };
 
   if (loading) {
     return (
@@ -363,13 +535,6 @@ export default function SettingsPage() {
             <SettingsIcon sx={{ mr: 2, verticalAlign: 'middle' }} />
             Ayarlar
           </Typography>
-          <Button
-            variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={handleResetSettings}
-          >
-            Varsayılanlara Sıfırla
-          </Button>
         </Box>
 
         {error && (
@@ -754,7 +919,7 @@ export default function SettingsPage() {
                   <CardContent>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                       <Typography variant="body2" color="textSecondary">
-                        Son şifre değişikliği: 15 gün önce
+                        Son şifre değişikliği: {getTimeAgo(lastPasswordChange)}
                       </Typography>
                       <Button
                         variant="outlined"

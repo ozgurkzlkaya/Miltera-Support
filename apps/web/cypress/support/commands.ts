@@ -64,16 +64,16 @@ Cypress.Commands.add('createIssue', (issueData: any) => {
 });
 
 // Utility commands
-Cypress.Commands.add('waitForPageLoad', () => {
-  cy.get('[data-testid="loading-spinner"]', { timeout: 10000 }).should('not.exist');
-});
+// Cypress.Commands.add('waitForPageLoad', () => {
+//   cy.get('[data-testid="loading-spinner"]', { timeout: 10000 }).should('not.exist');
+// });
 
-Cypress.Commands.add('clearDatabase', () => {
-  // This would typically call an API endpoint to clear test data
-  cy.request('POST', '/api/test/clear-database');
-});
+// Cypress.Commands.add('clearDatabase', () => {
+//   // This would typically call an API endpoint to clear test data
+//   cy.request('POST', '/api/test/clear-database');
+// });
 
-Cypress.Commands.add('seedTestData', () => {
-  // This would typically call an API endpoint to seed test data
-  cy.request('POST', '/api/test/seed-data');
-});
+// Cypress.Commands.add('seedTestData', () => {
+//   // This would typically call an API endpoint to seed test data
+//   cy.request('POST', '/api/test/seed-data');
+// });

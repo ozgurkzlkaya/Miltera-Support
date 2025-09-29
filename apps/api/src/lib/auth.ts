@@ -89,6 +89,47 @@ export const verifyToken = (token: string) => {
   }
 };
 
+export const changePassword = async (userId: string, currentPassword: string, newPassword: string) => {
+  try {
+    // Mevcut şifreyi doğrula
+    const [account] = await db.select().from(schema.accounts)
+      .where(eq(schema.accounts.userId, userId));
+
+    if (!account || !account.password) {
+      throw new Error("Account not found");
+    }
+
+    const isValidPassword = await bcrypt.compare(currentPassword, account.password);
+    if (!isValidPassword) {
+      throw new Error("Current password is incorrect");
+    }
+
+    // Yeni şifreyi hash'le ve güncelle
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    const now = new Date();
+    
+    await db.update(schema.accounts)
+      .set({ 
+        password: hashedNewPassword,
+        updatedAt: now
+      })
+      .where(eq(schema.accounts.userId, userId));
+    
+    // Users tablosunda lastPasswordChange tarihini güncelle
+    await db.update(schema.users)
+      .set({ 
+        lastPasswordChange: now,
+        updatedAt: now
+      })
+      .where(eq(schema.users.id, userId));
+
+    return { success: true };
+  } catch (error) {
+    console.error("Password change error:", error);
+    throw error;
+  }
+};
+
 // Hono context'ten auth bilgilerini al
 export const getAuth = async (c: any) => {
   try {

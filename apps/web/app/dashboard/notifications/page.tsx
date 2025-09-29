@@ -198,27 +198,45 @@ export default function NotificationsPage() {
         };
 
         // Gerçek API'den bildirimleri çek
-        const response = await fetch('http://localhost:3011/api/v1/notifications', { headers });
+        const response = await fetch('http://localhost:3015/api/v1/notifications', { headers });
         
         if (response.ok) {
           const data = await response.json();
-          setNotifications(data.data || []);
+          // API response yapısını kontrol et: { success: true, data: { data: [], pagination: {} } }
+          const apiNotifications = data.data?.data || [];
+          
+          // API'den gelen data'yı frontend formatına dönüştür
+          const notificationsData = apiNotifications.map((apiNotification: Record<string, unknown>) => ({
+            id: String(apiNotification.id),
+            title: String(apiNotification.title),
+            message: String(apiNotification.message),
+            type: String(apiNotification.type),
+            isRead: Boolean(apiNotification.read),
+            createdAt: String(apiNotification.createdAt),
+            priority: String(apiNotification.priority),
+            category: String(apiNotification.category),
+            sender: {
+              id: String(apiNotification.createdBy || 'system'),
+              name: 'Sistem' // Default sender name
+            }
+          }));
+          
+          setNotifications(notificationsData);
           
           // İstatistikleri hesapla
-          const notifications = data.data || [];
           const stats: NotificationStats = {
-            total: notifications.length,
-            unread: notifications.filter((n: Notification) => !n.isRead).length,
+            total: notificationsData.length,
+            unread: notificationsData.filter((n: Notification) => !n.isRead).length,
             byType: {
-              info: notifications.filter((n: Notification) => n.type === 'info').length,
-              warning: notifications.filter((n: Notification) => n.type === 'warning').length,
-              error: notifications.filter((n: Notification) => n.type === 'error').length,
-              success: notifications.filter((n: Notification) => n.type === 'success').length,
+              info: notificationsData.filter((n: Notification) => n.type === 'info').length,
+              warning: notificationsData.filter((n: Notification) => n.type === 'warning').length,
+              error: notificationsData.filter((n: Notification) => n.type === 'error').length,
+              success: notificationsData.filter((n: Notification) => n.type === 'success').length,
             },
             byPriority: {
-              low: notifications.filter((n: Notification) => n.priority === 'low').length,
-              medium: notifications.filter((n: Notification) => n.priority === 'medium').length,
-              high: notifications.filter((n: Notification) => n.priority === 'high').length,
+              low: notificationsData.filter((n: Notification) => n.priority === 'low').length,
+              medium: notificationsData.filter((n: Notification) => n.priority === 'medium').length,
+              high: notificationsData.filter((n: Notification) => n.priority === 'high').length,
             }
           };
           setStats(stats);
@@ -280,18 +298,63 @@ export default function NotificationsPage() {
     }
   };
 
-  const handleDeleteNotification = (notificationId: string) => {
+  const handleDeleteNotification = async (notificationId: string) => {
     if (window.confirm('Bu bildirimi silmek istediğinizden emin misiniz?')) {
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
-      setSnackbar({
-        open: true,
-        message: 'Bildirim başarıyla silindi',
-        severity: 'success'
-      });
+      try {
+        const token = localStorage.getItem('auth_token');
+        const headers = {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        };
+
+        const response = await fetch(`http://localhost:3015/api/v1/notifications/${notificationId}`, {
+          method: 'DELETE',
+          headers
+        });
+
+        if (response.ok) {
+          // API'den başarılı silme sonrası local state'i güncelle
+          setNotifications(prev => prev.filter(n => n.id !== notificationId));
+          
+          // İstatistikleri yeniden hesapla
+          const updatedNotifications = notifications.filter(n => n.id !== notificationId);
+          setStats(prev => prev ? {
+            ...prev,
+            total: updatedNotifications.length,
+            unread: updatedNotifications.filter(n => !n.isRead).length,
+            byType: {
+              info: updatedNotifications.filter(n => n.type === 'info').length,
+              warning: updatedNotifications.filter(n => n.type === 'warning').length,
+              error: updatedNotifications.filter(n => n.type === 'error').length,
+              success: updatedNotifications.filter(n => n.type === 'success').length,
+            },
+            byPriority: {
+              low: updatedNotifications.filter(n => n.priority === 'low').length,
+              medium: updatedNotifications.filter(n => n.priority === 'medium').length,
+              high: updatedNotifications.filter(n => n.priority === 'high').length,
+            }
+          } : null);
+
+          setSnackbar({
+            open: true,
+            message: 'Bildirim başarıyla silindi',
+            severity: 'success'
+          });
+        } else {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+      } catch (error) {
+        console.error('❌ Error deleting notification:', error);
+        setSnackbar({
+          open: true,
+          message: `Bildirim silinirken hata oluştu: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`,
+          severity: 'error'
+        });
+      }
     }
   };
 
-  const handleSaveNotification = () => {
+  const handleSaveNotification = async () => {
     if (!formData.title || !formData.message) {
       setSnackbar({
         open: true,
@@ -301,38 +364,153 @@ export default function NotificationsPage() {
       return;
     }
 
-    const newNotification: Notification = {
-      id: Date.now().toString(),
-      title: formData.title,
-      message: formData.message,
-      type: formData.type as any,
-      isRead: false,
-      createdAt: new Date().toISOString(),
-      priority: formData.priority as any,
-      category: formData.category,
-      sender: {
-        id: '1',
-        name: 'Mevcut Kullanıcı'
-      }
-    };
+    try {
+      // API'ye bildirim gönder
+      const response = await fetch('http://localhost:3015/api/v1/notifications', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: formData.title,
+          message: formData.message,
+          type: formData.type,
+          priority: formData.priority,
+          category: formData.category === 'general' ? 'system' : formData.category
+        })
+      });
 
-    setNotifications(prev => [newNotification, ...prev]);
-    setOpenCreateDialog(false);
-    setSnackbar({
-      open: true,
-      message: `Bildirim "${newNotification.title}" başarıyla oluşturuldu`,
-      severity: 'success'
-    });
+      if (response.ok) {
+        const result = await response.json();
+        
+        // Local state'e ekle
+        const newNotification: Notification = {
+          id: result.data.id || Date.now().toString(),
+          title: formData.title,
+          message: formData.message,
+          type: formData.type as any,
+          isRead: false,
+          createdAt: new Date().toISOString(),
+          priority: formData.priority as any,
+          category: formData.category,
+          sender: {
+            id: '1',
+            name: 'Mevcut Kullanıcı'
+          }
+        };
+
+        setNotifications(prev => [newNotification, ...prev]);
+        
+        // İstatistikleri güncelle
+        setStats(prev => prev ? {
+          ...prev,
+          total: prev.total + 1,
+          unread: prev.unread + 1,
+          byType: {
+            ...prev.byType,
+            [newNotification.type]: (prev.byType[newNotification.type] || 0) + 1
+          },
+          byPriority: {
+            ...prev.byPriority,
+            [newNotification.priority]: (prev.byPriority[newNotification.priority] || 0) + 1
+          }
+        } : null);
+        
+        setOpenCreateDialog(false);
+        setSnackbar({
+          open: true,
+          message: `Bildirim "${newNotification.title}" başarıyla oluşturuldu`,
+          severity: 'success'
+        });
+      } else {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('❌ Error creating notification:', error);
+      setSnackbar({
+        open: true,
+        message: `Bildirim oluşturulurken hata oluştu: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`,
+        severity: 'error'
+      });
+    }
   };
 
-  const handleMarkAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-    setStats(prev => prev ? { ...prev, unread: 0 } : null);
-    setSnackbar({
-      open: true,
-      message: 'Tüm bildirimler okundu olarak işaretlendi',
-      severity: 'success'
-    });
+  const handleMarkAsRead = async (notificationId: string) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` })
+      };
+
+      const response = await fetch(`http://localhost:3015/api/v1/notifications/${notificationId}/mark-read`, {
+        method: 'PATCH',
+        headers
+      });
+
+      if (response.ok) {
+        // API'den başarılı işlem sonrası local state'i güncelle
+        setNotifications(prev => prev.map(n => 
+          n.id === notificationId ? { ...n, isRead: true } : n
+        ));
+        
+        // İstatistikleri güncelle
+        setStats(prev => prev ? { 
+          ...prev, 
+          unread: Math.max(0, prev.unread - 1) 
+        } : null);
+
+        setSnackbar({
+          open: true,
+          message: 'Bildirim okundu olarak işaretlendi',
+          severity: 'success'
+        });
+      } else {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('❌ Error marking as read:', error);
+      setSnackbar({
+        open: true,
+        message: `Bildirim işaretlenirken hata oluştu: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`,
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` })
+      };
+
+      const response = await fetch('http://localhost:3015/api/v1/notifications/mark-all-read', {
+        method: 'PATCH',
+        headers
+      });
+
+      if (response.ok) {
+        // API'den başarılı işlem sonrası local state'i güncelle
+        setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+        setStats(prev => prev ? { ...prev, unread: 0 } : null);
+        setSnackbar({
+          open: true,
+          message: 'Tüm bildirimler okundu olarak işaretlendi',
+          severity: 'success'
+        });
+      } else {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('❌ Error marking all as read:', error);
+      setSnackbar({
+        open: true,
+        message: `Bildirimler işaretlenirken hata oluştu: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`,
+        severity: 'error'
+      });
+    }
   };
 
   const filteredNotifications = notifications.filter(notification => {
@@ -561,6 +739,9 @@ export default function NotificationsPage() {
                         label={notification.isRead ? 'Okundu' : 'Okunmadı'}
                         color={notification.isRead ? 'success' : 'warning'}
                         size="small"
+                        clickable={!notification.isRead}
+                        onClick={!notification.isRead ? () => handleMarkAsRead(notification.id) : undefined}
+                        sx={{ cursor: !notification.isRead ? 'pointer' : 'default' }}
                       />
                     </TableCell>
                     <TableCell>

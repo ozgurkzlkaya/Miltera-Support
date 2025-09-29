@@ -29,6 +29,7 @@ import {
   Add as AddIcon, 
   Edit as EditIcon, 
   Delete as DeleteIcon,
+  Visibility as ViewIcon,
   Business as BusinessIcon,
   Email as EmailIcon,
   Phone as PhoneIcon,
@@ -51,6 +52,7 @@ interface Company {
   contactPersonEmail?: string;
   contactPersonPhone?: string;
   isManufacturer?: boolean;
+  industry?: string;
   createdAt: string;
 }
 
@@ -61,8 +63,14 @@ const CompaniesPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterIndustry, setFilterIndustry] = useState("");
+  const [filterManufacturer, setFilterManufacturer] = useState("");
+  const [sortBy, setSortBy] = useState("name");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [openModal, setOpenModal] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const [openDetailsModal, setOpenDetailsModal] = useState(false);
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -95,8 +103,8 @@ const CompaniesPage = () => {
         };
 
         const [companiesRes, usersRes] = await Promise.all([
-          fetch('http://localhost:3011/api/v1/companies', { headers }),
-          fetch('http://localhost:3011/api/v1/users', { headers }).catch(() => null)
+          fetch('http://localhost:3015/api/v1/companies', { headers }),
+          fetch('http://localhost:3015/api/v1/users', { headers }).catch(() => null)
         ]);
 
         if (companiesRes?.ok) {
@@ -207,7 +215,7 @@ const CompaniesPage = () => {
 
       if (editingCompany) {
         // Update existing company
-        const response = await fetch(`http://localhost:3011/api/v1/companies/${editingCompany.id}`, {
+        const response = await fetch(`http://localhost:3015/api/v1/companies/${editingCompany.id}`, {
           method: 'PUT',
           headers,
           body: JSON.stringify(formData)
@@ -228,7 +236,7 @@ const CompaniesPage = () => {
         }
       } else {
         // Add new company
-        const response = await fetch('http://localhost:3011/api/v1/companies', {
+        const response = await fetch('http://localhost:3015/api/v1/companies', {
           method: 'POST',
           headers,
           body: JSON.stringify(formData)
@@ -267,7 +275,7 @@ const CompaniesPage = () => {
           ...(token && { 'Authorization': `Bearer ${token}` })
         };
 
-        const response = await fetch(`http://localhost:3011/api/v1/companies/${companyId}`, {
+        const response = await fetch(`http://localhost:3015/api/v1/companies/${companyId}`, {
           method: 'DELETE',
           headers
         });
@@ -293,11 +301,45 @@ const CompaniesPage = () => {
     }
   };
 
-  const filteredCompanies = companies.filter(company =>
-    company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    company.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (company.industry || "").toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Gelişmiş filtreleme ve sıralama
+  const filteredAndSortedCompanies = companies
+    .filter(company => {
+      const matchesSearch = company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        company.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (company.industry || "").toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesIndustry = !filterIndustry || company.industry === filterIndustry;
+      const matchesManufacturer = filterManufacturer === "" || 
+        (filterManufacturer === "true" && company.isManufacturer) ||
+        (filterManufacturer === "false" && !company.isManufacturer);
+      
+      return matchesSearch && matchesIndustry && matchesManufacturer;
+    })
+    .sort((a, b) => {
+      let aValue: any = a[sortBy as keyof Company];
+      let bValue: any = b[sortBy as keyof Company];
+      
+      if (aValue === undefined || aValue === null) aValue = "";
+      if (bValue === undefined || bValue === null) bValue = "";
+      
+      if (typeof aValue === "string") aValue = aValue.toLowerCase();
+      if (typeof bValue === "string") bValue = bValue.toLowerCase();
+      
+      if (sortOrder === "asc") {
+        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      } else {
+        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+      }
+    });
+
+  // Şirket detaylarını görüntüle
+  const handleViewCompany = (company: Company) => {
+    setSelectedCompany(company);
+    setOpenDetailsModal(true);
+  };
+
+  // Benzersiz sektörleri al
+  const uniqueIndustries = Array.from(new Set(companies.map(c => c.industry).filter(Boolean)));
 
   return (
     <Box sx={{ p: 3 }}>
@@ -416,7 +458,7 @@ const CompaniesPage = () => {
       {/* Search and Filter */}
       <Card sx={{ borderRadius: 2, boxShadow: 1, mb: 3 }}>
         <CardContent sx={{ p: 2 }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
             <Box sx={{ display: "flex", alignItems: "center", flex: 1 }}>
               <SearchIcon sx={{ color: "text.secondary", mr: 1 }} />
               <input
@@ -433,11 +475,72 @@ const CompaniesPage = () => {
                 }}
               />
             </Box>
-            <Tooltip title="Filtreler">
-              <IconButton>
-                <FilterIcon />
-              </IconButton>
-            </Tooltip>
+          </Box>
+          
+          {/* Gelişmiş Filtreler */}
+          <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center" }}>
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel>Sektör</InputLabel>
+              <Select
+                value={filterIndustry}
+                onChange={(e) => setFilterIndustry(e.target.value)}
+                label="Sektör"
+              >
+                <MenuItem value="">Tümü</MenuItem>
+                {uniqueIndustries.map(industry => (
+                  <MenuItem key={industry} value={industry}>{industry}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel>Üretici</InputLabel>
+              <Select
+                value={filterManufacturer}
+                onChange={(e) => setFilterManufacturer(e.target.value)}
+                label="Üretici"
+              >
+                <MenuItem value="">Tümü</MenuItem>
+                <MenuItem value="true">Üretici</MenuItem>
+                <MenuItem value="false">Müşteri</MenuItem>
+              </Select>
+            </FormControl>
+            
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel>Sırala</InputLabel>
+              <Select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                label="Sırala"
+              >
+                <MenuItem value="name">İsim</MenuItem>
+                <MenuItem value="email">E-posta</MenuItem>
+                <MenuItem value="createdAt">Tarih</MenuItem>
+              </Select>
+            </FormControl>
+            
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+              startIcon={sortOrder === "asc" ? "↑" : "↓"}
+            >
+              {sortOrder === "asc" ? "Artan" : "Azalan"}
+            </Button>
+            
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => {
+                setSearchTerm("");
+                setFilterIndustry("");
+                setFilterManufacturer("");
+                setSortBy("name");
+                setSortOrder("asc");
+              }}
+            >
+              Temizle
+            </Button>
           </Box>
         </CardContent>
       </Card>
@@ -445,7 +548,7 @@ const CompaniesPage = () => {
       {/* Companies List */}
       {!loading && (
         <Grid container spacing={3}>
-          {filteredCompanies.map((company) => (
+          {filteredAndSortedCompanies.map((company) => (
           <Grid item xs={12} md={6} lg={4} key={company.id}>
             <Card 
               sx={{ 
@@ -478,6 +581,16 @@ const CompaniesPage = () => {
                   </Box>
                   
                   <Box sx={{ display: "flex", gap: 1 }}>
+                    <Tooltip title="Görüntüle">
+                      <IconButton 
+                        size="small" 
+                        onClick={() => handleViewCompany(company)}
+                        sx={{ color: "info.main" }}
+                      >
+                        <ViewIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    
                     <Tooltip title="Düzenle">
                       <IconButton 
                         size="small" 
@@ -535,7 +648,7 @@ const CompaniesPage = () => {
         </Grid>
       )}
 
-      {!loading && filteredCompanies.length === 0 && (
+      {!loading && filteredAndSortedCompanies.length === 0 && (
         <Card sx={{ borderRadius: 2, textAlign: "center", p: 4 }}>
           <Typography variant="h6" color="textSecondary">
             Arama kriterlerinize uygun şirket bulunamadı
@@ -678,6 +791,110 @@ const CompaniesPage = () => {
             sx={{ borderRadius: 2 }}
           >
             {editingCompany ? "Güncelle" : "Kaydet"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Company Details Modal */}
+      <Dialog 
+        open={openDetailsModal} 
+        onClose={() => setOpenDetailsModal(false)}
+        maxWidth="md"
+        fullWidth
+        sx={{
+          "& .MuiDialog-paper": {
+            borderRadius: 2
+          }
+        }}
+      >
+        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Şirket Detayları
+          </Typography>
+          <IconButton onClick={() => setOpenDetailsModal(false)} size="small">
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        
+        <DialogContent sx={{ p: 3 }}>
+          {selectedCompany && (
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+                  <Avatar sx={{ bgcolor: "primary.main", width: 56, height: 56 }}>
+                    <BusinessIcon />
+                  </Avatar>
+                  <Box>
+                    <Typography variant="h5" sx={{ fontWeight: 600 }}>
+                      {selectedCompany.name}
+                    </Typography>
+                    {selectedCompany.isManufacturer && (
+                      <Chip label="Üretici" color="primary" size="small" sx={{ mt: 0.5 }} />
+                    )}
+                  </Box>
+                </Box>
+              </Grid>
+              
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                  İletişim Bilgileri
+                </Typography>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+                  <EmailIcon sx={{ fontSize: 16, color: "text.secondary" }} />
+                  <Typography variant="body2">{selectedCompany.email}</Typography>
+                </Box>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+                  <PhoneIcon sx={{ fontSize: 16, color: "text.secondary" }} />
+                  <Typography variant="body2">{selectedCompany.phone}</Typography>
+                </Box>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+                  <LocationIcon sx={{ fontSize: 16, color: "text.secondary" }} />
+                  <Typography variant="body2">{selectedCompany.address}</Typography>
+                </Box>
+              </Grid>
+              
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                  Ek Bilgiler
+                </Typography>
+                {selectedCompany.industry && (
+                  <Box sx={{ mb: 1 }}>
+                    <Typography variant="body2" color="textSecondary">Sektör:</Typography>
+                    <Typography variant="body2">{selectedCompany.industry}</Typography>
+                  </Box>
+                )}
+                {selectedCompany.contactPersonName && (
+                  <Box sx={{ mb: 1 }}>
+                    <Typography variant="body2" color="textSecondary">İletişim Kişisi:</Typography>
+                    <Typography variant="body2">
+                      {selectedCompany.contactPersonName} {selectedCompany.contactPersonSurname}
+                    </Typography>
+                  </Box>
+                )}
+                <Box sx={{ mb: 1 }}>
+                  <Typography variant="body2" color="textSecondary">Oluşturulma Tarihi:</Typography>
+                  <Typography variant="body2">
+                    {new Date(selectedCompany.createdAt).toLocaleDateString('tr-TR')}
+                  </Typography>
+                </Box>
+              </Grid>
+            </Grid>
+          )}
+        </DialogContent>
+        
+        <DialogActions sx={{ p: 3, pt: 0 }}>
+          <Button onClick={() => setOpenDetailsModal(false)} color="inherit">
+            Kapat
+          </Button>
+          <Button 
+            variant="contained" 
+            onClick={() => {
+              setOpenDetailsModal(false);
+              handleOpenModal(selectedCompany!);
+            }}
+            startIcon={<EditIcon />}
+          >
+            Düzenle
           </Button>
         </DialogActions>
       </Dialog>

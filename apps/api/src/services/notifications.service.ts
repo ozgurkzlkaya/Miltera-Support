@@ -130,9 +130,11 @@ export class NotificationsService {
     expiresAt?: Date;
     tags?: string[];
   }) {
-    const [notification] = await db
-      .insert(notifications)
-      .values({
+    try {
+      console.log('📝 Creating notification with data:', data);
+      
+      // Notification data hazırla
+      const notificationData = {
         title: data.title,
         message: data.message,
         type: data.type,
@@ -140,17 +142,31 @@ export class NotificationsService {
         category: data.category,
         userId: data.userId,
         createdBy: data.createdBy,
-        description: data.description,
         source: data.source || 'system',
         channels: data.channels || ['in-app'],
-        expiresAt: data.expiresAt,
         tags: data.tags || [],
+        description: data.description || null,
+        expiresAt: data.expiresAt || null,
         read: false,
-        createdAt: new Date()
-      })
-      .returning();
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      console.log('📊 Notification data to insert:', notificationData);
+      
+      const [notification] = await db
+        .insert(notifications)
+        .values(notificationData)
+        .returning();
 
-    return notification;
+      console.log('✅ Notification created successfully:', notification);
+      return notification;
+    } catch (error) {
+      console.error('❌ Error creating notification:', error);
+      console.error('❌ Error details:', (error as Error).message);
+      console.error('❌ Error stack:', (error as Error).stack);
+      throw error;
+    }
   }
 
   async getNotificationStats(userId: string): Promise<NotificationStats> {

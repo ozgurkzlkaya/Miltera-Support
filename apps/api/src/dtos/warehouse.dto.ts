@@ -89,7 +89,7 @@ export const InventoryCountItemSchema = z.object({
 export const InventoryCountSchema = z.object({
   locationId: z.string().uuid(),
   countedBy: z.string().uuid(),
-  counts: z.array(InventoryCountItemSchema),
+  countedItems: z.array(InventoryCountItemSchema),
 });
 
 // Type exports

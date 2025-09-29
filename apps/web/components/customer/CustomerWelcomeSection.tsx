@@ -30,7 +30,7 @@ export const CustomerWelcomeSection = ({
       }}
     >
       <Grid container spacing={3}>
-        <Grid size={{ xs: 12, md: 8 }}>
+        <Grid xs={12} md={8}>
           <Typography variant="h4" gutterBottom>
             Hoş Geldiniz, {customerInfo.companyName}
           </Typography>
@@ -39,7 +39,7 @@ export const CustomerWelcomeSection = ({
             edin, arıza kayıtlarını görüntüleyin ve destek alın.
           </Typography>
         </Grid>
-        <Grid size={{ xs: 12, md: 4 }} sx={{ textAlign: "center" }}>
+        <Grid xs={12} md={4} sx={{ textAlign: "center" }}>
           <Avatar
             sx={{
               width: 80,

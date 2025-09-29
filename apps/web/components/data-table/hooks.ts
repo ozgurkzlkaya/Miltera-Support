@@ -4,8 +4,14 @@ import {
   type ColumnFiltersState,
   type PaginationState,
 } from "@tanstack/react-table";
-import { type Query } from "@miltera/helpers/query-builder";
 import { type TableColumn } from "./types";
+
+interface Query {
+  pagination?: { page: number; pageSize: number };
+  sorting?: SortingState;
+  filters?: Record<string, Record<string, any>>;
+  globalFilter?: string;
+}
 
 const useDataTableQuery = (initialQuery?: Query) => {
   const [query, setQuery] = useState<Query>(initialQuery ?? {});

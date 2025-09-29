@@ -1,0 +1,184 @@
+import {
+  MutationOptions,
+  anyOptions,
+  useMutation,
+  useany,
+} from "@tanstack/react-any";
+import {
+  getanyClient,
+  mergeMutationConfig,
+  MutationConfig,
+  type anyConfig,
+} from "../../lib/react-any";
+import { callRPC, client } from "../../lib/rpc";
+import {
+  type any,
+  temporaryObjectany,
+} from "@miltera/helpers/any-builder";
+
+const getUsers = async (any?: any) => {
+  const result = await callRPC(
+    client.api.v1["users"].$get({
+      any: any ? temporaryObjectany(any) : undefined,
+    })
+  );
+
+  return result;
+};
+
+const getUser = async (id: string) => {
+  const result = await callRPC(
+    client.api.v1["users"][":id"].$get({
+      param: {
+        id,
+      },
+    })
+  );
+
+  return result;
+};
+
+const createUser = async (payload: any) => {
+  const result = await callRPC(
+    client.api.v1["users"].$post({
+      json: payload,
+    })
+  );
+
+  return result;
+};
+
+const updateUser = async (id: string, payload: any) => {
+  const result = await callRPC(
+    client.api.v1["users"][":id"].$put({
+      param: {
+        id,
+      },
+      //@ts-expect-error
+      json: payload,
+    })
+  );
+
+  return result;
+};
+
+const deleteUser = async (id: string) => {
+  await callRPC(
+    client.api.v1["users"][":id"].$delete({
+      param: {
+        id,
+      },
+    })
+  );
+};
+
+const userQueries = {
+  _all: () => ["users"] as const,
+  _list: () => [...userQueries._all(), "list"] as const,
+  _detail: () => [...userQueries._all(), "detail"] as const,
+
+  list: (any?: any) =>
+    anyOptions({
+      anyKey: [...userQueries._list(), any] as const,
+      anyFn: () => getUsers(any),
+    }),
+  detail: (id: string) =>
+    anyOptions({
+      anyKey: [...userQueries._detail(), id] as const,
+      anyFn: () => getUser(id),
+    }),
+};
+
+const userMutations = {
+  create: () =>
+    ({
+      mutationKey: [...userQueries._all(), "create"] as const,
+      mutationFn: ({ payload }: { payload: any }) => createUser(payload),
+      onSuccess() {
+        const anyClient = getanyClient();
+
+        anyClient.invalidateQueries({
+          anyKey: userQueries._list(),
+        });
+      },
+    }) satisfies MutationOptions<any, any, any>,
+  update: () =>
+    ({
+      mutationKey: [...userQueries._all(), "update"] as const,
+      mutationFn: ({ id, payload }: { id: string; payload: any }) =>
+        updateUser(id, payload),
+      onSuccess(_, { id }) {
+        const anyClient = getanyClient();
+
+        anyClient.invalidateQueries({
+          anyKey: userQueries._list(),
+        });
+        anyClient.invalidateQueries(userQueries.detail(id));
+      },
+    }) satisfies MutationOptions<any, any, any>,
+  delete: () =>
+    ({
+      mutationKey: [...userQueries._all(), "delete"] as const,
+      mutationFn: ({ id }: { id: string }) => deleteUser(id),
+      onSuccess() {
+        const anyClient = getanyClient();
+
+        anyClient.invalidateQueries({
+          anyKey: userQueries._list(),
+        });
+      },
+    }) satisfies MutationOptions<any, any, any>,
+};
+
+type UseUsersOptions = {
+  any?: any;
+  config?: anyConfig<(typeof userQueries)["list"]>;
+};
+
+type UseCreateUserOptions = {
+  mutationConfig?: MutationConfig<ReturnType<typeof userMutations.create>>;
+};
+
+type UseUpdateUserOptions = {
+  mutationConfig?: MutationConfig<ReturnType<typeof userMutations.update>>;
+};
+
+type UseDeleteUserOptions = {
+  mutationConfig?: MutationConfig<ReturnType<typeof userMutations.delete>>;
+};
+
+const useUsers = ({ any, config }: UseUsersOptions = {}) => {
+  return useany({
+    ...userQueries.list(any),
+    ...config,
+  });
+};
+
+const useCreateUser = ({ mutationConfig }: UseCreateUserOptions = {}) => {
+  return useMutation(
+    mergeMutationConfig(userMutations.create(), mutationConfig ?? {})
+  );
+};
+
+const useUpdateUser = ({ mutationConfig }: UseUpdateUserOptions = {}) => {
+  return useMutation(
+    mergeMutationConfig(userMutations.update(), mutationConfig ?? {})
+  );
+};
+
+const useDeleteUser = ({ mutationConfig }: UseDeleteUserOptions = {}) => {
+  return useMutation(
+    mergeMutationConfig(userMutations.delete(), mutationConfig ?? {})
+  );
+};
+
+export { getUsers, getUser };
+export { userQueries, useUsers };
+export { userMutations, useCreateUser, useUpdateUser, useDeleteUser };
+
+export type {
+  UseUsersOptions,
+  UseCreateUserOptions,
+  UseUpdateUserOptions,
+  UseDeleteUserOptions,
+};

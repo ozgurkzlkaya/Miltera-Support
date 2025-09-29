@@ -195,12 +195,59 @@ const destroy = createRoute({
   },  
 });
 
+// Add product to issue route
+const addProduct = createRoute({
+  method: "post",
+  path: "/:id/products",
+  request: {
+    params: z.object({
+      id: z.string().uuid(),
+    }),
+    body: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            productId: z.string().uuid(),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        "application/json": {
+          schema: buildResponseSuccessSchema(IssueSchema),
+        },
+      },
+      description: "Product added to issue successfully",
+    },
+    404: {
+      content: {
+        "application/json": {
+          schema: Error404Schema,
+        },
+      },
+      description: "Issue not found",
+    },
+    500: {
+      content: {
+        "application/json": {
+          schema: Error500Schema,
+        },
+      },
+      description: "Internal server error",
+    },
+  },
+});
+
 const issuesRoute = createRouter<HonoEnv>()
   // .use("*", authMiddleware) // Geçici olarak kaldırıldı
   .openapi(list, IssueController.list)
   .openapi(show, IssueController.show)
   .openapi(create, IssueController.create)
   .openapi(update, IssueController.update)
-  .openapi(destroy, IssueController.destroy);
+  .openapi(destroy, IssueController.destroy)
+  .openapi(addProduct, IssueController.addProduct);
 
 export default issuesRoute;

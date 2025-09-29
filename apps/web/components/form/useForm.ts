@@ -8,7 +8,7 @@ import {
   UseControllerProps,
 } from "react-hook-form";
 
-import { get, set } from "lodash-es";
+// import { get, set } from "lodash-es";
 import type { FormField } from "./types";
 
 interface UseFormReturn<
@@ -40,10 +40,10 @@ const useForm = <
       const defaultValues: FieldValues = {};
       fields.forEach((field) => {
         const fieldValue = item
-          ? get(item, field.accessorKey || field.id)
+          ? (item as any)[field.accessorKey || field.id]
           : field.defaultValue;
 
-        set(defaultValues, field.id, fieldValue);
+        (defaultValues as any)[field.id] = fieldValue;
       });
       return defaultValues;
     },

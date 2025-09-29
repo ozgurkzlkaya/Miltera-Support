@@ -14,6 +14,7 @@ import { FormField } from "../../../../components/form/types";
 import {
   DataTable,
   useDataTableQuery,
+  TableColumn,
 } from "../../../../components/data-table";
 
 const columns: TableColumn[] = [
@@ -74,12 +75,7 @@ export default function ProductTypesPage() {
     handleGlobalFilterChange,
   } = useDataTableQuery();
 
-  const productTypesQueryResult = useProductTypes({
-    query,
-    config: {
-      placeholderData: keepPreviousData,
-    },
-  });
+  const productTypesQueryResult = useProductTypes();
 
   const createMutation = useCreateProductType();
   const updateMutation = useUpdateProductType();
@@ -96,9 +92,9 @@ export default function ProductTypesPage() {
         onSortingChange={handleSortingChange}
         onFilterChange={(filters) => handleFilterChange(filters, columns)}
         onGlobalFilterChange={handleGlobalFilterChange}
-        onAdd={(data) => createMutation.mutateAsync({ payload: data })}
-        onEdit={(id, data) => updateMutation.mutateAsync({ id, payload: data })}
-        onDelete={(id) => deleteMutation.mutateAsync({ id })}
+        onAdd={async (data) => createMutation.mutate(data)}
+        onEdit={async (id, data) => updateMutation.mutate({ id, data })}
+        onDelete={async (id) => deleteMutation.mutate(id)}
         // onRefresh={() => productTypesQueryResult.refetch()}
       />
     </Box>

@@ -50,7 +50,7 @@ export const CustomerStatsGrid = ({ stats, onStatClick }: CustomerStatsGridProps
   return (
     <Grid container spacing={3} sx={{ mb: 3 }}>
       {statItems.map((item) => (
-        <Grid key={item.key} size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid key={item.key} xs={12} sm={6} md={3}>
           <Card 
             sx={{ 
               textAlign: "center", 

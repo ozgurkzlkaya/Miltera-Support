@@ -50,21 +50,17 @@ export default function ChangePasswordPage() {
     }
     
     return new Promise<void>((resolve, reject) => {
-      authClient.resetPassword(
-        {
-          newPassword: data.newPassword,
-          token,
-        },
-        {
-          onSuccess: () => {
-            router.push("/auth");
-            resolve();
-          },
-          onError: (error) => {
-            reject(error);
-          },
-        }
-      );
+      authClient.resetPassword({
+        newPassword: data.newPassword,
+        token,
+      })
+      .then(() => {
+        router.push("/auth");
+        resolve();
+      })
+      .catch((error) => {
+        reject(error);
+      });
     });
   };
 

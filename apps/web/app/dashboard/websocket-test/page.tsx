@@ -19,7 +19,6 @@ import {
   Divider,
 } from '@mui/material';
 import { useWebSocket } from '../../../lib/websocket';
-import { callRPC, client } from '../../../lib/rpc';
 
 interface WebSocketStatus {
   isConnected: boolean;
@@ -52,8 +51,15 @@ export default function WebSocketTestPage() {
   // Get WebSocket status
   const getStatus = async () => {
     try {
-      const response = await callRPC(client.api.v1.websocket.status.get());
-      setStatus(response.data);
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('http://localhost:3015/api/v1/websocket/status', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!response.ok) throw new Error('Failed to fetch WebSocket status');
+      const data = await response.json();
+      setStatus(data.data);
     } catch (error) {
       console.error('Error getting WebSocket status:', error);
     }
@@ -66,13 +72,19 @@ export default function WebSocketTestPage() {
     setSuccess(null);
 
     try {
-      const response = await callRPC(
-        client.api.v1.websocket['test-notification'].post({
-          json: testForm,
-        })
-      );
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('http://localhost:3015/api/v1/websocket/test-notification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(testForm)
+      });
+      if (!response.ok) throw new Error('Failed to send test notification');
+      const data = await response.json();
 
-      setSuccess(`Test notification sent successfully to ${response.data.sentTo} users`);
+      setSuccess(`Test notification sent successfully to ${data.data.sentTo} users`);
       setTestForm({
         type: 'system_alert',
         title: '',
@@ -95,13 +107,19 @@ export default function WebSocketTestPage() {
     setSuccess(null);
 
     try {
-      const response = await callRPC(
-        client.api.v1.websocket['system-alert'].post({
-          json: systemAlertForm,
-        })
-      );
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('http://localhost:3015/api/v1/websocket/system-alert', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(systemAlertForm)
+      });
+      if (!response.ok) throw new Error('Failed to send system alert');
+      const data = await response.json();
 
-      setSuccess(`System alert sent successfully to ${response.data.sentTo} users`);
+      setSuccess(`System alert sent successfully to ${data.data.sentTo} users`);
       setSystemAlertForm({
         title: '',
         message: '',

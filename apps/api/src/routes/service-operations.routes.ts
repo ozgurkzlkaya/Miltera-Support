@@ -140,7 +140,7 @@ const getServiceOperationsRoute = createRoute({
 // Get service operation by ID route
 const getServiceOperationRoute = createRoute({
   method: 'get',
-  path: '/service-operations/{id}',
+  path: '/{id}',
   tags: ['Service Operations'],
   summary: 'Get service operation by ID',
   request: {
@@ -179,7 +179,7 @@ const getServiceOperationRoute = createRoute({
 // Update service operation route
 const updateServiceOperationRoute = createRoute({
   method: 'put',
-  path: '/service-operations/{id}',
+  path: '/{id}',
   tags: ['Service Operations'],
   summary: 'Update service operation',
   request: {
@@ -233,7 +233,7 @@ const updateServiceOperationRoute = createRoute({
 // Delete service operation route
 const deleteServiceOperationRoute = createRoute({
   method: 'delete',
-  path: '/service-operations/{id}',
+  path: '/{id}',
   tags: ['Service Operations'],
   summary: 'Delete service operation',
   request: {
@@ -272,7 +272,7 @@ const deleteServiceOperationRoute = createRoute({
 // Get technician performance route
 const getTechnicianPerformanceRoute = createRoute({
   method: 'get',
-  path: '/service-operations/technician/{technicianId}/performance',
+  path: '/technician/{technicianId}/performance',
   tags: ['Service Operations'],
   summary: 'Get technician performance',
   request: {
@@ -309,10 +309,49 @@ const getTechnicianPerformanceRoute = createRoute({
   },
 });
 
+// Get all technicians performance route
+const getAllTechniciansPerformanceRoute = createRoute({
+  method: 'get',
+  path: '/technician-performance',
+  tags: ['Service Operations'],
+  summary: 'Get all technicians performance',
+  request: {
+    query: z.object({
+      dateFrom: z.string().optional(),
+      dateTo: z.string().optional(),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: buildResponseSuccessSchema(z.array(z.object({
+            technicianId: z.string(),
+            technicianName: z.string(),
+            totalOperations: z.number(),
+            completedOperations: z.number(),
+            averageDuration: z.number().nullable(),
+            totalCost: z.number().nullable(),
+          }))),
+        },
+      },
+      description: 'All technicians performance retrieved successfully',
+    },
+    500: {
+      content: {
+        'application/json': {
+          schema: Error500Schema,
+        },
+      },
+      description: 'Internal server error',
+    },
+  },
+});
+
 // Get non-warranty operations route
 const getNonWarrantyOperationsRoute = createRoute({
   method: 'get',
-  path: '/service-operations/non-warranty',
+  path: '/non-warranty',
   tags: ['Service Operations'],
   summary: 'Get non-warranty operations',
   request: {
@@ -355,7 +394,24 @@ serviceOperationsRouter.openapi(getServiceOperationRoute, ServiceOperationsContr
 serviceOperationsRouter.openapi(updateServiceOperationRoute, ServiceOperationsController.update);
 serviceOperationsRouter.openapi(deleteServiceOperationRoute, ServiceOperationsController.delete);
 serviceOperationsRouter.openapi(getTechnicianPerformanceRoute, ServiceOperationsController.getTechnicianPerformance);
+// serviceOperationsRouter.openapi(getAllTechniciansPerformanceRoute, ServiceOperationsController.getAllTechniciansPerformance);
 serviceOperationsRouter.openapi(getNonWarrantyOperationsRoute, ServiceOperationsController.getNonWarrantyOperations);
+
+// Simple test endpoint
+serviceOperationsRouter.get('/simple-test', (c) => {
+  return c.json({ message: 'Simple test working' });
+});
+
+// Simple technician performance endpoint
+serviceOperationsRouter.get('/technician-performance', async (c) => {
+  try {
+    const performance = await ServiceOperationsController.getAllTechniciansPerformance(c);
+    return performance;
+  } catch (error) {
+    console.error('Error in simple technician performance endpoint:', error);
+    return c.json({ success: false, error: 'Internal server error' }, 500);
+  }
+});
 
 export { serviceOperationsRouter };
 export default serviceOperationsRouter;

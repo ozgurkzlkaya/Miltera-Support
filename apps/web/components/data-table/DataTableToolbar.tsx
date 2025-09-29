@@ -27,7 +27,7 @@ import {
   FilterList as FilterIcon,
 } from "@mui/icons-material";
 import { useMemo } from "react";
-import { debounce } from "lodash-es";
+// import { debounce } from "lodash-es";
 
 interface DataTableToolbarProps {
   title: string;
@@ -63,7 +63,13 @@ const DataTableToolbar = ({
 }: DataTableToolbarProps) => {
   // Debounced search handler
   const debouncedGlobalFilterChange = useMemo(
-    () => debounce(onGlobalFilterChange, 300),
+    () => {
+      let timeoutId: NodeJS.Timeout;
+      return (value: string) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => onGlobalFilterChange(value), 300);
+      };
+    },
     [onGlobalFilterChange]
   );
 
@@ -125,12 +131,10 @@ const DataTableToolbar = ({
                   onChange={handleSearchChange}
                   sx={{ minWidth: 200 }}
                   disabled={isLoading}
-                  slotProps={{
-                    input: {
-                      startAdornment: (
-                        <SearchIcon sx={{ mr: 1, color: "action.active" }} />
-                      ),
-                    },
+                  InputProps={{
+                    startAdornment: (
+                      <SearchIcon sx={{ mr: 1, color: "action.active" }} />
+                    ),
                   }}
                 />
               )}

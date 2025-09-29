@@ -1,6 +1,6 @@
 import { db } from '../db';
-import { issues, companies, users, products, issueCategories } from '../db/schema';
-import { eq, and, desc, asc, like } from 'drizzle-orm';
+import { issues, companies, users, products, issueCategories, productModels } from '../db/schema';
+import { eq, and, desc, asc, like, sql } from 'drizzle-orm';
 import type { issueStatusEnum, issueSourceEnum, issuePriorityEnum } from '../db/schema';
 import { EmailService } from './email.service';
 import { notificationService } from './notification.service';
@@ -95,10 +95,68 @@ export class IssueService {
     console.log('Inserted issue:', result[0]);
     const newIssue = result[0];
 
+    // TSP otomatik atama (workload'a göre)
+    await this.autoAssignTSP(newIssue.id, priority);
+
     // Real-time notification gönder
     await notificationService.sendNewIssueNotification(newIssue.id);
 
     return newIssue;
+  }
+
+  /**
+   * TSP otomatik atama (workload'a göre)
+   */
+  private async autoAssignTSP(issueId: string, priority: typeof issuePriorityEnum[number]) {
+    try {
+      // TSP'leri workload'a göre sırala (en az işi olan önce)
+      const availableTSPs = await db
+        .select({
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          activeIssues: sql<number>`COUNT(CASE WHEN ${issues.status} IN ('OPEN', 'IN_PROGRESS') THEN 1 END)`
+        })
+        .from(users)
+        .leftJoin(issues, eq(issues.assignedTo, users.id))
+        .where(eq(users.role, 'TSP'))
+        .groupBy(users.id, users.firstName, users.lastName)
+        .orderBy(asc(sql`COUNT(CASE WHEN ${issues.status} IN ('OPEN', 'IN_PROGRESS') THEN 1 END)`));
+
+      if (availableTSPs.length === 0) {
+        console.log('No available TSP found for auto-assignment');
+        return;
+      }
+
+      // En az işi olan TSP'yi seç
+      const selectedTSP = availableTSPs[0];
+      
+      // Issue'yu TSP'ye ata
+      await db
+        .update(issues)
+        .set({
+          assignedTo: selectedTSP.id,
+          assignedAt: new Date(),
+          status: 'IN_PROGRESS' as typeof issueStatusEnum[number]
+        })
+        .where(eq(issues.id, issueId));
+
+      console.log(`Issue ${issueId} auto-assigned to TSP: ${selectedTSP.firstName} ${selectedTSP.lastName}`);
+
+      // TSP'ye email bildirimi gönder
+      await this.emailService.sendIssueAssignmentNotification({
+        issueId,
+        issueNumber: '', // Bu bilgiyi issue'dan alabiliriz
+        technicianName: `${selectedTSP.firstName} ${selectedTSP.lastName}`,
+        technicianEmail: '', // Bu bilgiyi user'dan alabiliriz
+        priority,
+        assignedAt: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('Error in auto-assigning TSP:', error);
+      // Auto-assignment başarısız olsa bile issue oluşturulmuş olmalı
+    }
   }
 
   /**
@@ -122,6 +180,12 @@ export class IssueService {
 
     console.log('Updating issue with request:', request);
 
+    // Check if issue exists
+    const existingIssue = await this.getIssue(issueId);
+    if (!existingIssue) {
+      throw new Error(`Issue with ID ${issueId} not found`);
+    }
+
     const updateData: any = {};
     if (status) updateData.status = status;
     if (priority) updateData.priority = priority;
@@ -140,6 +204,11 @@ export class IssueService {
 
     console.log('Update data:', updateData);
 
+    // Check if there's anything to update
+    if (Object.keys(updateData).length === 1 && updateData.updatedAt) {
+      throw new Error('No valid fields to update');
+    }
+
     const result = await db.update(issues)
       .set(updateData)
       .where(eq(issues.id, issueId))
@@ -157,7 +226,9 @@ export class IssueService {
       );
     }
 
-    return updatedIssue;
+    // Tam issue bilgisini ilişkili verilerle birlikte döndür
+    const fullIssue = await this.getIssueWithRelations(issueId);
+    return fullIssue || updatedIssue;
   }
 
   /**
@@ -219,6 +290,87 @@ export class IssueService {
         companyId: issues.companyId,
         issueCategoryId: issues.issueCategoryId,
         reportedBy: issues.reportedBy,
+        productId: issues.productId,
+        productSerialNumber: products.serialNumber,
+        productModelName: productModels.name,
+        // Company bilgileri
+        company: {
+          id: companies.id,
+          name: companies.name,
+        },
+        // Category bilgileri
+        issueCategory: {
+          id: issueCategories.id,
+          name: issueCategories.name,
+        },
+        // Reported by user bilgileri
+        reportedByUser: {
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+        },
+        // Products array (frontend için) - Basit yaklaşım
+        products: issues.productId ? [{
+          id: products.id,
+          serialNumber: products.serialNumber,
+          status: products.status,
+        }] : [],
+      })
+      .from(issues)
+      .leftJoin(companies, eq(issues.companyId, companies.id))
+      .leftJoin(issueCategories, eq(issues.issueCategoryId, issueCategories.id))
+      .leftJoin(users, eq(issues.reportedBy, users.id))
+      .leftJoin(products, eq(issues.productId, products.id))
+      .leftJoin(productModels, eq(products.productModelId, productModels.id))
+      .where(whereClause)
+      .orderBy(desc(issues.reportedAt));
+
+    return result;
+  }
+
+  /**
+   * Arıza kaydını getirir
+   */
+  async getIssue(issueId: string) {
+    const result = await db.select()
+      .from(issues)
+      .where(eq(issues.id, issueId))
+      .limit(1);
+
+    if (result.length === 0) {
+      throw new Error(`Issue with ID ${issueId} not found`);
+    }
+
+    return result[0];
+  }
+
+  /**
+   * Arıza kaydını ilişkili verilerle birlikte getirir
+   */
+  async getIssueWithRelations(issueId: string) {
+    const result = await db
+      .select({
+        id: issues.id,
+        issueNumber: issues.issueNumber,
+        title: issues.title,
+        description: issues.description,
+        customerDescription: issues.customerDescription,
+        technicianDescription: issues.technicianDescription,
+        status: issues.status,
+        priority: issues.priority,
+        source: issues.source,
+        isUnderWarranty: issues.isUnderWarranty,
+        estimatedCost: issues.estimatedCost,
+        actualCost: issues.actualCost,
+        reportedAt: issues.reportedAt,
+        createdAt: issues.createdAt,
+        updatedAt: issues.updatedAt,
+        companyId: issues.companyId,
+        issueCategoryId: issues.issueCategoryId,
+        reportedBy: issues.reportedBy,
+        productId: issues.productId,
+        productSerialNumber: products.serialNumber,
+        productModelName: productModels.name,
         // Company bilgileri
         company: {
           id: companies.id,
@@ -240,18 +392,8 @@ export class IssueService {
       .leftJoin(companies, eq(issues.companyId, companies.id))
       .leftJoin(issueCategories, eq(issues.issueCategoryId, issueCategories.id))
       .leftJoin(users, eq(issues.reportedBy, users.id))
-      .where(whereClause)
-      .orderBy(desc(issues.reportedAt));
-
-    return result;
-  }
-
-  /**
-   * Arıza kaydını getirir
-   */
-  async getIssue(issueId: string) {
-    const result = await db.select()
-      .from(issues)
+      .leftJoin(products, eq(issues.productId, products.id))
+      .leftJoin(productModels, eq(products.productModelId, productModels.id))
       .where(eq(issues.id, issueId))
       .limit(1);
 
@@ -264,11 +406,25 @@ export class IssueService {
   async deleteIssue(issueId: string) {
     console.log('Deleting issue with ID:', issueId);
     
+    // First check if issue exists
+    const existingIssue = await this.getIssue(issueId);
+    if (!existingIssue) {
+      throw new Error(`Issue with ID ${issueId} not found`);
+    }
+    
+    console.log('Issue found, proceeding with deletion:', existingIssue.issueNumber);
+    
     const result = await db.delete(issues)
       .where(eq(issues.id, issueId))
       .returning();
 
     console.log('Deleted issue result:', result);
+    
+    if (result.length === 0) {
+      throw new Error(`Failed to delete issue with ID ${issueId}`);
+    }
+    
+    console.log(`Successfully deleted issue: ${result[0].issueNumber}`);
     return result[0];
   }
 
@@ -288,5 +444,35 @@ export class IssueService {
     };
 
     return stats;
+  }
+
+  /**
+   * Arızaya ürün ekler
+   */
+  async addProductToIssue(issueId: string, productId: string) {
+    console.log('Adding product to issue:', { issueId, productId });
+    
+    // Check if issue exists
+    const issue = await this.getIssue(issueId);
+    if (!issue) {
+      throw new Error(`Issue with ID ${issueId} not found`);
+    }
+    
+    // Check if product exists
+    const product = await db.select().from(products).where(eq(products.id, productId)).limit(1);
+    if (product.length === 0) {
+      throw new Error(`Product with ID ${productId} not found`);
+    }
+    
+    // Update product's issueId
+    const updatedProduct = await db.update(products)
+      .set({ issueId: issueId })
+      .where(eq(products.id, productId))
+      .returning();
+    
+    console.log('Product added to issue:', updatedProduct[0]);
+    
+    // Return updated issue with products
+    return await this.getIssue(issueId);
   }
 }

@@ -1,5 +1,24 @@
+/**
+ * Miltera Fixlog Frontend - Ana Dashboard Sayfası
+ * 
+ * Bu dosya, kullanıcıların giriş yaptıktan sonra gördüğü ana dashboard sayfasıdır.
+ * Sistemin genel durumunu, istatistikleri ve hızlı erişim linklerini gösterir.
+ * 
+ * Özellikler:
+ * - Kullanıcı bilgileri ve profil
+ * - Sistem istatistikleri (ürünler, sorunlar, şirketler)
+ * - Hızlı erişim kartları
+ * - Son aktiviteler
+ * - Bildirimler
+ * - Responsive tasarım
+ * 
+ * URL: /dashboard
+ * Authentication: Gerekli
+ */
+
 "use client";
 
+// Material-UI components - UI elemanları için
 import { 
   Typography, 
   Box, 
@@ -15,8 +34,12 @@ import {
   Button,
   Stack,
   Alert,
-  Snackbar
+  Snackbar,
+  useMediaQuery,
+  useTheme
 } from "@mui/material";
+
+// Material-UI icons - görsel ikonlar için
 import { 
   CheckCircle as CheckCircleIcon,
   Person as PersonIcon,
@@ -38,6 +61,8 @@ import {
   Business as CompanyIcon,
   Group as UserIcon
 } from "@mui/icons-material";
+
+// Custom hooks ve utilities
 import { useAuth } from "../../features/auth/useAuth";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -46,6 +71,8 @@ import { Layout } from "../../components/Layout";
 const DashboardPage = () => {
   const auth = useAuth();
   const router = useRouter();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
   // Token kontrolü - localStorage'dan kontrol et (client-side'da)
   const [isClient, setIsClient] = useState(false);
@@ -316,18 +343,18 @@ const DashboardPage = () => {
 
         {/* User Info Cards */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} sm={6} md={4}>
             <Card sx={{ borderRadius: 2, height: '100%', boxShadow: 2, '&:hover': { boxShadow: 4 } }}>
-              <CardContent sx={{ p: 3 }}>
+              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Avatar sx={{ bgcolor: 'primary.main', width: 56, height: 56 }}>
-                    <EmailIcon sx={{ fontSize: 28 }} />
+                  <Avatar sx={{ bgcolor: 'primary.main', width: { xs: 48, sm: 56 }, height: { xs: 48, sm: 56 } }}>
+                    <EmailIcon sx={{ fontSize: { xs: 24, sm: 28 } }} />
                   </Avatar>
                   <Box sx={{ flex: 1 }}>
                     <Typography variant="body2" color="textSecondary" gutterBottom>
                       E-posta Adresi
                     </Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 600, wordBreak: 'break-all' }}>
+                    <Typography variant="h6" sx={{ fontWeight: 600, wordBreak: 'break-all', fontSize: { xs: '0.875rem', sm: '1.25rem' } }}>
                       {user.email}
                     </Typography>
                   </Box>
@@ -336,12 +363,12 @@ const DashboardPage = () => {
             </Card>
           </Grid>
           
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} sm={6} md={4}>
             <Card sx={{ borderRadius: 2, height: '100%', boxShadow: 2, '&:hover': { boxShadow: 4 } }}>
-              <CardContent sx={{ p: 3 }}>
+              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Avatar sx={{ bgcolor: 'secondary.main', width: 56, height: 56 }}>
-                    <SecurityIcon sx={{ fontSize: 28 }} />
+                  <Avatar sx={{ bgcolor: 'secondary.main', width: { xs: 48, sm: 56 }, height: { xs: 48, sm: 56 } }}>
+                    <SecurityIcon sx={{ fontSize: { xs: 24, sm: 28 } }} />
                   </Avatar>
                   <Box sx={{ flex: 1 }}>
                     <Typography variant="body2" color="textSecondary" gutterBottom>
@@ -350,7 +377,7 @@ const DashboardPage = () => {
                     <Chip 
                       label={getRoleLabel(user.role)} 
                       color={getRoleColor(user.role) as any}
-                      sx={{ fontWeight: 600, fontSize: '0.875rem' }}
+                      sx={{ fontWeight: 600, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
                     />
                   </Box>
                 </Box>
@@ -358,16 +385,16 @@ const DashboardPage = () => {
             </Card>
           </Grid>
           
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} sm={6} md={4}>
             <Card sx={{ borderRadius: 2, height: '100%', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: 'white', boxShadow: 2, '&:hover': { boxShadow: 4 } }}>
-              <CardContent sx={{ p: 3 }}>
+              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <CheckCircleIcon sx={{ fontSize: 32 }} />
+                  <CheckCircleIcon sx={{ fontSize: { xs: 28, sm: 32 } }} />
                   <Box sx={{ flex: 1 }}>
-                    <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                    <Typography variant="body2" sx={{ opacity: 0.9, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                       Sistem Durumu
                     </Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 600, fontSize: { xs: '1rem', sm: '1.25rem' } }}>
                       Dashboard Başarıyla Yüklendi!
                     </Typography>
                   </Box>
@@ -379,8 +406,8 @@ const DashboardPage = () => {
 
         {/* Quick Actions */}
         <Card sx={{ mb: 4, borderRadius: 2 }}>
-          <CardContent sx={{ p: 3 }}>
-            <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
+          <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+            <Typography variant="h6" sx={{ mb: 3, fontWeight: 600, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
               Hızlı İşlemler
             </Typography>
             <Grid container spacing={2}>
@@ -390,7 +417,7 @@ const DashboardPage = () => {
                   variant="contained"
                   startIcon={<AddIcon />}
                   onClick={() => handleQuickAction('newProject')}
-                  sx={{ py: 1.5, borderRadius: 2 }}
+                  sx={{ py: { xs: 1, sm: 1.5 }, borderRadius: 2, fontSize: { xs: '0.875rem', sm: '1rem' } }}
                 >
                   Yeni Proje
                 </Button>
@@ -401,7 +428,7 @@ const DashboardPage = () => {
                   variant="outlined"
                   startIcon={<BugReportIcon />}
                   onClick={() => handleQuickAction('newIssue')}
-                  sx={{ py: 1.5, borderRadius: 2 }}
+                  sx={{ py: { xs: 1, sm: 1.5 }, borderRadius: 2, fontSize: { xs: '0.875rem', sm: '1rem' } }}
                 >
                   Yeni Arıza
                 </Button>
@@ -412,7 +439,7 @@ const DashboardPage = () => {
                   variant="outlined"
                   startIcon={<BuildIcon />}
                   onClick={() => handleQuickAction('newOperation')}
-                  sx={{ py: 1.5, borderRadius: 2 }}
+                  sx={{ py: { xs: 1, sm: 1.5 }, borderRadius: 2, fontSize: { xs: '0.875rem', sm: '1rem' } }}
                 >
                   Yeni Operasyon
                 </Button>
@@ -423,7 +450,7 @@ const DashboardPage = () => {
                   variant="outlined"
                   startIcon={<ReportIcon />}
                   onClick={() => handleQuickAction('viewReports')}
-                  sx={{ py: 1.5, borderRadius: 2 }}
+                  sx={{ py: { xs: 1, sm: 1.5 }, borderRadius: 2, fontSize: { xs: '0.875rem', sm: '1rem' } }}
                 >
                   Raporları Görüntüle
                 </Button>
@@ -434,8 +461,8 @@ const DashboardPage = () => {
 
         {/* Navigation Cards */}
         <Card sx={{ mb: 4, borderRadius: 2 }}>
-          <CardContent sx={{ p: 3 }}>
-            <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
+          <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+            <Typography variant="h6" sx={{ mb: 3, fontWeight: 600, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
               Modüller
             </Typography>
             <Grid container spacing={2}>
@@ -448,9 +475,9 @@ const DashboardPage = () => {
                   }}
                   onClick={() => handleNavigate('/dashboard/products')}
                 >
-                  <CardContent sx={{ p: 2, textAlign: 'center' }}>
-                    <DashboardIcon sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  <CardContent sx={{ p: { xs: 1.5, sm: 2 }, textAlign: 'center' }}>
+                    <DashboardIcon sx={{ fontSize: { xs: 32, sm: 40 }, color: 'primary.main', mb: 1 }} />
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: { xs: '0.875rem', sm: '1rem' } }}>
                       Ürünler
                     </Typography>
                   </CardContent>
@@ -465,9 +492,9 @@ const DashboardPage = () => {
                   }}
                   onClick={() => handleNavigate('/dashboard/warehouse')}
                 >
-                  <CardContent sx={{ p: 2, textAlign: 'center' }}>
-                    <InventoryIcon sx={{ fontSize: 40, color: 'secondary.main', mb: 1 }} />
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  <CardContent sx={{ p: { xs: 1.5, sm: 2 }, textAlign: 'center' }}>
+                    <InventoryIcon sx={{ fontSize: { xs: 32, sm: 40 }, color: 'secondary.main', mb: 1 }} />
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: { xs: '0.875rem', sm: '1rem' } }}>
                       Depo
                     </Typography>
                   </CardContent>
@@ -482,9 +509,9 @@ const DashboardPage = () => {
                   }}
                   onClick={() => handleNavigate('/dashboard/service-operations')}
                 >
-                  <CardContent sx={{ p: 2, textAlign: 'center' }}>
-                    <BuildIcon sx={{ fontSize: 40, color: 'success.main', mb: 1 }} />
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  <CardContent sx={{ p: { xs: 1.5, sm: 2 }, textAlign: 'center' }}>
+                    <BuildIcon sx={{ fontSize: { xs: 32, sm: 40 }, color: 'success.main', mb: 1 }} />
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: { xs: '0.875rem', sm: '1rem' } }}>
                       Servis Operasyonları
                     </Typography>
                   </CardContent>
@@ -499,9 +526,9 @@ const DashboardPage = () => {
                   }}
                   onClick={() => handleNavigate('/dashboard/issues')}
                 >
-                  <CardContent sx={{ p: 2, textAlign: 'center' }}>
-                    <BugReportIcon sx={{ fontSize: 40, color: 'error.main', mb: 1 }} />
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  <CardContent sx={{ p: { xs: 1.5, sm: 2 }, textAlign: 'center' }}>
+                    <BugReportIcon sx={{ fontSize: { xs: 32, sm: 40 }, color: 'error.main', mb: 1 }} />
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: { xs: '0.875rem', sm: '1rem' } }}>
                       Arızalar
                     </Typography>
                   </CardContent>
@@ -516,9 +543,9 @@ const DashboardPage = () => {
                   }}
                   onClick={() => handleNavigate('/dashboard/shipments')}
                 >
-                  <CardContent sx={{ p: 2, textAlign: 'center' }}>
-                    <ShippingIcon sx={{ fontSize: 40, color: 'warning.main', mb: 1 }} />
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  <CardContent sx={{ p: { xs: 1.5, sm: 2 }, textAlign: 'center' }}>
+                    <ShippingIcon sx={{ fontSize: { xs: 32, sm: 40 }, color: 'warning.main', mb: 1 }} />
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: { xs: '0.875rem', sm: '1rem' } }}>
                       Sevkiyat
                     </Typography>
                   </CardContent>
@@ -533,9 +560,9 @@ const DashboardPage = () => {
                   }}
                   onClick={() => handleNavigate('/dashboard/reports')}
                 >
-                  <CardContent sx={{ p: 2, textAlign: 'center' }}>
-                    <ReportIcon sx={{ fontSize: 40, color: 'info.main', mb: 1 }} />
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  <CardContent sx={{ p: { xs: 1.5, sm: 2 }, textAlign: 'center' }}>
+                    <ReportIcon sx={{ fontSize: { xs: 32, sm: 40 }, color: 'info.main', mb: 1 }} />
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: { xs: '0.875rem', sm: '1rem' } }}>
                       Raporlar
                     </Typography>
                   </CardContent>
@@ -547,91 +574,91 @@ const DashboardPage = () => {
 
         {/* Quick Stats */}
         <Grid container spacing={3}>
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} sm={6} md={3}>
             <Card 
               sx={{ 
                 borderRadius: 2, 
                 textAlign: 'center', 
-                p: 2,
+                p: { xs: 1.5, sm: 2 },
                 cursor: 'pointer',
                 '&:hover': { boxShadow: 4 },
                 transition: 'all 0.2s ease-in-out'
               }}
               onClick={() => handleNavigate('/dashboard/products')}
             >
-              <TrendingUpIcon sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
-              <Typography variant="h4" sx={{ fontWeight: 700, color: 'primary.main' }}>
+              <TrendingUpIcon sx={{ fontSize: { xs: 32, sm: 40 }, color: 'primary.main', mb: 1 }} />
+              <Typography variant="h4" sx={{ fontWeight: 700, color: 'primary.main', fontSize: { xs: '1.5rem', sm: '2rem' } }}>
                 {stats.activeProjects}
               </Typography>
-              <Typography variant="body2" color="textSecondary">
+              <Typography variant="body2" color="textSecondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                 Aktif Projeler
               </Typography>
             </Card>
           </Grid>
           
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} sm={6} md={3}>
             <Card 
               sx={{ 
                 borderRadius: 2, 
                 textAlign: 'center', 
-                p: 2,
+                p: { xs: 1.5, sm: 2 },
                 cursor: 'pointer',
                 '&:hover': { boxShadow: 4 },
                 transition: 'all 0.2s ease-in-out'
               }}
               onClick={() => handleNavigate('/dashboard/users')}
             >
-              <PersonIcon sx={{ fontSize: 40, color: 'success.main', mb: 1 }} />
-              <Typography variant="h4" sx={{ fontWeight: 700, color: 'success.main' }}>
+              <PersonIcon sx={{ fontSize: { xs: 32, sm: 40 }, color: 'success.main', mb: 1 }} />
+              <Typography variant="h4" sx={{ fontWeight: 700, color: 'success.main', fontSize: { xs: '1.5rem', sm: '2rem' } }}>
                 {stats.technicalTeam}
               </Typography>
-              <Typography variant="body2" color="textSecondary">
+              <Typography variant="body2" color="textSecondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                 Teknik Ekip
               </Typography>
             </Card>
           </Grid>
           
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} sm={6} md={3}>
             <Card 
               sx={{ 
                 borderRadius: 2, 
                 textAlign: 'center', 
-                p: 2,
+                p: { xs: 1.5, sm: 2 },
                 cursor: 'pointer',
                 '&:hover': { boxShadow: 4 },
                 transition: 'all 0.2s ease-in-out'
               }}
               onClick={() => handleNavigate('/dashboard/service-operations')}
             >
-              <NotificationsIcon sx={{ fontSize: 40, color: 'warning.main', mb: 1 }} />
-              <Typography variant="h4" sx={{ fontWeight: 700, color: 'warning.main' }}>
+              <NotificationsIcon sx={{ fontSize: { xs: 32, sm: 40 }, color: 'warning.main', mb: 1 }} />
+              <Typography variant="h4" sx={{ fontWeight: 700, color: 'warning.main', fontSize: { xs: '1.5rem', sm: '2rem' } }}>
                 {stats.pendingOperations}
               </Typography>
-              <Typography variant="body2" color="textSecondary">
+              <Typography variant="body2" color="textSecondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                 Bekleyen İşlemler
               </Typography>
             </Card>
           </Grid>
           
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} sm={6} md={3}>
             <Card 
               sx={{ 
                 borderRadius: 2, 
                 textAlign: 'center', 
-                p: 2,
+                p: { xs: 1.5, sm: 2 },
                 cursor: 'pointer',
                 '&:hover': { boxShadow: 4 },
                 transition: 'all 0.2s ease-in-out'
               }}
               onClick={() => handleNavigate('/dashboard/reports')}
             >
-              <CheckCircleIcon sx={{ fontSize: 40, color: 'info.main', mb: 1 }} />
-              <Typography variant="h4" sx={{ fontWeight: 700, color: 'info.main' }}>
+              <CheckCircleIcon sx={{ fontSize: { xs: 32, sm: 40 }, color: 'info.main', mb: 1 }} />
+              <Typography variant="h4" sx={{ fontWeight: 700, color: 'info.main', fontSize: { xs: '1.5rem', sm: '2rem' } }}>
                 {stats.successRate}%
               </Typography>
-              <Typography variant="body2" color="textSecondary">
+              <Typography variant="body2" color="textSecondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                 Başarı Oranı
-        </Typography>
+              </Typography>
             </Card>
           </Grid>
         </Grid>

@@ -1,247 +1,214 @@
-import {
-  MutationOptions,
-  queryOptions,
-  useMutation,
-  useQuery,
-} from "@tanstack/react-query";
-import {
-  getQueryClient,
-  mergeMutationConfig,
-  MutationConfig,
-  type QueryConfig,
-} from "../../../lib/react-query";
-import { callRPC, client } from "../../../lib/rpc";
-import {
-  type Query,
-  temporaryObjectQuery,
-} from "@miltera/helpers/query-builder";
+/**
+ * Miltera Fixlog Frontend - Product Service
+ * 
+ * Bu dosya, ürün yönetimi için tüm API işlemlerini tanımlar.
+ * React Query hooks kullanarak CRUD işlemlerini yönetir.
+ * 
+ * Özellikler:
+ * - GET: Tüm ürünleri listele
+ * - GET: Tek ürün detayı
+ * - POST: Yeni ürün oluştur
+ * - PUT: Ürün güncelle
+ * - DELETE: Ürün sil
+ * - Error handling
+ * - Authentication
+ * - Caching
+ * 
+ * API Endpoint: /api/v1/products
+ */
 
-const getProducts = async (query?: Query) => {
-  const result = await callRPC(
-    client.api.v1["products"].$get({
-      query: query ? temporaryObjectQuery(query) : undefined,
-    })
-  );
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-  return result;
-};
-
-const getProduct = async (id: string) => {
-  const result = await callRPC(
-    client.api.v1["products"][":id"].$get({
-      param: {
-        id,
-      },
-    })
-  );
-
-  return result;
-};
-
-const createProduct = async (payload: any) => {
-  const result = await callRPC(
-    client.api.v1["products"].$post({
-      json: payload,
-    })
-  );
-
-  return result;
-};
-
-const createBulkProduct = async (payload: any) => {
-  const result = await callRPC(
-    client.api.v1["products"]["bulk"].$post({
-      json: payload,
-    })
-  );
-
-  return result;
-};
-
-const updateProduct = async (id: string, payload: any) => {
-  const result = await callRPC(
-    client.api.v1["products"][":id"].$put({
-      param: {
-        id,
-      },
-      //@ts-expect-error
-      json: payload
-    })
-  );
-
-  return result;
-};
-
-const deleteProduct = async (id: string) => {
-  await callRPC(
-    client.api.v1["products"][":id"].$delete({
-      param: {
-        id,
-      },
-    })
-  );
-};
-
-const productQueries = {
-  _all: () => ["products"] as const,
-  _list: () => [...productQueries._all(), "list"] as const,
-  _detail: () => [...productQueries._all(), "detail"] as const,
-
-  list: (query?: Query) =>
-    queryOptions({
-      queryKey: [...productQueries._list(), query] as const,
-      queryFn: () => getProducts(query),
-    }),
-  detail: (id: string) =>
-    queryOptions({
-      queryKey: [...productQueries._detail(), id] as const,
-      queryFn: () => getProduct(id),
-    }),
-};
-
-const productMutations = {
-  create: () =>
-    ({
-      mutationKey: [...productQueries._all(), "create"] as const,
-      mutationFn: ({ payload }: { payload: any }) => createProduct(payload),
-      onSuccess() {
-        const queryClient = getQueryClient();
-
-        queryClient.invalidateQueries({
-          queryKey: productQueries._list(),
-        });
-      },
-    }) satisfies MutationOptions<any, any, any>,
-  createBulk: () =>
-    ({
-      mutationKey: [...productQueries._all(), "createBulk"] as const,
-      mutationFn: ({ payload }: { payload: any }) => createBulkProduct(payload),
-      onSuccess() {
-        const queryClient = getQueryClient();
-
-        queryClient.invalidateQueries({
-          queryKey: productQueries._list(),
-        });
-      },
-    }) satisfies MutationOptions<any, any, any>,
-  update: () =>
-    ({
-      mutationKey: [...productQueries._all(), "update"] as const,
-      mutationFn: ({ id, payload }: { id: string; payload: any }) =>
-        updateProduct(id, payload),
-      onSuccess(_, { id }) {
-        const queryClient = getQueryClient();
-
-        queryClient.invalidateQueries({
-          queryKey: productQueries._list(),
-        });
-        queryClient.invalidateQueries(productQueries.detail(id));
-      },
-    }) satisfies MutationOptions<any, any, any>,
-  delete: () =>
-    ({
-      mutationKey: [...productQueries._all(), "delete"] as const,
-      mutationFn: ({ id }: { id: string }) => deleteProduct(id),
-      onSuccess() {
-        const queryClient = getQueryClient();
-
-        queryClient.invalidateQueries({
-          queryKey: productQueries._list(),
-        });
-      },
-    }) satisfies MutationOptions<any, any, any>,
-};
-
-type UseProductsOptions = {
-  query?: Query;
-  config?: QueryConfig<(typeof productQueries)["list"]>;
-};
-
-type UseProductOptions = {
-  id: string | null;
-  config?: QueryConfig<(typeof productQueries)["detail"]>;
-};
-
-type UseCreateProductOptions = {
-  mutationConfig?: MutationConfig<ReturnType<typeof productMutations.create>>;
-};
-
-type UseCreateBulkProductOptions = {
-  mutationConfig?: MutationConfig<
-    ReturnType<typeof productMutations.createBulk>
-  >;
-};
-
-type UseUpdateProductOptions = {
-  mutationConfig?: MutationConfig<ReturnType<typeof productMutations.update>>;
-};
-
-type UseDeleteProductOptions = {
-  mutationConfig?: MutationConfig<ReturnType<typeof productMutations.delete>>;
-};
-
-const useProducts = ({ query, config }: UseProductsOptions = {}) => {
+/**
+ * Tüm ürünleri getiren hook
+ * 
+ * Bu hook:
+ * 1. API'den tüm ürünleri çeker
+ * 2. Authentication token'ı ekler
+ * 3. Error handling yapar
+ * 4. Caching sağlar
+ * 5. Loading state yönetir
+ */
+export const useGetProducts = () => {
   return useQuery({
-    ...productQueries.list(query),
-    ...config,
+    queryKey: ["products"],
+    queryFn: async () => {
+      // Authentication token'ını al
+      const token = localStorage.getItem('auth_token');
+      
+      // API'ye GET isteği gönder
+      const response = await fetch('http://localhost:3015/api/v1/products', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      // Hata kontrolü
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP ${response.status}: Failed to fetch products`);
+      }
+      
+      return response.json();
+    },
   });
 };
 
-const useProduct = ({ id, config }: UseProductOptions) => {
+/**
+ * Tek ürün detayını getiren hook
+ * 
+ * Bu hook:
+ * 1. Belirli bir ürünün detaylarını çeker
+ * 2. ID parametresi ile çalışır
+ * 3. ID yoksa query'yi devre dışı bırakır
+ * 4. Error handling yapar
+ * 5. Caching sağlar
+ */
+export const useGetProduct = (id: string) => {
   return useQuery({
-    ...productQueries.detail(id ?? ""),
-    ...config,
-    enabled: !!id && config?.enabled !== false,
+    queryKey: ["product", id],
+    queryFn: async () => {
+      // Authentication token'ını al
+      const token = localStorage.getItem('auth_token');
+      
+      // API'ye GET isteği gönder
+      const response = await fetch(`http://localhost:3015/api/v1/products/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      // Hata kontrolü
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP ${response.status}: Failed to fetch product`);
+      }
+      
+      return response.json();
+    },
+    enabled: !!id, // ID varsa query'yi aktif et
   });
 };
 
-const useCreateProduct = ({ mutationConfig }: UseCreateProductOptions = {}) => {
-  return useMutation(
-    mergeMutationConfig(productMutations.create(), mutationConfig ?? {})
-  );
+/**
+ * Yeni ürün oluşturan hook
+ * 
+ * Bu hook:
+ * 1. POST isteği ile yeni ürün oluşturur
+ * 2. Form data'sını JSON'a çevirir
+ * 3. Authentication token'ı ekler
+ * 4. Başarılı olursa cache'i günceller
+ * 5. Error handling yapar
+ */
+export const useCreateProduct = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: any) => {
+      // Authentication token'ını al
+      const token = localStorage.getItem('auth_token');
+      
+      // API'ye POST isteği gönder
+      const response = await fetch('http://localhost:3015/api/v1/products', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(data)
+      });
+      
+      // Hata kontrolü
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP ${response.status}: Failed to create product`);
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      // Başarılı olursa products cache'ini güncelle
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
+  });
 };
 
-const useCreateBulkProduct = ({
-  mutationConfig,
-}: UseCreateBulkProductOptions = {}) => {
-  return useMutation(
-    mergeMutationConfig(productMutations.createBulk(), mutationConfig ?? {})
-  );
+export const useUpdateProduct = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`http://localhost:3015/api/v1/products/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(data)
+      });
+      if (!response.ok) throw new Error('Failed to update product');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
+  });
 };
 
-const useUpdateProduct = ({ mutationConfig }: UseUpdateProductOptions = {}) => {
-  return useMutation(
-    mergeMutationConfig(productMutations.update(), mutationConfig ?? {})
-  );
+export const useDeleteProduct = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`http://localhost:3015/api/v1/products/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!response.ok) throw new Error('Failed to delete product');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
+  });
 };
 
-const useDeleteProduct = ({ mutationConfig }: UseDeleteProductOptions = {}) => {
-  return useMutation(
-    mergeMutationConfig(productMutations.delete(), mutationConfig ?? {})
-  );
+// Companies API calls
+export const useGetCompanies = () => {
+  return useQuery({
+    queryKey: ["companies"],
+    queryFn: async () => {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('http://localhost:3015/api/v1/companies', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!response.ok) throw new Error('Failed to fetch companies');
+      return response.json();
+    },
+  });
 };
 
-export {
-  getProducts,
-  getProduct,
-  createProduct,
-  createBulkProduct,
-  updateProduct,
-};
-export { productQueries, useProducts, useProduct };
-export {
-  productMutations,
-  useCreateProduct,
-  useCreateBulkProduct,
-  useUpdateProduct,
-  useDeleteProduct,
-};
-
-export type {
-  UseProductsOptions,
-  UseProductOptions,
-  UseCreateProductOptions,
-  UseCreateBulkProductOptions,
-  UseUpdateProductOptions,
-  UseDeleteProductOptions,
+export const useCreateCompany = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: any) => {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('http://localhost:3015/api/v1/companies', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(data)
+      });
+      if (!response.ok) throw new Error('Failed to create company');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["companies"] });
+    },
+  });
 };

@@ -1,4 +1,4 @@
-import { apiClient } from '../../lib/api';
+// Real API calls with fetch
 
 export interface Issue {
   id: string;
@@ -103,7 +103,25 @@ export interface UpdateIssueRequest {
 }
 
 class IssuesService {
-  private baseUrl = '/issues';
+  private baseUrl = 'http://localhost:3015/api/v1/issues';
+
+  private async makeRequest(url: string, options: RequestInit = {}) {
+    const token = localStorage.getItem('auth_token');
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        ...options.headers,
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    return response.json();
+  }
 
   async getIssues(params?: {
     page?: number;
@@ -112,15 +130,25 @@ class IssuesService {
     sort?: string;
   }): Promise<IssueListResponse> {
     try {
-      const response = await apiClient.get(this.baseUrl, {
-        params: {
-          page: params?.page || 1,
-          limit: params?.limit || 20,
-          ...params?.filters,
-          sort: params?.sort || 'createdAt:desc',
-        },
-      });
-      return response.data;
+      const searchParams = new URLSearchParams();
+      searchParams.set('page', (params?.page || 1).toString());
+      searchParams.set('limit', (params?.limit || 20).toString());
+      searchParams.set('sort', params?.sort || 'createdAt:desc');
+      
+      if (params?.filters) {
+        Object.entries(params.filters).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            if (Array.isArray(value)) {
+              value.forEach(v => searchParams.append(key, v.toString()));
+            } else {
+              searchParams.set(key, value.toString());
+            }
+          }
+        });
+      }
+      
+      const response = await this.makeRequest(`${this.baseUrl}?${searchParams}`);
+      return response;
     } catch (error) {
       console.error('Error fetching issues:', error);
       throw new Error('Failed to fetch issues');
@@ -129,7 +157,7 @@ class IssuesService {
 
   async getIssue(id: string): Promise<Issue> {
     try {
-      const response = await apiClient.get(`${this.baseUrl}/${id}`);
+      const response = await this.makeRequest(`${this.baseUrl}/${id}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching issue:', error);
@@ -139,7 +167,10 @@ class IssuesService {
 
   async createIssue(data: CreateIssueRequest): Promise<Issue> {
     try {
-      const response = await apiClient.post(this.baseUrl, data);
+      const response = await this.makeRequest(this.baseUrl, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
       return response.data;
     } catch (error) {
       console.error('Error creating issue:', error);
@@ -149,7 +180,10 @@ class IssuesService {
 
   async updateIssue(id: string, data: UpdateIssueRequest): Promise<Issue> {
     try {
-      const response = await apiClient.put(`${this.baseUrl}/${id}`, data);
+      const response = await this.makeRequest(`${this.baseUrl}/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
       return response.data;
     } catch (error) {
       console.error('Error updating issue:', error);
@@ -159,7 +193,9 @@ class IssuesService {
 
   async deleteIssue(id: string): Promise<void> {
     try {
-      await apiClient.delete(`${this.baseUrl}/${id}`);
+      await this.makeRequest(`${this.baseUrl}/${id}`, {
+        method: 'DELETE',
+      });
     } catch (error) {
       console.error('Error deleting issue:', error);
       throw new Error('Failed to delete issue');
@@ -168,7 +204,7 @@ class IssuesService {
 
   async getIssueCategories(): Promise<Array<{ id: string; name: string }>> {
     try {
-      const response = await apiClient.get('/issue-categories');
+      const response = await this.makeRequest('http://localhost:3015/api/v1/categories');
       return response.data;
     } catch (error) {
       console.error('Error fetching issue categories:', error);
@@ -185,7 +221,7 @@ class IssuesService {
     outOfWarranty: number;
   }> {
     try {
-      const response = await apiClient.get(`${this.baseUrl}/stats`);
+      const response = await this.makeRequest(`${this.baseUrl}/stats`);
       return response.data;
     } catch (error) {
       console.error('Error fetching issue stats:', error);

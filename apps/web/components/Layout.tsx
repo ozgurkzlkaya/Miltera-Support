@@ -1,5 +1,23 @@
+/**
+ * Miltera Fixlog Frontend - Ana Layout Component
+ * 
+ * Bu component, tüm dashboard sayfaları için ortak layout sağlar.
+ * Navigation, sidebar, header ve main content area'yı yönetir.
+ * 
+ * Özellikler:
+ * - Responsive sidebar navigation
+ * - User profile menu
+ * - Breadcrumb navigation
+ * - Mobile-friendly design
+ * - Theme integration
+ * - Authentication integration
+ * 
+ * Kullanım: Tüm dashboard sayfaları bu layout'ı kullanır
+ */
+
 "use client";
 
+// Material-UI components - layout elemanları için
 import {
   Box,
   CssBaseline,
@@ -20,7 +38,10 @@ import {
   useTheme,
   CircularProgress,
   Container,
+  useMediaQuery,
 } from "@mui/material";
+
+// Material-UI icons - navigation ve user menu için
 import {
   Menu as MenuIcon,
   AccountCircle,
@@ -45,14 +66,17 @@ import {
   Inventory as InventoryIcon,
   BuildCircle as BuildCircleIcon,
 } from "@mui/icons-material";
+
+// React hooks ve Next.js navigation
 import { ReactNode, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import GlobalSearch from "./GlobalSearch";
+import AdvancedNotificationBell from "./AdvancedNotificationBell";
 import { useAuth } from "../features/auth/useAuth";
 import Image from "next/image";
 import Link from "next/link";
 import { signOut } from "../features/auth/auth.service";
 import { NotificationCenter } from "./notifications/NotificationCenter";
-import { AdvancedNotificationBell } from "./notifications/AdvancedNotificationSystem";
 
 interface LayoutProps {
   title?: string;
@@ -66,6 +90,8 @@ export const Layout = ({ title, children }: LayoutProps) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const router = useRouter();
   const auth = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
   const pathname = usePathname();
 
@@ -92,23 +118,48 @@ export const Layout = ({ title, children }: LayoutProps) => {
     handleAvatarClose();
   };
 
-  // Auth kontrolünü kaldır - dashboard'a erişimi engelleme
-  // if (auth.isLoading || !auth.isAuthenticated) {
-  //   return (
-  //     <Container
-  //       maxWidth="sm"
-  //       sx={{
-  //         minHeight: "100vh",
-  //         display: "flex",
-  //         justifyContent: "center",
-  //         alignItems: "center",
-  //         flexDirection: "column",
-  //       }}
-  //     >
-  //       <CircularProgress />
-  //     </Container>
-  //   );
-  // }
+  // Auth kontrolü - dashboard'a erişimi kontrol et
+  if (auth.isLoading) {
+    return (
+      <Container
+        maxWidth="sm"
+        sx={{
+          minHeight: "100vh",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          flexDirection: "column",
+        }}
+      >
+        <CircularProgress />
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+          Kimlik doğrulanıyor...
+        </Typography>
+      </Container>
+    );
+  }
+
+  if (!auth.isAuthenticated) {
+    return (
+      <Container
+        maxWidth="sm"
+        sx={{
+          minHeight: "100vh",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          flexDirection: "column",
+        }}
+      >
+        <Typography variant="h6" color="error">
+          Yetkisiz erişim
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          Giriş yapmanız gerekiyor
+        </Typography>
+      </Container>
+    );
+  }
 
   const menuItems = [
     {
@@ -242,8 +293,16 @@ export const Layout = ({ title, children }: LayoutProps) => {
                 {title}
               </Typography>
             </Box>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexGrow: 1, justifyContent: "center", maxWidth: 600 }}>
+              <GlobalSearch 
+                placeholder="Tüm sistemde ara..."
+                onResultClick={(result) => {
+                  router.push(result.url);
+                }}
+              />
+            </Box>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                              <AdvancedNotificationBell />
+              <AdvancedNotificationBell />
               <Typography
                 variant="body2"
                 sx={{ display: { xs: "none", sm: "block" } }}
@@ -321,32 +380,18 @@ export const Layout = ({ title, children }: LayoutProps) => {
         sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
       >
         <Drawer
-          variant="temporary"
-          open={mobileOpen}
+          variant={isMobile ? "temporary" : "permanent"}
+          open={isMobile ? mobileOpen : true}
           onClose={handleDrawerToggle}
           ModalProps={{
             keepMounted: true,
           }}
           sx={{
-            display: { xs: "block", sm: "none" },
             "& .MuiDrawer-paper": {
               boxSizing: "border-box",
               width: drawerWidth,
             },
           }}
-        >
-          {drawer}
-        </Drawer>
-        <Drawer
-          variant="permanent"
-          sx={{
-            display: { xs: "none", sm: "block" },
-            "& .MuiDrawer-paper": {
-              boxSizing: "border-box",
-              width: drawerWidth,
-            },
-          }}
-          open
         >
           {drawer}
         </Drawer>
@@ -356,7 +401,7 @@ export const Layout = ({ title, children }: LayoutProps) => {
         sx={{
           flexGrow: 1,
           width: { sm: `calc(100% - ${drawerWidth}px)` },
-          p: 3,
+          p: { xs: 2, sm: 3 },
           backgroundColor: "#f5f5f5",
           minHeight: "100vh",
         }}

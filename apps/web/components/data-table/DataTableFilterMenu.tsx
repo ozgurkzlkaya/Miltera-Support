@@ -238,10 +238,8 @@ const DataTableFilterMenu = ({
                     margin="dense"
                     value={filterValue}
                     onChange={(e) => handleColumnFilterChange(e.target.value)}
-                    slotProps={{
-                      inputLabel: {
-                        shrink: true,
-                      },
+                    InputLabelProps={{
+                      shrink: true,
                     }}
                   />
                 );
@@ -257,10 +255,8 @@ const DataTableFilterMenu = ({
                     margin="dense"
                     value={filterValue}
                     onChange={(e) => handleColumnFilterChange(e.target.value)}
-                    slotProps={{
-                      inputLabel: {
-                        shrink: true,
-                      },
+                    InputLabelProps={{
+                      shrink: true,
                     }}
                   />
                 );
@@ -293,10 +289,8 @@ const DataTableFilterMenu = ({
                           `${newValue},${newToDate || ""}`
                         );
                       }}
-                      slotProps={{
-                        inputLabel: {
-                          shrink: true,
-                        },
+                      InputLabelProps={{
+                        shrink: true,
                       }}
                       helperText={
                         fromDate &&
@@ -330,13 +324,11 @@ const DataTableFilterMenu = ({
                           `${newFromDate || ""},${newValue}`
                         );
                       }}
-                      slotProps={{
-                        inputLabel: {
-                          shrink: true,
-                        },
-                        htmlInput: {
-                          min: fromDate ? formatDateForInput(fromDate) : "",
-                        },
+                      InputLabelProps={{
+                        shrink: true,
+                      }}
+                      inputProps={{
+                        min: fromDate ? formatDateForInput(fromDate) : "",
                       }}
                     />
                   </Box>
@@ -369,10 +361,8 @@ const DataTableFilterMenu = ({
                           `${newValue},${newToDateTime || ""}`
                         );
                       }}
-                      slotProps={{
-                        inputLabel: {
-                          shrink: true,
-                        },
+                      InputLabelProps={{
+                        shrink: true,
                       }}
                       helperText={
                         fromDateTime &&
@@ -405,15 +395,13 @@ const DataTableFilterMenu = ({
                           `${newFromDateTime || ""},${newValue}`
                         );
                       }}
-                      slotProps={{
-                        inputLabel: {
-                          shrink: true,
-                        },
-                        htmlInput: {
-                          min: fromDateTime
-                            ? formatDateTimeForInput(fromDateTime)
-                            : "",
-                        },
+                      InputLabelProps={{
+                        shrink: true,
+                      }}
+                      inputProps={{
+                        min: fromDateTime
+                          ? formatDateTimeForInput(fromDateTime)
+                          : "",
                       }}
                     />
                   </Box>

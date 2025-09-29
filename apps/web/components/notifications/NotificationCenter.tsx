@@ -162,7 +162,7 @@ export const NotificationCenter: React.FC = () => {
   // Update critical count
   useEffect(() => {
     const critical = notifications.filter(n => 
-      n.priority === 'critical' && !n.read
+      n.priority === 'urgent' && !n.read
     ).length;
     setCriticalCount(critical);
   }, [notifications]);
@@ -483,7 +483,7 @@ export const NotificationCenter: React.FC = () => {
                     '&:hover': {
                       backgroundColor: 'action.selected',
                     },
-                    borderLeft: notification.priority === 'critical' ? 3 : 0,
+                    borderLeft: notification.priority === 'urgent' ? 3 : 0,
                     borderColor: 'error.main',
                   }}
                 >

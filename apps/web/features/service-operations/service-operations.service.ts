@@ -1,31 +1,94 @@
-import { client } from "../../lib/rpc";
+// Real API calls with fetch
+class ServiceOperationsAPI {
+  private baseUrl = 'http://localhost:3015/api/v1/service-operations';
 
-// Service Operations API endpoints
-export const serviceOperationsAPI = {
+  private async makeRequest(url: string, options: RequestInit = {}) {
+    const token = localStorage.getItem('auth_token');
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        ...options.headers,
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    return response.json();
+  }
+
   // Basic CRUD Operations
-  getOperations: (params?: { page?: number; limit?: number }) => 
-    client.api.v1["service-operations"].get({ query: params }),
-  getOperation: (id: string) => 
-    client.api.v1["service-operations"][":id"].get({ param: { id } }),
-  createOperation: (data: any) => 
-    client.api.v1["service-operations"].post({ json: data }),
-  updateOperation: (id: string, data: any) => 
-    client.api.v1["service-operations"][":id"].put({ param: { id }, json: data }),
+  async getOperations(params?: { page?: number; limit?: number }) {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.append('page', params.page.toString());
+    if (params?.limit) searchParams.append('limit', params.limit.toString());
+    
+    const url = searchParams.toString() 
+      ? `${this.baseUrl}?${searchParams}` 
+      : this.baseUrl;
+    
+    return this.makeRequest(url);
+  }
+
+  async getOperation(id: string) {
+    return this.makeRequest(`${this.baseUrl}/${id}`);
+  }
+
+  async createOperation(data: any) {
+    return this.makeRequest(this.baseUrl, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateOperation(id: string, data: any) {
+    return this.makeRequest(`${this.baseUrl}/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
 
   // Workflow Operations
-  createWorkflow: (data: any) => 
-    client.api.v1["service-operations"].workflow.post({ json: data }),
-  createRepairSummary: (data: any) => 
-    client.api.v1["service-operations"]["repair-summary"].post({ json: data }),
+  async createWorkflow(data: any) {
+    return this.makeRequest(`${this.baseUrl}/workflow`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async createRepairSummary(data: any) {
+    return this.makeRequest(`${this.baseUrl}/repair-summary`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
 
   // Statistics and Reports
-  getStats: () => 
-    client.api.v1["service-operations"].stats.get(),
-  getTechnicianPerformance: (params?: { dateFrom?: string; dateTo?: string }) => 
-    client.api.v1["service-operations"]["technician-performance"].get({ query: params }),
-  getNonWarrantyOperations: () => 
-    client.api.v1["service-operations"]["non-warranty"].get(),
-};
+  async getStats() {
+    return this.makeRequest(`${this.baseUrl}/stats`);
+  }
+
+  async getTechnicianPerformance(params?: { dateFrom?: string; dateTo?: string }) {
+    const searchParams = new URLSearchParams();
+    if (params?.dateFrom) searchParams.append('dateFrom', params.dateFrom);
+    if (params?.dateTo) searchParams.append('dateTo', params.dateTo);
+    
+    const url = searchParams.toString() 
+      ? `${this.baseUrl}/technician-performance?${searchParams}` 
+      : `${this.baseUrl}/technician-performance`;
+    
+    return this.makeRequest(url);
+  }
+
+  async getNonWarrantyOperations() {
+    return this.makeRequest(`${this.baseUrl}/non-warranty`);
+  }
+}
+
+export const serviceOperationsAPI = new ServiceOperationsAPI();
 
 // Types
 export interface ServiceOperation {

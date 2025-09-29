@@ -34,7 +34,7 @@ const fields: FormField[] = [
     type: "autocomplete",
     required: true,
     layout: { row: 0, column: 0 },
-    loadOptions: (query) => loadOptions("productModelId", query),
+    loadOptions: (query) => loadOptions("productModel", query),
   },
   {
     id: "status",
@@ -52,14 +52,14 @@ const fields: FormField[] = [
     label: "Company",
     type: "autocomplete",
     layout: { row: 1, column: 0 },
-    loadOptions: (query) => loadOptions("ownerId", query),
+    loadOptions: (query) => loadOptions("company", query),
   },
   {
     id: "locationId",
     label: "Location",
     type: "autocomplete",
     layout: { row: 1, column: 1 },
-    loadOptions: (query) => loadOptions("locationId", query),
+    loadOptions: (query) => loadOptions("location", query),
   },
   {
     id: "productionDate",
@@ -134,7 +134,7 @@ const ProductBulkCreateDialog: React.FC<ProductBulkCreateDialogProps> = ({
       resources,
     };
 
-    return onSubmit(body);
+    return onSubmit(body.resources);
     // handleClose();
   };
 

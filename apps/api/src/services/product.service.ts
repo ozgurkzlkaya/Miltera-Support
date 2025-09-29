@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { products, productModels, productTypes, companies, locations, users, productHistory } from '../db/schema';
+import { products, productModels, productTypes, companies, locations, users, productHistory, issues, serviceOperations } from '../db/schema';
 import { eq, and, isNull, isNotNull, desc, asc, inArray, like, not, or, ne } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { ProductStatus, WarrantyStatus, ProductHistoryEventType } from '../db/schema';
@@ -71,12 +71,66 @@ export class ProductService {
   private emailService = new EmailService();
 
   /**
+   * Seri numarası kontrolü yapar
+   */
+  private async checkSerialNumberExists(serialNumber: string, excludeProductId?: string): Promise<boolean> {
+    try {
+      let whereCondition;
+      
+      if (excludeProductId) {
+        whereCondition = and(eq(products.serialNumber, serialNumber), ne(products.id, excludeProductId));
+      } else {
+        whereCondition = eq(products.serialNumber, serialNumber);
+      }
+
+      const result = await db
+        .select({ id: products.id })
+        .from(products)
+        .where(whereCondition)
+        .limit(1);
+        
+      return result.length > 0;
+    } catch (error) {
+      console.error('Error checking serial number:', error);
+      return false;
+    }
+  }
+
+  /**
    * Ürün bilgilerini günceller
    */
   async updateProduct(productId: string, data: any) {
+    // Convert string dates to Date objects for timestamp fields
+    const processedData = { ...data };
+    
+    if (processedData.productionDate && typeof processedData.productionDate === 'string') {
+      processedData.productionDate = new Date(processedData.productionDate);
+    }
+    
+    if (processedData.warrantyStartDate && typeof processedData.warrantyStartDate === 'string') {
+      processedData.warrantyStartDate = new Date(processedData.warrantyStartDate);
+    }
+    
+    if (processedData.soldDate && typeof processedData.soldDate === 'string') {
+      processedData.soldDate = new Date(processedData.soldDate);
+    }
+    
+    if (processedData.hardwareVerificationDate && typeof processedData.hardwareVerificationDate === 'string') {
+      processedData.hardwareVerificationDate = new Date(processedData.hardwareVerificationDate);
+    }
+
+    // Check for duplicate serial number if serialNumber is being updated
+    if (processedData.serialNumber) {
+      const serialExists = await this.checkSerialNumberExists(processedData.serialNumber, productId);
+      if (serialExists) {
+        throw new Error('Bu seri numarası zaten kullanılıyor. Lütfen farklı bir seri numarası girin.');
+      }
+    }
+
     const result = await db.update(products)
       .set({
-        ...data,
+        ...processedData,
+        updatedBy: 'ce2a6761-82e3-48ba-af33-2f49b4b73e35', // Admin user ID
         updatedAt: new Date(),
       })
       .where(eq(products.id, productId))
@@ -101,10 +155,19 @@ export class ProductService {
    * Ürün siler
    */
   async deleteProduct(productId: string) {
-    await db.delete(products)
-      .where(eq(products.id, productId));
-    
-    return { success: true };
+    try {
+      console.log('Attempting to delete product:', productId);
+      
+      // Very simple deletion - just try to delete
+      await db.delete(products).where(eq(products.id, productId));
+      
+      console.log('Product deleted successfully');
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      throw error;
+    }
   }
 
   /**
@@ -118,13 +181,37 @@ export class ProductService {
       ? new Date(productionDate) 
       : productionDate;
     
+    // Serial number prefix: derive from model name if possible
+    let modelPrefix = 'PRD';
+    try {
+      const model = await db
+        .select({ name: productModels.name })
+        .from(productModels)
+        .where(eq(productModels.id, productModelId))
+        .limit(1);
+      if (model[0]?.name) {
+        modelPrefix = model[0].name
+          .split(/\s|-/)
+          .map((p) => p.trim()[0])
+          .join('')
+          .toUpperCase()
+          .slice(0, 4);
+      }
+    } catch {}
+    const datePart = new Date(productionDateObj ?? new Date())
+      .toISOString()
+      .slice(0, 10)
+      .replace(/-/g, '');
+    
     const productData = [];
     for (let i = 0; i < quantity; i++) {
+      const serialCandidate = `${modelPrefix}-${datePart}-${String(i + 1).padStart(3, '0')}`;
       productData.push({
         productModelId,
         status: 'FIRST_PRODUCTION' as ProductStatus,
         currentStatus: 'FIRST_PRODUCTION' as ProductStatus,
         productionDate: productionDateObj,
+        serialNumber: serialCandidate,
         productionEntryBy: createdBy,
         locationId: locationId || null,
         createdBy,
@@ -201,6 +288,11 @@ export class ProductService {
 
     // Seri numarası sadece donanım doğrulama sırasında eklenir
     if (serialNumber) {
+      // Check for duplicate serial number
+      const serialExists = await this.checkSerialNumberExists(serialNumber, productId);
+      if (serialExists) {
+        throw new Error('Bu seri numarası zaten kullanılıyor. Lütfen farklı bir seri numarası girin.');
+      }
       updateData.serialNumber = serialNumber;
     }
 
@@ -428,6 +520,12 @@ export class ProductService {
     const filteredConditions = whereConditions.filter(condition => condition !== undefined);
     const whereClause = filteredConditions.length > 0 ? and(...filteredConditions) : undefined;
 
+    // Create aliases for companies and users tables to avoid conflicts
+    const manufacturer = alias(companies, 'manufacturer');
+    const owner = alias(companies, 'owner');
+    const createdByUser = alias(users, 'createdByUser');
+    const updatedByUser = alias(users, 'updatedByUser');
+
     const result = await db
       .select({
         id: products.id,
@@ -455,8 +553,8 @@ export class ProductService {
           description: productTypes.description,
         },
         manufacturer: {
-          id: companies.id,
-          name: companies.name,
+          id: manufacturer.id,
+          name: manufacturer.name,
         },
         location: {
           id: locations.id,
@@ -464,28 +562,28 @@ export class ProductService {
           type: locations.type,
         },
         owner: {
-          id: companies.id,
-          name: companies.name,
+          id: owner.id,
+          name: owner.name,
         },
         createdByUser: {
-          id: users.id,
-          firstName: users.firstName,
-          lastName: users.lastName,
+          id: createdByUser.id,
+          firstName: createdByUser.firstName,
+          lastName: createdByUser.lastName,
         },
         updatedByUser: {
-          id: users.id,
-          firstName: users.firstName,
-          lastName: users.lastName,
+          id: updatedByUser.id,
+          firstName: updatedByUser.firstName,
+          lastName: updatedByUser.lastName,
         },
       })
       .from(products)
       .leftJoin(productModels, eq(products.productModelId, productModels.id))
       .leftJoin(productTypes, eq(productModels.productTypeId, productTypes.id))
-      .leftJoin(companies, eq(productModels.manufacturerId, companies.id))
+      .leftJoin(manufacturer, eq(productModels.manufacturerId, manufacturer.id))
       .leftJoin(locations, eq(products.locationId, locations.id))
-      .leftJoin(companies, eq(products.ownerId, companies.id))
-      .leftJoin(users, eq(products.createdBy, users.id))
-      .leftJoin(users, eq(products.updatedBy, users.id))
+      .leftJoin(owner, eq(products.ownerId, owner.id))
+      .leftJoin(createdByUser, eq(products.createdBy, createdByUser.id))
+      .leftJoin(updatedByUser, eq(products.updatedBy, updatedByUser.id))
       .where(whereClause)
       .orderBy(desc(products.createdAt))
       .limit(limit)
@@ -575,6 +673,12 @@ export class ProductService {
    * Ürün detayını getirir
    */
   async getProductById(productId: string) {
+    // Create aliases for companies and users tables to avoid conflicts
+    const manufacturer = alias(companies, 'manufacturer');
+    const owner = alias(companies, 'owner');
+    const createdByUser = alias(users, 'createdByUser');
+    const updatedByUser = alias(users, 'updatedByUser');
+
     const result = await db
       .select({
         id: products.id,
@@ -602,8 +706,8 @@ export class ProductService {
           description: productTypes.description,
         },
         manufacturer: {
-          id: companies.id,
-          name: companies.name,
+          id: manufacturer.id,
+          name: manufacturer.name,
         },
         location: {
           id: locations.id,
@@ -611,28 +715,28 @@ export class ProductService {
           type: locations.type,
         },
         owner: {
-          id: companies.id,
-          name: companies.name,
+          id: owner.id,
+          name: owner.name,
         },
         createdByUser: {
-          id: users.id,
-          firstName: users.firstName,
-          lastName: users.lastName,
+          id: createdByUser.id,
+          firstName: createdByUser.firstName,
+          lastName: createdByUser.lastName,
         },
         updatedByUser: {
-          id: users.id,
-          firstName: users.firstName,
-          lastName: users.lastName,
+          id: updatedByUser.id,
+          firstName: updatedByUser.firstName,
+          lastName: updatedByUser.lastName,
         },
       })
       .from(products)
       .leftJoin(productModels, eq(products.productModelId, productModels.id))
       .leftJoin(productTypes, eq(productModels.productTypeId, productTypes.id))
-      .leftJoin(companies, eq(productModels.manufacturerId, companies.id))
+      .leftJoin(manufacturer, eq(productModels.manufacturerId, manufacturer.id))
       .leftJoin(locations, eq(products.locationId, locations.id))
-      .leftJoin(companies, eq(products.ownerId, companies.id))
-      .leftJoin(users, eq(products.createdBy, users.id))
-      .leftJoin(users, eq(products.updatedBy, users.id))
+      .leftJoin(owner, eq(products.ownerId, owner.id))
+      .leftJoin(createdByUser, eq(products.createdBy, createdByUser.id))
+      .leftJoin(updatedByUser, eq(products.updatedBy, updatedByUser.id))
       .where(eq(products.id, productId))
       .limit(1);
 

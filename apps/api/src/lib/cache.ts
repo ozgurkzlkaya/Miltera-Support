@@ -8,9 +8,15 @@ const CACHE_CONFIG = {
   prefix: "cache:",
 };
 
-// Cache middleware for API responses
+// Cache middleware for API responses (disabled for development)
 export const cacheMiddleware = (ttl: number = CACHE_CONFIG.defaultTTL) => {
   return async (c: Context, next: Next) => {
+    // Skip caching in development or if Redis is not available
+    if (!redisClient) {
+      await next();
+      return;
+    }
+
     // Skip caching for non-GET requests
     if (c.req.method !== "GET") {
       await next();
@@ -20,36 +26,12 @@ export const cacheMiddleware = (ttl: number = CACHE_CONFIG.defaultTTL) => {
     const cacheKey = `${CACHE_CONFIG.prefix}${c.req.url}`;
     
     try {
-      // Try to get cached response (only if Redis is available)
-      if (redisClient) {
-        const cached = await redisClient.get(cacheKey);
-        if (cached) {
-          const parsed = JSON.par
-          
-          se(cached);
-          return c.json(parsed.data, parsed.status, parsed.headers);
-        }
+      // Try to get cached response
+      const cached = await redisClient.get(cacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        return c.json(parsed.data, parsed.status);
       }
-      
-      // Store original json method
-      const originalJson = c.json;
-      
-      // Override json method to cache response
-      c.json = (data: any, status?: number, headers?: Record<string, string>) => {
-        // Cache successful responses (only if Redis is available)
-        if (status && status >= 200 && status < 300 && redisClient) {
-          const cacheData = {
-            data,
-            status,
-            headers,
-            timestamp: Date.now(),
-          };
-          
-          redisClient.set(cacheKey, JSON.stringify(cacheData), "EX", ttl);
-        }
-        
-        return originalJson.call(c, data, status, headers);
-      };
       
       await next();
     } catch (error) {
@@ -65,7 +47,7 @@ export const cacheUtils = {
   set: async (key: string, value: any, ttl: number = CACHE_CONFIG.defaultTTL) => {
     if (!redisClient) return;
     const fullKey = `${CACHE_CONFIG.prefix}${key}`;
-    await redisClient.set(fullKey, JSON.stringify(value), "EX", ttl);
+    await redisClient.setex(fullKey, ttl, JSON.stringify(value));
   },
   
   // Get cache value
@@ -107,7 +89,7 @@ export const cacheUtils = {
     const keys = await redisClient.keys(`${CACHE_CONFIG.prefix}*`);
     return {
       totalKeys: keys.length,
-      memoryUsage: await redisClient.memory("USAGE"),
+      memoryUsage: 0, // Redis memory usage not available in this version
     };
   },
 };

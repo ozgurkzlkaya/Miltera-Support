@@ -103,6 +103,7 @@ type ListMetaResponse = z.infer<typeof ListMetaResponseSchema>;
 type ListMetaRequestParams = z.infer<typeof ListMetaRequestParamsSchema>;
 
 const Error400Schema = buildResponseErrorSchema(z.string(), z.string());
+const Error401Schema = buildResponseErrorSchema(z.string(), z.string());
 const Error404Schema = buildResponseErrorSchema(z.string(), z.string());
 const Error422Schema = buildResponseErrorSchema(z.string(), z.string());
 const Error500Schema = buildResponseErrorSchema(z.string(), z.string());
@@ -119,6 +120,7 @@ export {
   ListMetaResponseSchema,
   ListMetaRequestParamsSchema,
   Error400Schema,
+  Error401Schema,
   Error404Schema,
   Error422Schema,
   Error500Schema,

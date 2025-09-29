@@ -80,6 +80,7 @@ import {
 import { formatDistanceToNow, format, parseISO } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { apiClient } from '../../lib/api';
+import { useWebSocketStore } from '../../lib/websocket';
 
 export interface AdvancedNotification {
   id: string;
@@ -203,15 +204,7 @@ export const AdvancedNotificationProvider: React.FC<AdvancedNotificationProvider
 
   const unreadCount = notifications.filter(n => !n.read && !n.archived).length;
 
-  // WebSocket bağlantısı için
-  useEffect(() => {
-    // TODO: WebSocket bağlantısı kurulacak
-    const connectWebSocket = () => {
-      // WebSocket bağlantısı
-    };
-
-    connectWebSocket();
-  }, []);
+  // WebSocket bildirimlerini dinle ve içeri aktar (addNotification tanımından sonra yerleştirildi)
 
   // Örnek bildirimler ekle
   useEffect(() => {
@@ -321,21 +314,53 @@ export const AdvancedNotificationProvider: React.FC<AdvancedNotificationProvider
       setSnackbar({
         open: true,
         message: notification.message,
-        severity: notification.type,
+        severity: (notification.type === 'critical' ? 'error' : notification.type) as 'success' | 'error' | 'warning' | 'info',
       });
     }
 
-    // Diğer kanallara gönder
-    if (settings.email && notification.channels.includes('email')) {
-      // TODO: Email gönder
-    }
-    if (settings.sms && notification.channels.includes('sms')) {
-      // TODO: SMS gönder
-    }
-    if (settings.push && notification.channels.includes('push')) {
-      // TODO: Push notification gönder
+    // Sunucuya tek bir create isteği ile seçilen kanalları gönder
+    const selectedChannels = [
+      settings.inApp && notification.channels.includes('in-app') ? 'in-app' : null,
+      settings.email && notification.channels.includes('email') ? 'email' : null,
+      settings.sms && notification.channels.includes('sms') ? 'sms' : null,
+      settings.push && notification.channels.includes('push') ? 'push' : null,
+    ].filter(Boolean) as string[];
+
+    if (selectedChannels.length > 0) {
+      apiClient.post('/notifications', {
+        title: notification.title,
+        message: notification.message,
+        type: (notification.type === 'critical' ? 'error' : notification.type) as 'success' | 'error' | 'warning' | 'info',
+        priority: notification.priority,
+        category: notification.category,
+        description: notification.description,
+        source: 'web-ui',
+        channels: selectedChannels,
+        metadata: notification.metadata,
+      }).catch(() => {});
     }
   }, [settings]);
+
+  // WebSocket bildirimlerini dinle ve içeri aktar (addNotification sonrasında tanımlı)
+  useEffect(() => {
+    const { socket } = useWebSocketStore.getState();
+    const handleWsNotification = (evt: any) => {
+      const mapped: Omit<AdvancedNotification, 'id' | 'timestamp' | 'read' | 'archived' | 'pinned' | 'starred'> = {
+        type: (evt.type === 'critical' ? 'error' : (evt.type || 'info')) as 'success' | 'error' | 'warning' | 'info',
+        title: evt.title || 'Bildirim',
+        message: evt.message || '',
+        category: (evt.category || 'system') as any,
+        priority: (evt.priority || 'low') as any,
+        source: evt.source || 'Sistem',
+        channels: ['in-app'],
+        metadata: evt.data || undefined,
+      };
+      addNotification(mapped);
+    };
+
+    socket?.on?.('notification', handleWsNotification);
+    return () => { socket?.off?.('notification', handleWsNotification); };
+  }, [addNotification]);
 
   const markAsRead = useCallback((id: string) => {
     setNotifications(prev => 

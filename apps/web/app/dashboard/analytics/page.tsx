@@ -1,61 +1,33 @@
-'use client';
+﻿"use client";
 
 import React, { useState, useEffect } from 'react';
 import {
   Box,
-  Typography,
-  Grid,
   Card,
   CardContent,
-  CardHeader,
-  Paper,
-  Tabs,
-  Tab,
-  Button,
-  IconButton,
-  Chip,
-  Alert,
+  Typography,
+  Grid,
   CircularProgress,
+  Alert,
+  Button,
   Snackbar,
+  IconButton,
+  Switch,
   FormControl,
   InputLabel,
   Select,
-  MenuItem,
-  Switch,
-  FormControlLabel,
-  Stack,
-  LinearProgress,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  Divider,
-  Avatar,
-  Tooltip
+  MenuItem
 } from '@mui/material';
 import {
-  TrendingUp as TrendingUpIcon,
-  TrendingDown as TrendingDownIcon,
-  Refresh as RefreshIcon,
-  Download as DownloadIcon,
-  FilterList as FilterIcon,
-  Schedule as ScheduleIcon,
-  CheckCircle as CheckCircleIcon,
-  Warning as WarningIcon,
-  Error as ErrorIcon,
-  Info as InfoIcon,
-  BarChart as BarChartIcon,
-  PieChart as PieChartIcon,
-  Timeline as TimelineIcon,
-  Assessment as AssessmentIcon,
-  AutoAwesome as AutoAwesomeIcon,
-  Notifications as NotificationsIcon,
-  People as PeopleIcon,
-  Build as BuildIcon,
-  Inventory as InventoryIcon,
-  LocalShipping as ShippingIcon
+  Refresh,
+  GetApp,
+  Download,
+  Inventory,
+  Build,
+  LocalShipping,
+  Person,
+  CheckCircle
 } from '@mui/icons-material';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 
 interface AnalyticsData {
   overview: {
@@ -66,899 +38,245 @@ interface AnalyticsData {
     activeUsers: number;
     systemHealth: number;
   };
-  trends: {
-    productTrend: Array<{ date: string; count: number }>;
-    issueTrend: Array<{ date: string; count: number }>;
-    operationTrend: Array<{ date: string; count: number }>;
-  };
-  performance: {
-    avgResolutionTime: number;
-    customerSatisfaction: number;
-    systemUptime: number;
-    errorRate: number;
-  };
-  alerts: Array<{
-    id: string;
-    type: 'success' | 'warning' | 'error' | 'info';
-    title: string;
-    message: string;
-    timestamp: string;
-    priority: 'low' | 'medium' | 'high' | 'critical';
-  }>;
-  topPerformers: Array<{
-    id: string;
-    name: string;
-    role: string;
-    performance: number;
-    avatar?: string;
-  }>;
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
-
 export default function AnalyticsPage() {
-  const [activeTab, setActiveTab] = useState(0);
-  const [autoRefresh, setAutoRefresh] = useState(false);
-  const [timeRange, setTimeRange] = useState('7d');
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: '',
-    severity: 'success' as 'success' | 'error' | 'warning' | 'info'
-  });
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [timeRange, setTimeRange] = useState('7d');
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error' | 'warning' | 'info';
+  }>({ open: false, message: '', severity: 'info' });
 
-  // Gerçek API'den veri çekme
-  useEffect(() => {
-    const fetchAnalyticsData = async () => {
-      try {
-        setLoading(true);
-        
-        const token = localStorage.getItem('auth_token') || localStorage.getItem('token') || '';
-        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-
-        const [productsRes, issuesRes, opsRes, shipmentsRes] = await Promise.all([
-          fetch('http://localhost:3011/api/v1/products', { headers }),
-          fetch('http://localhost:3011/api/v1/issues', { headers }),
-          fetch('http://localhost:3011/api/v1/service-operations', { headers }),
-          fetch('http://localhost:3011/api/v1/shipments', { headers })
-        ]);
-
-        if (!productsRes.ok && !issuesRes.ok && !opsRes.ok && !shipmentsRes.ok) {
-          throw new Error('API erişimi başarısız');
-        }
-
-        const safeJson = async (res: Response) => { try { return await res.json(); } catch { return { data: [] }; } };
-        const [products, issues, ops, shipments] = await Promise.all([
-          safeJson(productsRes), safeJson(issuesRes), safeJson(opsRes), safeJson(shipmentsRes)
-        ]);
-
-        const arrP: any[] = Array.isArray(products.data) ? products.data : [];
-        const arrI: any[] = Array.isArray(issues.data) ? issues.data : [];
-        const arrO: any[] = Array.isArray(ops.data) ? ops.data : [];
-        const arrS: any[] = Array.isArray(shipments.data) ? shipments.data : [];
-
-        const toKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-        const countByDate = (items: any[], datePick: (x:any)=>any) => {
-          const m: Record<string, number> = {};
-          items.forEach((x) => {
-            const v = datePick(x);
-            if (!v) return;
-            const d = new Date(v);
-            const k = toKey(d);
-            m[k] = (m[k] || 0) + 1;
-          });
-          return Object.entries(m).sort(([a],[b]) => a.localeCompare(b)).map(([date,count]) => ({ date, count }));
-        };
-
-        const productTrend = countByDate(arrP, (p)=> p.productionDate || p.createdAt || p.updatedAt);
-        const issueTrend = countByDate(arrI, (i)=> i.reportedAt || i.createdAt);
-        const operationTrend = countByDate(arrO, (o)=> o.operationDate || o.createdAt);
-
-        const avgResolutionTime = (() => {
-          const diffs: number[] = [];
-          arrI.forEach((i)=>{
-            if (i.resolvedAt) {
-              const s = new Date(i.reportedAt || i.createdAt).getTime();
-              const e = new Date(i.resolvedAt).getTime();
-              if (isFinite(s) && isFinite(e) && e>=s) diffs.push(e-s);
-            }
-          });
-          if (!diffs.length) return 0;
-          return Math.round((diffs.reduce((a,b)=>a+b,0)/diffs.length)/(1000*60*60*24));
-        })();
-
-        // Alerts derived from live data
-        const now = Date.now();
-        const openIssues = arrI.filter((i)=> ['OPEN','IN_PROGRESS'].includes(i.status));
-        const repairedLast24h = arrI.filter((i)=> i.status === 'REPAIRED' && i.updatedAt && (now - new Date(i.updatedAt).getTime()) < 24*60*60*1000);
-        const completedOps7d = arrO.filter((o)=> o.status === 'COMPLETED' && o.operationDate && (now - new Date(o.operationDate).getTime()) < 7*24*60*60*1000);
-        const shipmentsToday = arrS.filter((s)=> s.createdAt && new Date(s.createdAt).toDateString() === new Date().toDateString());
-
-        const alerts: AnalyticsData['alerts'] = [];
-        if (openIssues.length > 0) {
-          alerts.push({
-            id: 'a-open-issues',
-            type: openIssues.length > 10 ? 'warning' : 'info',
-            title: 'Açık Arızalar',
-            message: `${openIssues.length} açık/in progress arıza bulunuyor`,
-            timestamp: new Date().toISOString(),
-            priority: openIssues.length > 10 ? 'high' : 'medium'
-          });
-        }
-        if (repairedLast24h.length > 0) {
-          alerts.push({
-            id: 'a-repaired-24h',
-            type: 'success',
-            title: 'Tamamlanan Arızalar',
-            message: `Son 24 saatte ${repairedLast24h.length} arıza tamir edildi`,
-            timestamp: new Date().toISOString(),
-            priority: 'low'
-          });
-        }
-        if (completedOps7d.length > 0) {
-          alerts.push({
-            id: 'a-ops-7d',
-            type: 'success',
-            title: 'Tamamlanan Operasyonlar',
-            message: `Son 7 günde ${completedOps7d.length} operasyon tamamlandı`,
-            timestamp: new Date().toISOString(),
-            priority: 'low'
-          });
-        }
-        if (shipmentsToday.length > 0) {
-          alerts.push({
-            id: 'a-shipments-today',
-            type: 'info',
-            title: 'Günlük Sevkiyat',
-            message: `Bugün ${shipmentsToday.length} sevkiyat hareketi var`,
-            timestamp: new Date().toISOString(),
-            priority: 'medium'
-          });
-        }
-
-        // Top performers from service operations
-        const techStats: Record<string, { completed: number; durations: number[] } > = {};
-        arrO.forEach((o)=>{
-          const techId = o.technicianId || o.performedBy;
-          if (!techId) return;
-          if (!techStats[techId]) techStats[techId] = { completed: 0, durations: [] };
-          if (o.status === 'COMPLETED') {
-            techStats[techId].completed += 1;
-            const start = o.startedAt ? new Date(o.startedAt).getTime() : undefined;
-            const end = o.completedAt ? new Date(o.completedAt).getTime() : undefined;
-            const dur = typeof o.duration === 'number' ? o.duration : (start && end && end>=start ? (end-start)/(1000*60) : undefined);
-            if (typeof dur === 'number' && isFinite(dur)) techStats[techId].durations.push(dur);
-          }
-        });
-
-        const topPerformers: AnalyticsData['topPerformers'] = Object.entries(techStats)
-          .map(([techId, s]) => {
-            const avgMin = s.durations.length ? (s.durations.reduce((a,b)=>a+b,0)/s.durations.length) : 0;
-            const score = Math.max(0, Math.min(100, Math.round((s.completed*10) + (avgMin ? Math.max(0, 60 - Math.min(60, avgMin)) : 20))));
-            return {
-              id: techId,
-              name: `Teknisyen ${techId.substring(0,6)}`,
-              role: 'Teknik Servis Uzmanı',
-              performance: score
-            };
-          })
-          .sort((a,b)=> b.performance - a.performance)
-          .slice(0, 6);
-
-        const analyticsData: AnalyticsData = {
-          overview: {
-            totalProducts: arrP.length,
-            totalIssues: arrI.filter((i)=> ['OPEN','IN_PROGRESS'].includes(i.status)).length,
-            totalOperations: arrO.filter((o)=> o.status === 'COMPLETED').length,
-            totalShipments: arrS.length,
-            activeUsers: 0,
-            systemHealth: 99
-          },
-          trends: { productTrend, issueTrend, operationTrend },
-          performance: {
-            avgResolutionTime,
-            customerSatisfaction: 5,
-            systemUptime: 99.8,
-            errorRate: 0.1
-          },
-          alerts,
-          topPerformers
-        };
-
-        setAnalyticsData(analyticsData);
-        setError(null);
-      } catch (err) {
-        setError('Analytics verileri yüklenirken hata oluştu');
-        console.error('Analytics fetch error:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAnalyticsData();
-
-    // Auto refresh
-    let interval: NodeJS.Timeout;
-    if (autoRefresh) {
-      interval = setInterval(() => {
-        fetchAnalyticsData();
-      }, 30000); // 30 seconds
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [autoRefresh, timeRange]);
-
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setActiveTab(newValue);
-  };
-
-  const handleRefresh = () => {
-    window.location.reload();
-  };
-
-  const handleExport = (format: 'pdf' | 'excel') => {
-    if (!analyticsData) return;
-    
+  const fetchAnalyticsData = async () => {
     try {
-      if (format === 'pdf') {
-        exportToPDF(analyticsData);
-      } else if (format === 'excel') {
-        exportToExcel(analyticsData);
-      }
-    } catch (error) {
-      console.error(`Export error (${format}):`, error);
-      // Show error notification
+      setLoading(true);
+      setError(null);
+      
+      const token = localStorage.getItem('authToken');
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
+      
+      const [productsRes, issuesRes, opsRes, shipmentsRes] = await Promise.all([
+        fetch('http://localhost:3015/api/v1/products', { headers }),
+        fetch('http://localhost:3015/api/v1/issues', { headers }),
+        fetch('http://localhost:3015/api/v1/service-operations', { headers }),
+        fetch('http://localhost:3015/api/v1/shipments', { headers })
+      ]);
+      
+      const safeJson = async (res: Response) => {
+        try {
+          return await res.json();
+        } catch {
+          return { data: [] };
+        }
+      };
+      
+      const [products, issues, ops, shipments] = await Promise.all([
+        safeJson(productsRes),
+        safeJson(issuesRes),
+        safeJson(opsRes),
+        safeJson(shipmentsRes)
+      ]);
+      
+      const arrP = Array.isArray(products.data) ? products.data : [];
+      const arrI = Array.isArray(issues.data) ? issues.data : [];
+      const arrO = Array.isArray(ops.data) ? ops.data : [];
+      const arrS = Array.isArray(shipments.data) ? shipments.data : [];
+      
+      const analyticsData: AnalyticsData = {
+        overview: {
+          totalProducts: arrP.length,
+          totalIssues: arrI.length,
+          totalOperations: arrO.length,
+          totalShipments: arrS.length,
+          activeUsers: 1,
+          systemHealth: 100
+        }
+      };
+      
+      setAnalyticsData(analyticsData);
       setSnackbar({
         open: true,
-        message: `${format.toUpperCase()} export işlemi başarısız oldu`,
-        severity: 'error'
+        message: 'Analytics verileri başarıyla yüklendi',
+        severity: 'success'
       });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Analytics verileri yüklenirken hata oluştu';
+      setError(errorMessage);
+      console.error('Analytics fetch error:', err);
+    } finally {
+      setLoading(false);
     }
   };
-
-  const exportToPDF = (data: AnalyticsData) => {
-    let content = '';
-    
-    // PDF Header
-    content += 'FIXLOG TEKNİK SERVİS PORTALI - ANALYTICS RAPORU\n';
-    content += '='.repeat(50) + '\n\n';
-    content += `Rapor Tarihi: ${new Date().toLocaleDateString('tr-TR')}\n`;
-    content += `Zaman Aralığı: ${timeRange === '7d' ? 'Son 7 Gün' : timeRange === '30d' ? 'Son 30 Gün' : 'Son 90 Gün'}\n`;
-    content += `Oluşturan: AHMET ÖZGÜR KIZILKAYA\n\n`;
-    
-    // Overview Section
-    content += 'GENEL BAKIŞ\n';
-    content += '-'.repeat(20) + '\n';
-    content += `Toplam Ürün: ${data.overview.totalProducts.toLocaleString()}\n`;
-    content += `Aktif Arıza: ${data.overview.totalIssues}\n`;
-    content += `Operasyon: ${data.overview.totalOperations}\n`;
-    content += `Sevkiyat: ${data.overview.totalShipments}\n`;
-    content += `Aktif Kullanıcı: ${data.overview.activeUsers}\n`;
-    content += `Sistem Sağlığı: ${data.overview.systemHealth}%\n\n`;
-    
-    // Performance Section
-    content += 'PERFORMANS METRİKLERİ\n';
-    content += '-'.repeat(25) + '\n';
-    content += `Ortalama Çözüm Süresi: ${data.performance.avgResolutionTime} gün\n`;
-    content += `Müşteri Memnuniyeti: ${data.performance.customerSatisfaction}/5\n`;
-    content += `Sistem Uptime: ${data.performance.systemUptime}%\n`;
-    content += `Hata Oranı: ${data.performance.errorRate}%\n\n`;
-    
-    // Trends Section
-    content += 'TREND ANALİZİ\n';
-    content += '-'.repeat(15) + '\n';
-    content += 'Son 7 Günlük Veriler:\n';
-    data.trends.productTrend.forEach(item => {
-      content += `${item.date}: ${item.count} ürün\n`;
-    });
-    content += '\n';
-    
-    // Top Performers Section
-    content += 'EN İYİ PERFORMANS GÖSTERENLER\n';
-    content += '-'.repeat(35) + '\n';
-    data.topPerformers.forEach((performer, index) => {
-      content += `${index + 1}. ${performer.name} - ${performer.role}\n`;
-      content += `   Performans: ${performer.performance}%\n`;
-    });
-    content += '\n';
-    
-    // System Alerts Section
-    content += 'SİSTEM UYARILARI\n';
-    content += '-'.repeat(20) + '\n';
-    data.alerts.forEach(alert => {
-      content += `• ${alert.title}: ${alert.message}\n`;
-      content += `  Tarih: ${new Date(alert.timestamp).toLocaleString('tr-TR')}\n`;
-      content += `  Öncelik: ${alert.priority}\n\n`;
-    });
-    
-    // Footer
-    content += '\n' + '='.repeat(50) + '\n';
-    content += 'Bu rapor FixLog sistemi tarafından otomatik olarak oluşturulmuştur.\n';
-    content += '© 2025 Miltera R&D - Tüm hakları saklıdır.\n';
-    
-    // Create and download file
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `fixlog-analytics-raporu-${new Date().toISOString().split('T')[0]}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-    
-    // Show success message
-    setSnackbar({
-      open: true,
-      message: 'Analytics raporu metin formatında indirildi. PDF yazıcısı ile yazdırabilirsiniz.',
-      severity: 'success'
-    });
-  };
-
-  const exportToExcel = (data: AnalyticsData) => {
-    let csvContent = '';
-    
-    // CSV Header
-    csvContent += 'FixLog Analytics Raporu\n';
-    csvContent += `Rapor Tarihi,${new Date().toLocaleDateString('tr-TR')}\n`;
-    csvContent += `Zaman Aralığı,${timeRange === '7d' ? 'Son 7 Gün' : timeRange === '30d' ? 'Son 30 Gün' : 'Son 90 Gün'}\n`;
-    csvContent += `Oluşturan,AHMET ÖZGÜR KIZILKAYA\n\n`;
-    
-    // Overview Section
-    csvContent += 'GENEL BAKIŞ\n';
-    csvContent += 'Metrik,Değer\n';
-    csvContent += `Toplam Ürün,${data.overview.totalProducts}\n`;
-    csvContent += `Aktif Arıza,${data.overview.totalIssues}\n`;
-    csvContent += `Operasyon,${data.overview.totalOperations}\n`;
-    csvContent += `Sevkiyat,${data.overview.totalShipments}\n`;
-    csvContent += `Aktif Kullanıcı,${data.overview.activeUsers}\n`;
-    csvContent += `Sistem Sağlığı,${data.overview.systemHealth}%\n\n`;
-    
-    // Performance Section
-    csvContent += 'PERFORMANS METRİKLERİ\n';
-    csvContent += 'Metrik,Değer\n';
-    csvContent += `Ortalama Çözüm Süresi,${data.performance.avgResolutionTime} gün\n`;
-    csvContent += `Müşteri Memnuniyeti,${data.performance.customerSatisfaction}/5\n`;
-    csvContent += `Sistem Uptime,${data.performance.systemUptime}%\n`;
-    csvContent += `Hata Oranı,${data.performance.errorRate}%\n\n`;
-    
-    // Trends Section
-    csvContent += 'TREND ANALİZİ - ÜRÜN TREND\n';
-    csvContent += 'Tarih,Ürün Sayısı\n';
-    data.trends.productTrend.forEach(item => {
-      csvContent += `${item.date},${item.count}\n`;
-    });
-    csvContent += '\n';
-    
-    csvContent += 'TREND ANALİZİ - ARIZA TREND\n';
-    csvContent += 'Tarih,Arıza Sayısı\n';
-    data.trends.issueTrend.forEach(item => {
-      csvContent += `${item.date},${item.count}\n`;
-    });
-    csvContent += '\n';
-    
-    csvContent += 'TREND ANALİZİ - OPERASYON TREND\n';
-    csvContent += 'Tarih,Operasyon Sayısı\n';
-    data.trends.operationTrend.forEach(item => {
-      csvContent += `${item.date},${item.count}\n`;
-    });
-    csvContent += '\n';
-    
-    // Top Performers Section
-    csvContent += 'EN İYİ PERFORMANS GÖSTERENLER\n';
-    csvContent += 'Ad Soyad,Rol,Performans (%)\n';
-    data.topPerformers.forEach(performer => {
-      csvContent += `${performer.name},${performer.role},${performer.performance}\n`;
-    });
-    csvContent += '\n';
-    
-    // System Alerts Section
-    csvContent += 'SİSTEM UYARILARI\n';
-    csvContent += 'Başlık,Mesaj,Tarih,Öncelik,Tip\n';
-    data.alerts.forEach(alert => {
-      csvContent += `${alert.title},${alert.message},${new Date(alert.timestamp).toLocaleString('tr-TR')},${alert.priority},${alert.type}\n`;
-    });
-    
-    // Create and download file
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `fixlog-analytics-raporu-${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-    
-    // Show success message
-    setSnackbar({
-      open: true,
-      message: 'Analytics raporu Excel formatında (CSV) indirildi.',
-      severity: 'success'
-    });
-  };
-
-  const getAlertIcon = (type: string) => {
-    switch (type) {
-      case 'success':
-        return <CheckCircleIcon sx={{ color: 'success.main' }} />;
-      case 'warning':
-        return <WarningIcon sx={{ color: 'warning.main' }} />;
-      case 'error':
-        return <ErrorIcon sx={{ color: 'error.main' }} />;
-      default:
-        return <InfoIcon sx={{ color: 'info.main' }} />;
+  
+  useEffect(() => {
+    fetchAnalyticsData();
+  }, []);
+  
+  useEffect(() => {
+    if (autoRefresh) {
+      const interval = setInterval(fetchAnalyticsData, 30000);
+      return () => clearInterval(interval);
     }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'critical':
-        return 'error';
-      case 'high':
-        return 'warning';
-      case 'medium':
-        return 'info';
-      default:
-        return 'default';
-    }
-  };
-
+  }, [autoRefresh]);
+  
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
-        <CircularProgress size={60} />
-        <Typography variant="h6" sx={{ ml: 2 }}>
-          Analytics verileri yükleniyor...
-        </Typography>
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+        <CircularProgress />
       </Box>
     );
   }
-
+  
   if (error) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="error" sx={{ mb: 3 }}>
+      <Box p={3}>
+        <Alert severity="error" action={
+          <Button color="inherit" size="small" onClick={fetchAnalyticsData}>
+            Tekrar Dene
+          </Button>
+        }>
           {error}
         </Alert>
-        <Button variant="contained" onClick={handleRefresh}>
-          Tekrar Dene
-        </Button>
       </Box>
     );
   }
-
+  
   if (!analyticsData) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="warning">
-          Analytics verileri bulunamadı.
-        </Alert>
+      <Box p={3}>
+        <Alert severity="info">Analytics verileri yüklenemedi.</Alert>
       </Box>
     );
   }
-
+  
   return (
-    <Box sx={{ p: 3 }}>
-      {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+    <Box p={3}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: 600, mb: 1 }}>
+          <Typography variant="h4" component="h1" gutterBottom>
             Analytics Dashboard
           </Typography>
-          <Typography variant="body1" color="text.secondary">
+          <Typography variant="subtitle1" color="text.secondary">
             Sistem performansı ve iş analitikleri
           </Typography>
         </Box>
-        
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          <FormControlLabel
-            control={
-              <Switch
-                checked={autoRefresh}
-                onChange={(e) => setAutoRefresh(e.target.checked)}
-                color="primary"
-              />
-            }
-            label="Otomatik Yenile"
-          />
-          
+        <Box display="flex" gap={2} alignItems="center">
+          <Box display="flex" alignItems="center" gap={1}>
+            <Typography variant="body2">Otomatik Yenile</Typography>
+            <Switch checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
+          </Box>
           <FormControl size="small" sx={{ minWidth: 120 }}>
             <InputLabel>Zaman Aralığı</InputLabel>
-            <Select
-              value={timeRange}
-              onChange={(e) => setTimeRange(e.target.value)}
-              label="Zaman Aralığı"
-            >
+            <Select value={timeRange} onChange={(e) => setTimeRange(e.target.value)} label="Zaman Aralığı">
               <MenuItem value="1d">Son 1 Gün</MenuItem>
               <MenuItem value="7d">Son 7 Gün</MenuItem>
               <MenuItem value="30d">Son 30 Gün</MenuItem>
               <MenuItem value="90d">Son 90 Gün</MenuItem>
             </Select>
           </FormControl>
-          
-          <Button
-            variant="outlined"
-            startIcon={<DownloadIcon />}
-            onClick={() => handleExport('pdf')}
-          >
-            PDF
-          </Button>
-          
-          <Button
-            variant="outlined"
-            startIcon={<DownloadIcon />}
-            onClick={() => handleExport('excel')}
-          >
-            Excel
-          </Button>
-          
-          <IconButton onClick={handleRefresh} color="primary">
-            <RefreshIcon />
+          <Button variant="outlined" startIcon={<GetApp />} size="small">PDF</Button>
+          <Button variant="outlined" startIcon={<Download />} size="small">EXCEL</Button>
+          <IconButton onClick={fetchAnalyticsData} color="primary">
+            <Refresh />
           </IconButton>
         </Box>
       </Box>
-
-      {/* Auto Refresh Indicator */}
-      {autoRefresh && (
-        <Alert severity="info" sx={{ mb: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <AutoAwesomeIcon />
-            <Typography variant="body2">
-              Otomatik yenileme aktif - 30 saniyede bir güncelleniyor
-            </Typography>
-          </Box>
-        </Alert>
-      )}
-
-      {/* Tabs */}
-      <Paper sx={{ mb: 3 }}>
-        <Tabs value={activeTab} onChange={handleTabChange} variant="fullWidth">
-          <Tab icon={<AssessmentIcon />} label="Genel Bakış" />
-          <Tab icon={<TrendingUpIcon />} label="Trend Analizi" />
-          <Tab icon={<BarChartIcon />} label="Performans" />
-          <Tab icon={<NotificationsIcon />} label="Sistem Uyarıları" />
-          <Tab icon={<PeopleIcon />} label="En İyi Performans" />
-        </Tabs>
-      </Paper>
-
-      {/* Tab Content */}
-      {activeTab === 0 && (
-        <Grid container spacing={3}>
-          {/* Overview Cards */}
-          <Grid item xs={12} sm={6} md={2}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent sx={{ textAlign: 'center' }}>
-                <InventoryIcon sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
-                <Typography variant="h4" sx={{ fontWeight: 600 }}>
-                  {analyticsData.overview.totalProducts.toLocaleString()}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Toplam Ürün
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={2}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent sx={{ textAlign: 'center' }}>
-                <BuildIcon sx={{ fontSize: 40, color: 'warning.main', mb: 1 }} />
-                <Typography variant="h4" sx={{ fontWeight: 600 }}>
-                  {analyticsData.overview.totalIssues}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Aktif Arıza
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={2}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent sx={{ textAlign: 'center' }}>
-                <BuildIcon sx={{ fontSize: 40, color: 'info.main', mb: 1 }} />
-                <Typography variant="h4" sx={{ fontWeight: 600 }}>
-                  {analyticsData.overview.totalOperations}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Operasyon
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={2}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent sx={{ textAlign: 'center' }}>
-                <ShippingIcon sx={{ fontSize: 40, color: 'success.main', mb: 1 }} />
-                <Typography variant="h4" sx={{ fontWeight: 600 }}>
-                  {analyticsData.overview.totalShipments}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Sevkiyat
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={2}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent sx={{ textAlign: 'center' }}>
-                <PeopleIcon sx={{ fontSize: 40, color: 'secondary.main', mb: 1 }} />
-                <Typography variant="h4" sx={{ fontWeight: 600 }}>
-                  {analyticsData.overview.activeUsers}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Aktif Kullanıcı
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={2}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent sx={{ textAlign: 'center' }}>
-                <CheckCircleIcon sx={{ fontSize: 40, color: 'success.main', mb: 1 }} />
-                <Typography variant="h4" sx={{ fontWeight: 600 }}>
-                  {analyticsData.overview.systemHealth}%
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Sistem Sağlığı
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* System Health Progress */}
-          <Grid item xs={12}>
-            <Card>
-              <CardHeader title="Sistem Sağlığı" />
-              <CardContent>
-                <Box sx={{ mb: 2 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant="body2">Genel Sistem Durumu</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {analyticsData.overview.systemHealth}%
-                    </Typography>
-                  </Box>
-                  <LinearProgress 
-                    variant="determinate" 
-                    value={analyticsData.overview.systemHealth} 
-                    sx={{ height: 8, borderRadius: 4 }}
-                  />
+      
+      <Grid container spacing={3}>
+        <Grid item xs={12} sm={6} md={2}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography color="text.secondary" gutterBottom>Toplam Ürün</Typography>
+                  <Typography variant="h4">{analyticsData.overview.totalProducts}</Typography>
                 </Box>
-              </CardContent>
-            </Card>
-          </Grid>
+                <Inventory color="primary" sx={{ fontSize: 40 }} />
+              </Box>
+            </CardContent>
+          </Card>
         </Grid>
-      )}
-
-      {activeTab === 1 && (
-        <Grid container spacing={3}>
-          <Grid item xs={12}>
-            <Card>
-              <CardHeader title="Ürün Trend Analizi" />
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={analyticsData.trends.productTrend}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <RechartsTooltip />
-                    <Line type="monotone" dataKey="count" stroke="#8884d8" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardHeader title="Arıza Trend Analizi" />
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={analyticsData.trends.issueTrend}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <RechartsTooltip />
-                    <Line type="monotone" dataKey="count" stroke="#ff7300" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardHeader title="Operasyon Trend Analizi" />
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={analyticsData.trends.operationTrend}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <RechartsTooltip />
-                    <Line type="monotone" dataKey="count" stroke="#00c49f" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </Grid>
+        <Grid item xs={12} sm={6} md={2}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography color="text.secondary" gutterBottom>Aktif Arıza</Typography>
+                  <Typography variant="h4">{analyticsData.overview.totalIssues}</Typography>
+                </Box>
+                <Build color="warning" sx={{ fontSize: 40 }} />
+              </Box>
+            </CardContent>
+          </Card>
         </Grid>
-      )}
-
-      {activeTab === 2 && (
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={3}>
-            <Card>
-              <CardContent sx={{ textAlign: 'center' }}>
-                <ScheduleIcon sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
-                <Typography variant="h5" sx={{ fontWeight: 600 }}>
-                  {analyticsData.performance.avgResolutionTime} gün
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Ortalama Çözüm Süresi
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} md={3}>
-            <Card>
-              <CardContent sx={{ textAlign: 'center' }}>
-                <CheckCircleIcon sx={{ fontSize: 40, color: 'success.main', mb: 1 }} />
-                <Typography variant="h5" sx={{ fontWeight: 600 }}>
-                  {analyticsData.performance.customerSatisfaction}/5
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Müşteri Memnuniyeti
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} md={3}>
-            <Card>
-              <CardContent sx={{ textAlign: 'center' }}>
-                <TrendingUpIcon sx={{ fontSize: 40, color: 'info.main', mb: 1 }} />
-                <Typography variant="h5" sx={{ fontWeight: 600 }}>
-                  {analyticsData.performance.systemUptime}%
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Sistem Uptime
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} md={3}>
-            <Card>
-              <CardContent sx={{ textAlign: 'center' }}>
-                <ErrorIcon sx={{ fontSize: 40, color: 'warning.main', mb: 1 }} />
-                <Typography variant="h5" sx={{ fontWeight: 600 }}>
-                  {analyticsData.performance.errorRate}%
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Hata Oranı
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
+        <Grid item xs={12} sm={6} md={2}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography color="text.secondary" gutterBottom>Operasyon</Typography>
+                  <Typography variant="h4">{analyticsData.overview.totalOperations}</Typography>
+                </Box>
+                <Build color="primary" sx={{ fontSize: 40 }} />
+              </Box>
+            </CardContent>
+          </Card>
         </Grid>
-      )}
-
-      {activeTab === 3 && (
-        <Card>
-          <CardHeader title="Sistem Uyarıları" />
-          <CardContent>
-            <List>
-              {analyticsData.alerts.map((alert, index) => (
-                <React.Fragment key={alert.id}>
-                  <ListItem>
-                    <ListItemIcon>
-                      {getAlertIcon(alert.type)}
-                    </ListItemIcon>
-                    <ListItemText
-                      primaryTypographyProps={{ component: 'div' }}
-                      secondaryTypographyProps={{ component: 'div' }}
-                      primary={
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                            {alert.title}
-                          </Typography>
-                          <Chip 
-                            label={alert.priority} 
-                            size="small" 
-                            color={getPriorityColor(alert.priority) as any}
-                          />
-                        </Box>
-                      }
-                      secondary={
-                        <Box>
-                          <Typography variant="body2" color="text.secondary">
-                            {alert.message}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {new Date(alert.timestamp).toLocaleString('tr-TR')}
-                          </Typography>
-                        </Box>
-                      }
-                    />
-                  </ListItem>
-                  {index < analyticsData.alerts.length - 1 && <Divider />}
-                </React.Fragment>
-              ))}
-            </List>
-          </CardContent>
-        </Card>
-      )}
-
-      {activeTab === 4 && (
-        <Card>
-          <CardHeader title="En İyi Performans Gösterenler" />
-          <CardContent>
-            <Grid container spacing={2}>
-              {analyticsData.topPerformers.map((performer) => (
-                <Grid item xs={12} md={4} key={performer.id}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                        <Avatar sx={{ mr: 2, bgcolor: 'primary.main' }}>
-                          {performer.name.charAt(0)}
-                        </Avatar>
-                        <Box>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                            {performer.name}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {performer.role}
-                          </Typography>
-                        </Box>
-                      </Box>
-                      
-                      <Box sx={{ mb: 2 }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                          <Typography variant="body2">Performans</Typography>
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                            {performer.performance}%
-                          </Typography>
-                        </Box>
-                        <LinearProgress 
-                          variant="determinate" 
-                          value={performer.performance} 
-                          sx={{ height: 6, borderRadius: 3 }}
-                        />
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Snackbar for notifications */}
+        <Grid item xs={12} sm={6} md={2}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography color="text.secondary" gutterBottom>Sevkiyat</Typography>
+                  <Typography variant="h4">{analyticsData.overview.totalShipments}</Typography>
+                </Box>
+                <LocalShipping color="success" sx={{ fontSize: 40 }} />
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={2}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography color="text.secondary" gutterBottom>Aktif Kullanıcı</Typography>
+                  <Typography variant="h4">{analyticsData.overview.activeUsers}</Typography>
+                </Box>
+                <Person color="error" sx={{ fontSize: 40 }} />
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={2}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography color="text.secondary" gutterBottom>Sistem Sağlığı</Typography>
+                  <Typography variant="h4">{analyticsData.overview.systemHealth}%</Typography>
+                </Box>
+                <CheckCircle color="success" sx={{ fontSize: 40 }} />
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+      
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
-        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        <Alert 
-          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} 
-          severity={snackbar.severity}
-          sx={{ borderRadius: 2 }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        message={snackbar.message}
+      />
     </Box>
   );
 }

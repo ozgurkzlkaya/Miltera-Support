@@ -41,9 +41,9 @@ const create = createControllerAction<HonoEnv>(async (c) => {
     // Frontend'den gelen parametreleri IssueService'in beklediği formata dönüştür
     const createIssueRequest = {
       productId: body.productId || null, // productId nullable
-      customerId: body.companyId || null, // Frontend'den gelen companyId'yi kullan
+      customerId: body.companyId || body.customerId || null, // companyId veya customerId'yi kullan
       reportedBy: body.reportedBy || 'ce2a6761-82e3-48ba-af33-2f49b4b73e35', // Admin user ID
-      title: body.title || 'Arıza Kaydı', // Geçici olarak default değer
+      title: body.title || 'Arıza Kaydı', // Zorunlu alan
       description: body.customerDescription || body.description || '',
       priority: body.priority || 'LOW',
       source: body.source || 'CUSTOMER',
@@ -72,6 +72,12 @@ const update = createControllerAction<HonoEnv>("/:id", async (c) => {
     console.log('Issue update endpoint called for ID:', id);
     console.log('Update request body:', body);
     
+    // Validation: Check if required fields are present
+    if (!body.status && !body.priority && !body.description && !body.customerDescription) {
+      console.error('No valid update fields provided');
+      return c.responseJSON(ResponseHandler.error('BAD_REQUEST', 'At least one field must be provided for update', 400));
+    }
+    
     // Frontend'den gelen parametreleri IssueService'in beklediği formata dönüştür
     const updateRequest = {
       issueId: id,
@@ -82,8 +88,8 @@ const update = createControllerAction<HonoEnv>("/:id", async (c) => {
       technicianDescription: body.technicianDescription,
       assignedTo: body.assignedTo,
       resolvedAt: body.resolvedAt ? new Date(body.resolvedAt) : undefined,
-      estimatedCost: body.estimatedCost ? parseFloat(body.estimatedCost) : undefined,
-      actualCost: body.actualCost ? parseFloat(body.actualCost) : undefined,
+      estimatedCost: body.estimatedCost !== undefined && body.estimatedCost !== null ? parseFloat(body.estimatedCost) : undefined,
+      actualCost: body.actualCost !== undefined && body.actualCost !== null ? parseFloat(body.actualCost) : undefined,
       source: body.source,
       companyId: body.companyId
     };
@@ -113,6 +119,20 @@ const destroy = createControllerAction<HonoEnv>("/:id", async (c) => {
   }
 });
 
-const IssueController = { list, show, create, update, destroy };
+const addProduct = createControllerAction<HonoEnv>("/:id/products", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const body = await c.req.json();
+    
+    const issue = await issueService.addProductToIssue(id, body.productId);
+    
+    return c.responseJSON(ResponseHandler.success(issue));
+  } catch (error: any) {
+    console.error('Error adding product to issue:', error);
+    return c.responseJSON(ResponseHandler.error('INTERNAL_SERVER_ERROR', 'Internal server error', 500));
+  }
+});
+
+const IssueController = { list, show, create, update, destroy, addProduct };
 
 export default IssueController;
