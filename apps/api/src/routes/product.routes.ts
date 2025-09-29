@@ -20,7 +20,7 @@ import { authMiddleware } from "../helpers/auth.helpers";
 import { db } from "../db";
 import { products, productHistory, issues, serviceOperations } from "../db/schema";
 import { eq } from "drizzle-orm";
-import * as XLSX from 'xlsx';
+import * as ExcelJS from 'exceljs';
 
 const list = createRoute({
   method: "get",
@@ -284,21 +284,36 @@ const productsRoute = createRouter<HonoEnv>()
       
       // Convert to export format
       if (format === "excel") {
-        const worksheet = XLSX.utils.json_to_sheet(allProducts.map(p => ({
-          id: p.id,
-          serialNumber: p.serialNumber,
-          status: p.status,
-          productionDate: p.productionDate,
-          warrantyStart: p.warrantyStart,
-          warrantyEnd: p.warrantyEnd,
-          createdAt: p.createdAt,
-          updatedAt: p.updatedAt,
-        })));
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Products');
         
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Products");
+        // Add headers
+        worksheet.columns = [
+          { header: 'ID', key: 'id', width: 10 },
+          { header: 'Serial Number', key: 'serialNumber', width: 20 },
+          { header: 'Status', key: 'status', width: 15 },
+          { header: 'Production Date', key: 'productionDate', width: 15 },
+          { header: 'Warranty Start', key: 'warrantyStart', width: 15 },
+          { header: 'Warranty End', key: 'warrantyEnd', width: 15 },
+          { header: 'Created At', key: 'createdAt', width: 20 },
+          { header: 'Updated At', key: 'updatedAt', width: 20 }
+        ];
         
-        const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+        // Add data
+        allProducts.forEach(product => {
+          worksheet.addRow({
+            id: product.id,
+            serialNumber: product.serialNumber,
+            status: product.status,
+            productionDate: product.productionDate,
+            warrantyStart: product.warrantyStart,
+            warrantyEnd: product.warrantyEnd,
+            createdAt: product.createdAt,
+            updatedAt: product.updatedAt
+          });
+        });
+
+        const buffer = await workbook.xlsx.writeBuffer();
         
         c.header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         c.header("Content-Disposition", "attachment; filename=products.xlsx");
@@ -335,9 +350,20 @@ const productsRoute = createRouter<HonoEnv>()
       let data: any[] = [];
       
       if (format === "excel") {
-        const workbook = XLSX.read(buffer);
-        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        data = XLSX.utils.sheet_to_json(worksheet);
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(buffer);
+        const worksheet = workbook.getWorksheet(1);
+        data = [];
+        worksheet.eachRow((row, rowNumber) => {
+          if (rowNumber > 1) { // Skip header row
+            const rowData: any = {};
+            row.eachCell((cell, colNumber) => {
+              const header = worksheet.getRow(1).getCell(colNumber).value;
+              rowData[header] = cell.value;
+            });
+            data.push(rowData);
+          }
+        });
       } else if (format === "csv") {
         const text = new TextDecoder().decode(buffer);
         const lines = text.split('\n');
