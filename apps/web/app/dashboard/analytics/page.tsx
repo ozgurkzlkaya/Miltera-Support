@@ -52,9 +52,9 @@ export default function AnalyticsPage() {
     severity: 'success' | 'error' | 'warning' | 'info';
   }>({ open: false, message: '', severity: 'info' });
 
-  const fetchAnalyticsData = async () => {
-    try {
-      setLoading(true);
+    const fetchAnalyticsData = async () => {
+      try {
+        setLoading(true);
       setError(null);
       
       const token = localStorage.getItem('authToken');
@@ -91,7 +91,7 @@ export default function AnalyticsPage() {
       const arrS = Array.isArray(shipments.data) ? shipments.data : [];
       
       const analyticsData: AnalyticsData = {
-        overview: {
+          overview: {
           totalProducts: arrP.length,
           totalIssues: arrI.length,
           totalOperations: arrO.length,
@@ -107,26 +107,26 @@ export default function AnalyticsPage() {
         message: 'Analytics verileri başarıyla yüklendi',
         severity: 'success'
       });
-    } catch (err) {
+      } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Analytics verileri yüklenirken hata oluştu';
       setError(errorMessage);
-      console.error('Analytics fetch error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-  
+        console.error('Analytics fetch error:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
   useEffect(() => {
     fetchAnalyticsData();
   }, []);
-  
+
   useEffect(() => {
     if (autoRefresh) {
       const interval = setInterval(fetchAnalyticsData, 30000);
       return () => clearInterval(interval);
     }
   }, [autoRefresh]);
-  
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -134,7 +134,7 @@ export default function AnalyticsPage() {
       </Box>
     );
   }
-  
+
   if (error) {
     return (
       <Box p={3}>
@@ -148,7 +148,7 @@ export default function AnalyticsPage() {
       </Box>
     );
   }
-  
+
   if (!analyticsData) {
     return (
       <Box p={3}>
@@ -156,7 +156,7 @@ export default function AnalyticsPage() {
       </Box>
     );
   }
-  
+
   return (
     <Box p={3}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
@@ -189,9 +189,9 @@ export default function AnalyticsPage() {
           </IconButton>
         </Box>
       </Box>
-      
-      <Grid container spacing={3}>
-        <Grid item xs={12} sm={6} md={2}>
+
+        <Grid container spacing={3}>
+          <Grid item xs={12} sm={6} md={2}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -201,25 +201,25 @@ export default function AnalyticsPage() {
                 </Box>
                 <Inventory color="primary" sx={{ fontSize: 40 }} />
               </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={2}>
-          <Card>
-            <CardContent>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} sm={6} md={2}>
+            <Card>
+              <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
                 <Box>
                   <Typography color="text.secondary" gutterBottom>Aktif Arıza</Typography>
                   <Typography variant="h4">{analyticsData.overview.totalIssues}</Typography>
-                </Box>
+                  </Box>
                 <Build color="warning" sx={{ fontSize: 40 }} />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
         <Grid item xs={12} sm={6} md={2}>
-          <Card>
-            <CardContent>
+            <Card>
+              <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
                 <Box>
                   <Typography color="text.secondary" gutterBottom>Operasyon</Typography>
@@ -227,12 +227,12 @@ export default function AnalyticsPage() {
                 </Box>
                 <Build color="primary" sx={{ fontSize: 40 }} />
               </Box>
-            </CardContent>
-          </Card>
-        </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
         <Grid item xs={12} sm={6} md={2}>
-          <Card>
-            <CardContent>
+            <Card>
+              <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
                 <Box>
                   <Typography color="text.secondary" gutterBottom>Sevkiyat</Typography>
@@ -240,12 +240,12 @@ export default function AnalyticsPage() {
                 </Box>
                 <LocalShipping color="success" sx={{ fontSize: 40 }} />
               </Box>
-            </CardContent>
-          </Card>
-        </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
         <Grid item xs={12} sm={6} md={2}>
-          <Card>
-            <CardContent>
+            <Card>
+              <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
                 <Box>
                   <Typography color="text.secondary" gutterBottom>Aktif Kullanıcı</Typography>
@@ -253,24 +253,24 @@ export default function AnalyticsPage() {
                 </Box>
                 <Person color="error" sx={{ fontSize: 40 }} />
               </Box>
-            </CardContent>
-          </Card>
-        </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
         <Grid item xs={12} sm={6} md={2}>
-          <Card>
-            <CardContent>
+        <Card>
+          <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Box>
+                        <Box>
                   <Typography color="text.secondary" gutterBottom>Sistem Sağlığı</Typography>
                   <Typography variant="h4">{analyticsData.overview.systemHealth}%</Typography>
-                </Box>
+                        </Box>
                 <CheckCircle color="success" sx={{ fontSize: 40 }} />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-      
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+            </Grid>
+
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
