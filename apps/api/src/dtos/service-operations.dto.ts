@@ -85,7 +85,7 @@ export const ServiceOperationUpdateSchema = z.object({
   isUnderWarranty: z.boolean().optional(),
   cost: z.number().positive().optional(),
   duration: z.number().int().positive().optional(),
-  updatedBy: z.string().uuid("Geçerli bir kullanıcı ID'si gerekli"),
+  updatedBy: z.string().uuid("Geçerli bir kullanıcı ID'si gerekli").optional(),
 });
 
 // Service Workflow Schema

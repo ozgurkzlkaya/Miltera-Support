@@ -37,7 +37,8 @@ import {
   Delete as DeleteIcon,
   Search as SearchIcon,
   FilterList as FilterIcon,
-  DeleteSweep as DeleteSweepIcon
+  DeleteSweep as DeleteSweepIcon,
+  GetApp as GetAppIcon
 } from "@mui/icons-material";
 
 // Issue interface
@@ -613,15 +614,74 @@ export default function IssuesPage() {
     }
   };
 
+  const handleExport = () => {
+    try {
+      // CSV formatında veri hazırla
+      const csvData = [
+        ['Arıza No', 'Ürün Seri No', 'Müşteri', 'Durum', 'Öncelik', 'Kaynak', 'Garanti', 'Tahmini Maliyet', 'Gerçek Maliyet', 'Arıza Tarihi'],
+        ...filteredIssues.map(issue => [
+          issue.issueNumber,
+          issue.productSerialNumber || 'N/A',
+          issue.company?.name || 'N/A',
+          issue.status,
+          issue.priority,
+          issue.source,
+          issue.isUnderWarranty ? 'Evet' : 'Hayır',
+          issue.estimatedCost?.toString() || 'N/A',
+          issue.actualCost?.toString() || 'N/A',
+          new Date(issue.issueDate).toLocaleDateString('tr-TR')
+        ])
+      ];
+
+      // CSV string oluştur
+      const csvString = csvData.map(row => row.join(',')).join('\n');
+      
+      // BOM ekle (Türkçe karakterler için)
+      const BOM = '\uFEFF';
+      const csvWithBOM = BOM + csvString;
+
+      // Blob oluştur ve indir
+      const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `ariza-raporu-${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      setSnackbar({
+        open: true,
+        message: 'Arıza raporu başarıyla dışa aktarıldı',
+        severity: 'success',
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      setSnackbar({
+        open: true,
+        message: 'Dışa aktarma sırasında hata oluştu',
+        severity: 'error',
+      });
+    }
+  };
+
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" component="h1" sx={{ fontWeight: 700 }}>
           Arıza Yönetimi
         </Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreateIssue}>
-          Yeni Arıza Ekle
-        </Button>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button variant="contained" startIcon={<GetAppIcon />} onClick={handleExport}>
+            DIŞA AKTAR
+          </Button>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreateIssue}>
+            Yeni Arıza Ekle
+          </Button>
+        </Box>
       </Box>
 
       {error && (

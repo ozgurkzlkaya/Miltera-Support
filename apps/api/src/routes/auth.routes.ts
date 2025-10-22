@@ -1,3 +1,27 @@
+/**
+ * Miltera Fixlog API - Authentication Routes
+ * 
+ * Bu dosya, kullanıcı authentication ve yetkilendirme işlemlerini yönetir.
+ * JWT tabanlı authentication sistemi ile güvenli kullanıcı girişi sağlar.
+ * 
+ * Ana Özellikler:
+ * - Kullanıcı girişi ve kayıt işlemleri
+ * - JWT token tabanlı authentication
+ * - Şifre değiştirme ve profil yönetimi
+ * - Kullanıcı tercihleri ve güvenlik ayarları
+ * - Role-based access control (RBAC)
+ * - OpenAPI dokümantasyonu
+ * 
+ * Endpoint'ler:
+ * - POST /login: Kullanıcı girişi
+ * - POST /register: Kullanıcı kaydı
+ * - POST /change-password: Şifre değiştirme
+ * - GET /profile: Profil bilgilerini getir
+ * - PUT /profile: Profil güncelle
+ * - GET/PUT /preferences: Kullanıcı tercihleri
+ * - GET/PUT /security: Güvenlik ayarları
+ */
+
 import { createRoute } from "@hono/zod-openapi";
 import { createRouter } from "../lib/hono";
 import type { HonoEnv } from "../config/env";
@@ -519,7 +543,7 @@ const AuthController = {
       }, 201);
     } catch (error) {
       console.error('Registration error:', error);
-      if (error.message.includes('already exists')) {
+      if ((error as Error).message.includes('already exists')) {
         return c.json({ error: 'User already exists' }, 400);
       }
       return c.json({ error: 'Registration failed' }, 500);
@@ -595,7 +619,7 @@ const AuthController = {
       });
     } catch (error) {
       console.error('Change password error:', error);
-      if (error.message.includes('incorrect')) {
+      if ((error as Error).message.includes('incorrect')) {
         return c.json({ error: 'Current password is incorrect' }, 401);
       }
       return c.json({ error: 'Password change failed' }, 500);

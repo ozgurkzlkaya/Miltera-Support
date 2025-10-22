@@ -44,11 +44,12 @@ services:
       dockerfile: Dockerfile
     container_name: miltera-api
     ports:
-      - "3001:3001"
+      - "3015:3015"
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/fixlog
       REDIS_URL: redis://redis:6379
       NODE_ENV: development
+      PORT: 3015
     depends_on:
       postgres:
         condition: service_healthy
@@ -64,9 +65,9 @@ services:
       dockerfile: Dockerfile
     container_name: miltera-web
     ports:
-      - "3002:3002"
+      - "3000:3000"
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3001
+      NEXT_PUBLIC_API_URL: http://localhost:3015/api/v1
       NODE_ENV: development
     depends_on:
       - api

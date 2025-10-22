@@ -456,9 +456,13 @@ export default function ProductsPage() {
       const nextIndex = (currentIndex + 1) % statusProgression.length;
       const newStatus = statusProgression[nextIndex];
 
+      // Get current user ID from localStorage
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const currentUserId = user.id || 'ce2a6761-82e3-48ba-af33-2f49b4b73e35'; // fallback to admin
+
       const payload = {
         status: newStatus,
-        updatedBy: 'ce2a6761-82e3-48ba-af33-2f49b4b73e35' // Admin user ID
+        updatedBy: currentUserId
       };
 
       const res = await fetch(`http://localhost:3015/api/v1/products/${productId}`, {
@@ -608,8 +612,14 @@ export default function ProductsPage() {
       const headers: any = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
+      // Get current user ID from localStorage
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const currentUserId = user.id || 'ce2a6761-82e3-48ba-af33-2f49b4b73e35'; // fallback to admin
+
+      // IMPORTANT: when selecting "Müşteride" we must persist null, not omit the field
       const payload: any = {
-        locationId: locationId || undefined,
+        locationId: locationId === null ? null : locationId,
+        updatedBy: currentUserId,
       };
 
       const res = await fetch(`http://localhost:3015/api/v1/products/${locationMenuProductId}`, {
@@ -625,10 +635,23 @@ export default function ProductsPage() {
         setSnackbarSeverity('error');
         setSnackbarOpen(true);
       } else {
-        setProducts(prev => prev.map(p => p.id === locationMenuProductId ? {
-          ...p,
-          location: locationId ? { id: locationId, name: (locations.find(l => l.id === locationId)?.name || p.location?.name || '') } : null,
-        } : p));
+        // After successful update, re-fetch from API to ensure persistence
+        try {
+          const refreshToken = localStorage.getItem('auth_token');
+          const refreshHeaders: any = {};
+          if (refreshToken) refreshHeaders['Authorization'] = `Bearer ${refreshToken}`;
+          const refreshRes = await fetch('http://localhost:3015/api/v1/products', { headers: refreshHeaders });
+          if (refreshRes.ok) {
+            const refreshData = await refreshRes.json();
+            setProducts(refreshData.data || []);
+          }
+        } catch (e) {
+          // fallback: update optimistic UI
+          setProducts(prev => prev.map(p => p.id === locationMenuProductId ? {
+            ...p,
+            location: locationId ? { id: locationId, name: (locations.find(l => l.id === locationId)?.name || p.location?.name || '') } : null,
+          } : p));
+        }
         setSnackbarMessage('Konum güncellendi');
         setSnackbarSeverity('success');
         setSnackbarOpen(true);
@@ -662,10 +685,15 @@ export default function ProductsPage() {
       const headers: any = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
+      // Get current user ID from localStorage
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const currentUserId = user.id || 'ce2a6761-82e3-48ba-af33-2f49b4b73e35'; // fallback to admin
+
       const payload = {
         productModelId: createForm.productModelId,
         productionDate: createForm.productionDate ? new Date(createForm.productionDate).toISOString() : undefined,
         locationId: createForm.locationId || undefined,
+        updatedBy: currentUserId,
       };
 
       const res = await fetch(`http://localhost:3015/api/v1/products/${editingProduct.id}`, {
@@ -726,7 +754,7 @@ export default function ProductsPage() {
         warrantyStartDate: hardwareForm.warrantyStartDate || undefined,
         warrantyDuration: hardwareForm.warrantyDuration,
         status: 'READY_FOR_SHIPMENT',
-        updatedBy: 'ce2a6761-82e3-48ba-af33-2f49b4b73e35'
+        updatedBy: JSON.parse(localStorage.getItem('user') || '{}').id || 'ce2a6761-82e3-48ba-af33-2f49b4b73e35'
       };
 
       const res = await fetch(`http://localhost:3015/api/v1/products/hardware-verification/${selectedProduct.id}`, {
@@ -985,8 +1013,10 @@ export default function ProductsPage() {
               {filteredAndSortedProducts.map((product) => (
                 <TableRow key={product.id}>
                   <TableCell>
-                    {product.serialNumber || (
-                      <Chip label="Henüz atanmadı" size="small" color="warning" />
+                    {product.serialNumber && product.serialNumber.trim() !== '' ? (
+                      product.serialNumber
+                    ) : (
+                      <Chip label="SN Yok" size="small" color="warning" />
                     )}
                   </TableCell>
                   <TableCell>{product.productModel.name}</TableCell>

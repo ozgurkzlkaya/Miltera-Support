@@ -73,20 +73,77 @@ async function seeder() {
       // Password will be set by better-auth on first login
     });
 
-    // 4. Create TSP user with password
-    console.log("Creating TSP user...");
+    // 4. Create TSP users with password
+    console.log("Creating TSP users...");
     const tspUserId = uuidv4();
+    const ahmetUserId = uuidv4();
+    const mehmetUserId = uuidv4();
+    const ayseUserId = uuidv4();
+    const fatmaUserId = uuidv4();
+    const aliUserId = uuidv4();
     
-    await db.insert(users).values({
-      id: tspUserId,
-      firstName: "Teknik",
-      lastName: "Servis",
-      email: "tsp@miltera.com.tr",
-      emailVerified: true,
-      role: "TSP",
-      isActive: true,
-      mustChangePassword: false,
-    });
+    await db.insert(users).values([
+      {
+        id: tspUserId,
+        firstName: "Teknik",
+        lastName: "Servis",
+        email: "tsp@miltera.com.tr",
+        emailVerified: true,
+        role: "TSP",
+        isActive: true,
+        mustChangePassword: false,
+      },
+      {
+        id: ahmetUserId,
+        firstName: "Ahmet",
+        lastName: "Yılmaz",
+        email: "ahmet.yilmaz@miltera.com.tr",
+        emailVerified: true,
+        role: "TSP",
+        isActive: true,
+        mustChangePassword: false,
+      },
+      {
+        id: mehmetUserId,
+        firstName: "Mehmet",
+        lastName: "Demir",
+        email: "mehmet.demir@miltera.com.tr",
+        emailVerified: true,
+        role: "TSP",
+        isActive: true,
+        mustChangePassword: false,
+      },
+      {
+        id: ayseUserId,
+        firstName: "Ayşe",
+        lastName: "Kaya",
+        email: "ayse.kaya@miltera.com.tr",
+        emailVerified: true,
+        role: "TSP",
+        isActive: true,
+        mustChangePassword: false,
+      },
+      {
+        id: fatmaUserId,
+        firstName: "Fatma",
+        lastName: "Özkan",
+        email: "fatma.ozkan@miltera.com.tr",
+        emailVerified: true,
+        role: "TSP",
+        isActive: true,
+        mustChangePassword: false,
+      },
+      {
+        id: aliUserId,
+        firstName: "Ali",
+        lastName: "Çelik",
+        email: "ali.celik@miltera.com.tr",
+        emailVerified: true,
+        role: "TSP",
+        isActive: true,
+        mustChangePassword: false,
+      }
+    ]);
 
     // 5. Create customer user with password
     console.log("Creating customer user...");
@@ -383,26 +440,33 @@ async function seeder() {
     // 13. Create sample service operations
     console.log("Creating sample service operations...");
     
-    for (let i = 0; i < 15; i++) {
+    const technicianIds = [tspUserId, ahmetUserId, mehmetUserId, ayseUserId, fatmaUserId, aliUserId];
+    
+    for (let i = 0; i < 50; i++) {
       const operationId = uuidv4();
-      const issueId = issueIds[i];
+      const issueId = issueIds[i % issueIds.length];
       const randomProduct = productIds[Math.floor(Math.random() * productIds.length)];
+      const randomTechnician = technicianIds[Math.floor(Math.random() * technicianIds.length)];
+      const status = i < 35 ? 'COMPLETED' : i < 45 ? 'IN_PROGRESS' : 'PENDING';
+      const cost = Math.floor(Math.random() * 5000) + 1000; // 1000-6000 TL
+      const duration = Math.floor(Math.random() * 180) + 30; // 30-210 minutes
       
       await db.insert(serviceOperations).values({
         id: operationId,
         issueId: issueId,
         productId: randomProduct,
-        technicianId: tspUserId,
-        performedBy: tspUserId,
+        technicianId: randomTechnician,
+        performedBy: randomTechnician,
         operationType: 'REPAIR',
-        status: i < 10 ? 'COMPLETED' : 'IN_PROGRESS',
+        status: status,
         description: `Test servis operasyonu ${i + 1}`,
         findings: `Test bulgular ${i + 1}`,
         actionsTaken: `Test işlemler ${i + 1}`,
-        operationDate: subDays(new Date(), Math.floor(Math.random() * 20)),
-        startedAt: subDays(new Date(), Math.floor(Math.random() * 20)),
-        completedAt: i < 10 ? subDays(new Date(), Math.floor(Math.random() * 15)) : null,
-        duration: Math.floor(Math.random() * 120) + 30, // 30-150 minutes
+        operationDate: subDays(new Date(), Math.floor(Math.random() * 30)),
+        startedAt: subDays(new Date(), Math.floor(Math.random() * 30)),
+        completedAt: status === 'COMPLETED' ? subDays(new Date(), Math.floor(Math.random() * 20)) : null,
+        duration: duration,
+        cost: cost,
         isUnderWarranty: true,
       });
     }

@@ -1,16 +1,17 @@
 /**
- * Miltera Fixlog Frontend - Ana Dashboard Sayfası
+ * Miltera Fixlog Frontend - Ana Dashboard Sayfası (Rol Bazlı Yönlendirme)
  * 
- * Bu dosya, kullanıcıların giriş yaptıktan sonra gördüğü ana dashboard sayfasıdır.
- * Sistemin genel durumunu, istatistikleri ve hızlı erişim linklerini gösterir.
+ * Bu dosya, kullanıcıların giriş yaptıktan sonra rol bazlı dashboard'a yönlendirildiği ana sayfadır.
+ * Temel kullanıcı akışına göre her rol kendi özel dashboard'ına yönlendirilir.
  * 
- * Özellikler:
- * - Kullanıcı bilgileri ve profil
- * - Sistem istatistikleri (ürünler, sorunlar, şirketler)
- * - Hızlı erişim kartları
- * - Son aktiviteler
- * - Bildirimler
- * - Responsive tasarım
+ * Kullanıcı Akışı:
+ * 1. Kullanıcı Girişi (Yönetici/TSP/Müşteri)
+ * 2. Rol Bazlı Dashboard Yönlendirme
+ *    - ADMIN → /dashboard/admin (Sistem Yönetimi & Raporlama)
+ *    - TSP → /dashboard/tsp (Ürün Ekleme → Fabrikasyon Testi → Sevkiyat)
+ *    - CUSTOMER → /dashboard/customer (Arıza Kaydı → Durum Takibi)
+ * 3. Otomatik Bildirimler ve Durum Güncellemeleri
+ * 4. Geçmiş Analizi ve Raporlama
  * 
  * URL: /dashboard
  * Authentication: Gerekli
@@ -18,669 +19,153 @@
 
 "use client";
 
-// Material-UI components - UI elemanları için
 import { 
   Typography, 
   Box, 
-  CircularProgress, 
-  Card, 
-  CardContent, 
-  Grid, 
-  Avatar, 
-  Chip,
-  Divider,
-  IconButton,
-  Tooltip,
-  Button,
+  CircularProgress,
+  Card,
+  CardContent,
   Stack,
-  Alert,
-  Snackbar,
-  useMediaQuery,
-  useTheme
+  Alert
 } from "@mui/material";
 
-// Material-UI icons - görsel ikonlar için
 import { 
-  CheckCircle as CheckCircleIcon,
-  Person as PersonIcon,
-  Email as EmailIcon,
-  Security as SecurityIcon,
-  TrendingUp as TrendingUpIcon,
-  Notifications as NotificationsIcon,
-  Settings as SettingsIcon,
-  Refresh as RefreshIcon,
-  Add as AddIcon,
-  Edit as EditIcon,
-  Visibility as ViewIcon,
-  Dashboard as DashboardIcon,
-  Inventory as InventoryIcon,
-  Build as BuildIcon,
-  BugReport as BugReportIcon,
-  LocalShipping as ShippingIcon,
-  Assessment as ReportIcon,
-  Business as CompanyIcon,
-  Group as UserIcon
+  AdminPanelSettings as AdminIcon,
+  Build as TSPIcon,
+  Person as CustomerIcon,
+  Dashboard as DashboardIcon
 } from "@mui/icons-material";
 
-// Custom hooks ve utilities
 import { useAuth } from "../../features/auth/useAuth";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { Layout } from "../../components/Layout";
+import { useEffect, useRef, useState } from "react";
 
-const DashboardPage = () => {
-  const auth = useAuth();
+export default function Dashboard() {
+  const { user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-
-  // Token kontrolü - localStorage'dan kontrol et (client-side'da)
-  const [isClient, setIsClient] = useState(false);
-  const [token, setToken] = useState<string | null>(null);
-  const [userStr, setUserStr] = useState<string | null>(null);
-  
-  // Notification state
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: '',
-    severity: 'success' as 'success' | 'error' | 'warning' | 'info'
-  });
-  
-  // Stats state
-  const [stats, setStats] = useState({
-    activeProjects: 12,
-    technicalTeam: 8,
-    pendingOperations: 3,
-    successRate: 95
-  });
+  const [redirecting, setRedirecting] = useState(false);
+  const hasRedirectedRef = useRef(false);
 
   useEffect(() => {
-    setIsClient(true);
-    const storedToken = localStorage.getItem('auth_token');
-    const storedUser = localStorage.getItem('user');
-    setToken(storedToken);
-    setUserStr(storedUser);
-  }, []);
+    if (hasRedirectedRef.current) return;
 
-  // Client-side render olana kadar bekle
-  if (!isClient) {
+    // Authentication kontrolü
+    if (!isLoading && !isAuthenticated) {
+      // Token varsa AuthProvider birazdan auth'u true yapacak; hemen yönlendirme yapma
+      const token = typeof window !== 'undefined' ? (localStorage.getItem('auth_token') || localStorage.getItem('authToken')) : null;
+      if (!token) {
+        hasRedirectedRef.current = true;
+        router.replace('/auth');
+      }
+      return;
+    }
+
+    // Rol bazlı dashboard yönlendirme (yalnızca bir kez dene)
+    if (!isLoading && isAuthenticated && user?.role) {
+      hasRedirectedRef.current = true;
+      setRedirecting(true);
+
+      let target = '/dashboard';
+      switch (user.role) {
+        case 'ADMIN':
+          target = '/dashboard/admin';
+          break;
+        case 'TSP':
+          target = '/dashboard/tsp';
+          break;
+        case 'CUSTOMER':
+          target = '/dashboard/customer';
+          break;
+      }
+
+      // Güvenilir yönlendirme
+      try {
+        router.replace(target);
+        // Emniyet: 1.5s sonra hala aynı sayfadaysak hard redirect yap
+        setTimeout(() => {
+          if (window.location.pathname === '/dashboard') {
+            window.location.replace(target);
+          }
+        }, 1500);
+      } catch {
+        window.location.replace(target);
+      }
+    }
+  }, [isLoading, isAuthenticated, user, router]);
+
+  // Loading state
+  if (isLoading || redirecting) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <CircularProgress />
+      <Box 
+        display="flex" 
+        flexDirection="column"
+        justifyContent="center" 
+        alignItems="center" 
+        minHeight="100vh"
+        sx={{ p: 3 }}
+      >
+        <CircularProgress size={60} sx={{ mb: 3 }} />
+        <Typography variant="h6" gutterBottom>
+          Dashboard yükleniyor...
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Rolünüze göre yönlendiriliyorsunuz
+        </Typography>
       </Box>
     );
   }
 
-  // User'ı parse et - hata durumunda varsayılan user kullan
-  let user;
-  try {
-    if (userStr) {
-      user = JSON.parse(userStr);
-    } else {
-      // Varsayılan user
-      user = { name: 'Test User', email: 'testuser6@gmail.com', role: 'USER' };
-    }
-  } catch (error) {
-    // Varsayılan user
-    user = { name: 'Test User', email: 'testuser6@gmail.com', role: 'USER' };
-  }
-
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case "ADMIN":
-        return "error";
-      case "TSP":
-        return "warning";
-      case "USER":
-        return "info";
-      default:
-        return "default";
-    }
-  };
-
-  const getRoleLabel = (role: string) => {
-    switch (role) {
-      case "ADMIN":
-        return "Admin";
-      case "TSP":
-        return "Teknik Servis";
-      case "USER":
-        return "Kullanıcı";
-      default:
-        return role;
-    }
-  };
-
-  // Handler functions
-  const handleRefresh = () => {
-    setSnackbar({
-      open: true,
-      message: 'Dashboard verileri yenilendi',
-      severity: 'success'
-    });
-    // Simulate data refresh
-    setStats(prev => ({
-      ...prev,
-      activeProjects: Math.floor(Math.random() * 20) + 5,
-      technicalTeam: Math.floor(Math.random() * 15) + 3,
-      pendingOperations: Math.floor(Math.random() * 10),
-      successRate: Math.floor(Math.random() * 20) + 80
-    }));
-  };
-
-  const handleNavigate = (path: string) => {
-    router.push(path);
-  };
-
-  const handleQuickAction = (action: string) => {
-    switch (action) {
-      case 'newProject':
-        router.push('/dashboard/products');
-        break;
-      case 'newIssue':
-        router.push('/dashboard/issues');
-        break;
-      case 'newOperation':
-        router.push('/dashboard/service-operations');
-        break;
-      case 'viewReports':
-        router.push('/dashboard/reports');
-        break;
-      default:
-        setSnackbar({
-          open: true,
-          message: 'Aksiyon bulunamadı',
-          severity: 'error'
-        });
-    }
-  };
-
-  // Customer rolü kontrolü
-  if (user.role === "CUSTOMER") {
+  // Authentication hatası
+  if (!isAuthenticated) {
     return (
-      <Layout>
-        <Box sx={{ p: 3 }}>
-          {/* Welcome Header */}
-          <Card sx={{ mb: 4, borderRadius: 3, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
-            <CardContent sx={{ p: 4 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                  <Avatar sx={{ width: 80, height: 80, bgcolor: 'rgba(255,255,255,0.2)', fontSize: '2rem', fontWeight: 600 }}>
-                    {user.name?.charAt(0)?.toUpperCase() || 'U'}
-                  </Avatar>
-                  <Box>
-                    <Typography variant="h4" component="h1" sx={{ fontWeight: 700, mb: 1 }}>
-                      Hoş Geldiniz, {user.name}!
-                    </Typography>
-                    <Typography variant="h6" sx={{ opacity: 0.9, fontWeight: 400 }}>
-                      Customer Portal
-                    </Typography>
-                  </Box>
-                </Box>
-                <CheckCircleIcon sx={{ fontSize: 48, opacity: 0.8 }} />
-              </Box>
-            </CardContent>
-          </Card>
-
-          {/* User Info Cards */}
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={4}>
-              <Card sx={{ borderRadius: 2, height: '100%' }}>
-                <CardContent sx={{ p: 3 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Avatar sx={{ bgcolor: 'primary.main' }}>
-                      <EmailIcon />
-                    </Avatar>
-                    <Box>
-                      <Typography variant="body2" color="textSecondary" gutterBottom>
-                        E-posta Adresi
-                      </Typography>
-                      <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                        {user.email}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-            
-            <Grid item xs={12} md={4}>
-              <Card sx={{ borderRadius: 2, height: '100%' }}>
-                <CardContent sx={{ p: 3 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Avatar sx={{ bgcolor: 'secondary.main' }}>
-                      <SecurityIcon />
-                    </Avatar>
-                    <Box>
-                      <Typography variant="body2" color="textSecondary" gutterBottom>
-                        Kullanıcı Rolü
-                      </Typography>
-                      <Chip 
-                        label={getRoleLabel(user.role)} 
-                        color={getRoleColor(user.role) as any}
-                        sx={{ fontWeight: 600 }}
-                      />
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-            
-            <Grid item xs={12} md={4}>
-              <Card sx={{ borderRadius: 2, height: '100%', background: 'linear-gradient(135deg, #4ade80 0%, #22c55e 100%)', color: 'white' }}>
-                <CardContent sx={{ p: 3 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <CheckCircleIcon sx={{ fontSize: 32 }} />
-                    <Box>
-                      <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                        Sistem Durumu
-                      </Typography>
-                      <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                        Aktif ve Çalışıyor
-                      </Typography>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        </Box>
-      </Layout>
+      <Box 
+        display="flex" 
+        justifyContent="center" 
+        alignItems="center" 
+        minHeight="100vh"
+        sx={{ p: 3 }}
+      >
+        <Alert severity="error">
+          Giriş yapmanız gerekiyor. Yönlendiriliyorsunuz...
+        </Alert>
+      </Box>
     );
   }
 
-  // Normal dashboard - modern tasarım
-  return (
-    <Layout>
+  // Bilinmeyen rol durumu
+  if (!user?.role) {
+    return (
       <Box sx={{ p: 3 }}>
-        {/* Welcome Header */}
-        <Card sx={{ mb: 4, borderRadius: 3, background: 'linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)', color: 'white' }}>
-          <CardContent sx={{ p: 4 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                <Avatar sx={{ width: 80, height: 80, bgcolor: 'rgba(255,255,255,0.2)', fontSize: '2rem', fontWeight: 600 }}>
-                  {user.name?.charAt(0)?.toUpperCase() || 'U'}
-                </Avatar>
-                <Box>
-                  <Typography variant="h4" component="h1" sx={{ fontWeight: 700, mb: 1 }}>
-                    Hoş Geldiniz, {user.name}!
-                  </Typography>
-                  <Typography variant="h6" sx={{ opacity: 0.9, fontWeight: 400 }}>
-                    FixLog Teknik Servis Yönetim Sistemi
-                  </Typography>
-                </Box>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Tooltip title="Bildirimler (3)">
-                  <IconButton 
-                    sx={{ color: 'white' }}
-                    onClick={() => handleNavigate('/dashboard/notifications')}
-                  >
-                    <NotificationsIcon sx={{ fontSize: 28 }} />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Ayarlar">
-                  <IconButton 
-                    sx={{ color: 'white' }}
-                    onClick={() => handleNavigate('/dashboard/settings')}
-                  >
-                    <SettingsIcon sx={{ fontSize: 28 }} />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Yenile">
-                  <IconButton 
-                    sx={{ color: 'white' }}
-                    onClick={handleRefresh}
-                  >
-                    <RefreshIcon sx={{ fontSize: 28 }} />
-                  </IconButton>
-                </Tooltip>
-                <CheckCircleIcon sx={{ fontSize: 48, opacity: 0.8 }} />
-              </Box>
-            </Box>
+        <Card>
+          <CardContent>
+            <Stack spacing={3} alignItems="center" sx={{ py: 4 }}>
+              <DashboardIcon sx={{ fontSize: 64, color: 'primary.main' }} />
+              <Typography variant="h4" component="h1" textAlign="center">
+                Miltera Fixlog Dashboard
+              </Typography>
+              <Typography variant="body1" color="text.secondary" textAlign="center">
+                Hoş geldiniz, {user?.name || 'Kullanıcı'}!
+              </Typography>
+              <Alert severity="warning" sx={{ maxWidth: 500 }}>
+                Rol bilginiz bulunamadı. Lütfen sistem yöneticisi ile iletişime geçin.
+              </Alert>
+            </Stack>
           </CardContent>
         </Card>
-
-        {/* User Info Cards */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6} md={4}>
-            <Card sx={{ borderRadius: 2, height: '100%', boxShadow: 2, '&:hover': { boxShadow: 4 } }}>
-              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Avatar sx={{ bgcolor: 'primary.main', width: { xs: 48, sm: 56 }, height: { xs: 48, sm: 56 } }}>
-                    <EmailIcon sx={{ fontSize: { xs: 24, sm: 28 } }} />
-                  </Avatar>
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="body2" color="textSecondary" gutterBottom>
-                      E-posta Adresi
-                    </Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 600, wordBreak: 'break-all', fontSize: { xs: '0.875rem', sm: '1.25rem' } }}>
-                      {user.email}
-                    </Typography>
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={4}>
-            <Card sx={{ borderRadius: 2, height: '100%', boxShadow: 2, '&:hover': { boxShadow: 4 } }}>
-              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Avatar sx={{ bgcolor: 'secondary.main', width: { xs: 48, sm: 56 }, height: { xs: 48, sm: 56 } }}>
-                    <SecurityIcon sx={{ fontSize: { xs: 24, sm: 28 } }} />
-                  </Avatar>
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="body2" color="textSecondary" gutterBottom>
-                      Kullanıcı Rolü
-                    </Typography>
-                    <Chip 
-                      label={getRoleLabel(user.role)} 
-                      color={getRoleColor(user.role) as any}
-                      sx={{ fontWeight: 600, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
-                    />
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={4}>
-            <Card sx={{ borderRadius: 2, height: '100%', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: 'white', boxShadow: 2, '&:hover': { boxShadow: 4 } }}>
-              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <CheckCircleIcon sx={{ fontSize: { xs: 28, sm: 32 } }} />
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="body2" sx={{ opacity: 0.9, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                      Sistem Durumu
-                    </Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 600, fontSize: { xs: '1rem', sm: '1.25rem' } }}>
-                      Dashboard Başarıyla Yüklendi!
-                    </Typography>
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-
-        {/* Quick Actions */}
-        <Card sx={{ mb: 4, borderRadius: 2 }}>
-          <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-            <Typography variant="h6" sx={{ mb: 3, fontWeight: 600, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
-              Hızlı İşlemler
-            </Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6} md={3}>
-                <Button
-                  fullWidth
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  onClick={() => handleQuickAction('newProject')}
-                  sx={{ py: { xs: 1, sm: 1.5 }, borderRadius: 2, fontSize: { xs: '0.875rem', sm: '1rem' } }}
-                >
-                  Yeni Proje
-                </Button>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <Button
-                  fullWidth
-                  variant="outlined"
-                  startIcon={<BugReportIcon />}
-                  onClick={() => handleQuickAction('newIssue')}
-                  sx={{ py: { xs: 1, sm: 1.5 }, borderRadius: 2, fontSize: { xs: '0.875rem', sm: '1rem' } }}
-                >
-                  Yeni Arıza
-                </Button>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <Button
-                  fullWidth
-                  variant="outlined"
-                  startIcon={<BuildIcon />}
-                  onClick={() => handleQuickAction('newOperation')}
-                  sx={{ py: { xs: 1, sm: 1.5 }, borderRadius: 2, fontSize: { xs: '0.875rem', sm: '1rem' } }}
-                >
-                  Yeni Operasyon
-                </Button>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <Button
-                  fullWidth
-                  variant="outlined"
-                  startIcon={<ReportIcon />}
-                  onClick={() => handleQuickAction('viewReports')}
-                  sx={{ py: { xs: 1, sm: 1.5 }, borderRadius: 2, fontSize: { xs: '0.875rem', sm: '1rem' } }}
-                >
-                  Raporları Görüntüle
-                </Button>
-              </Grid>
-            </Grid>
-          </CardContent>
-        </Card>
-
-        {/* Navigation Cards */}
-        <Card sx={{ mb: 4, borderRadius: 2 }}>
-          <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-            <Typography variant="h6" sx={{ mb: 3, fontWeight: 600, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
-              Modüller
-            </Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6} md={4}>
-                <Card 
-                  sx={{ 
-                    cursor: 'pointer', 
-                    '&:hover': { boxShadow: 4 },
-                    transition: 'all 0.2s ease-in-out'
-                  }}
-                  onClick={() => handleNavigate('/dashboard/products')}
-                >
-                  <CardContent sx={{ p: { xs: 1.5, sm: 2 }, textAlign: 'center' }}>
-                    <DashboardIcon sx={{ fontSize: { xs: 32, sm: 40 }, color: 'primary.main', mb: 1 }} />
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: { xs: '0.875rem', sm: '1rem' } }}>
-                      Ürünler
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={12} sm={6} md={4}>
-                <Card 
-                  sx={{ 
-                    cursor: 'pointer', 
-                    '&:hover': { boxShadow: 4 },
-                    transition: 'all 0.2s ease-in-out'
-                  }}
-                  onClick={() => handleNavigate('/dashboard/warehouse')}
-                >
-                  <CardContent sx={{ p: { xs: 1.5, sm: 2 }, textAlign: 'center' }}>
-                    <InventoryIcon sx={{ fontSize: { xs: 32, sm: 40 }, color: 'secondary.main', mb: 1 }} />
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: { xs: '0.875rem', sm: '1rem' } }}>
-                      Depo
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={12} sm={6} md={4}>
-                <Card 
-                  sx={{ 
-                    cursor: 'pointer', 
-                    '&:hover': { boxShadow: 4 },
-                    transition: 'all 0.2s ease-in-out'
-                  }}
-                  onClick={() => handleNavigate('/dashboard/service-operations')}
-                >
-                  <CardContent sx={{ p: { xs: 1.5, sm: 2 }, textAlign: 'center' }}>
-                    <BuildIcon sx={{ fontSize: { xs: 32, sm: 40 }, color: 'success.main', mb: 1 }} />
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: { xs: '0.875rem', sm: '1rem' } }}>
-                      Servis Operasyonları
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={12} sm={6} md={4}>
-                <Card 
-                  sx={{ 
-                    cursor: 'pointer', 
-                    '&:hover': { boxShadow: 4 },
-                    transition: 'all 0.2s ease-in-out'
-                  }}
-                  onClick={() => handleNavigate('/dashboard/issues')}
-                >
-                  <CardContent sx={{ p: { xs: 1.5, sm: 2 }, textAlign: 'center' }}>
-                    <BugReportIcon sx={{ fontSize: { xs: 32, sm: 40 }, color: 'error.main', mb: 1 }} />
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: { xs: '0.875rem', sm: '1rem' } }}>
-                      Arızalar
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={12} sm={6} md={4}>
-                <Card 
-                  sx={{ 
-                    cursor: 'pointer', 
-                    '&:hover': { boxShadow: 4 },
-                    transition: 'all 0.2s ease-in-out'
-                  }}
-                  onClick={() => handleNavigate('/dashboard/shipments')}
-                >
-                  <CardContent sx={{ p: { xs: 1.5, sm: 2 }, textAlign: 'center' }}>
-                    <ShippingIcon sx={{ fontSize: { xs: 32, sm: 40 }, color: 'warning.main', mb: 1 }} />
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: { xs: '0.875rem', sm: '1rem' } }}>
-                      Sevkiyat
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={12} sm={6} md={4}>
-                <Card 
-                  sx={{ 
-                    cursor: 'pointer', 
-                    '&:hover': { boxShadow: 4 },
-                    transition: 'all 0.2s ease-in-out'
-                  }}
-                  onClick={() => handleNavigate('/dashboard/reports')}
-                >
-                  <CardContent sx={{ p: { xs: 1.5, sm: 2 }, textAlign: 'center' }}>
-                    <ReportIcon sx={{ fontSize: { xs: 32, sm: 40 }, color: 'info.main', mb: 1 }} />
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: { xs: '0.875rem', sm: '1rem' } }}>
-                      Raporlar
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
-          </CardContent>
-        </Card>
-
-        {/* Quick Stats */}
-        <Grid container spacing={3}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card 
-              sx={{ 
-                borderRadius: 2, 
-                textAlign: 'center', 
-                p: { xs: 1.5, sm: 2 },
-                cursor: 'pointer',
-                '&:hover': { boxShadow: 4 },
-                transition: 'all 0.2s ease-in-out'
-              }}
-              onClick={() => handleNavigate('/dashboard/products')}
-            >
-              <TrendingUpIcon sx={{ fontSize: { xs: 32, sm: 40 }, color: 'primary.main', mb: 1 }} />
-              <Typography variant="h4" sx={{ fontWeight: 700, color: 'primary.main', fontSize: { xs: '1.5rem', sm: '2rem' } }}>
-                {stats.activeProjects}
-              </Typography>
-              <Typography variant="body2" color="textSecondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                Aktif Projeler
-              </Typography>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Card 
-              sx={{ 
-                borderRadius: 2, 
-                textAlign: 'center', 
-                p: { xs: 1.5, sm: 2 },
-                cursor: 'pointer',
-                '&:hover': { boxShadow: 4 },
-                transition: 'all 0.2s ease-in-out'
-              }}
-              onClick={() => handleNavigate('/dashboard/users')}
-            >
-              <PersonIcon sx={{ fontSize: { xs: 32, sm: 40 }, color: 'success.main', mb: 1 }} />
-              <Typography variant="h4" sx={{ fontWeight: 700, color: 'success.main', fontSize: { xs: '1.5rem', sm: '2rem' } }}>
-                {stats.technicalTeam}
-              </Typography>
-              <Typography variant="body2" color="textSecondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                Teknik Ekip
-              </Typography>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Card 
-              sx={{ 
-                borderRadius: 2, 
-                textAlign: 'center', 
-                p: { xs: 1.5, sm: 2 },
-                cursor: 'pointer',
-                '&:hover': { boxShadow: 4 },
-                transition: 'all 0.2s ease-in-out'
-              }}
-              onClick={() => handleNavigate('/dashboard/service-operations')}
-            >
-              <NotificationsIcon sx={{ fontSize: { xs: 32, sm: 40 }, color: 'warning.main', mb: 1 }} />
-              <Typography variant="h4" sx={{ fontWeight: 700, color: 'warning.main', fontSize: { xs: '1.5rem', sm: '2rem' } }}>
-                {stats.pendingOperations}
-              </Typography>
-              <Typography variant="body2" color="textSecondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                Bekleyen İşlemler
-              </Typography>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Card 
-              sx={{ 
-                borderRadius: 2, 
-                textAlign: 'center', 
-                p: { xs: 1.5, sm: 2 },
-                cursor: 'pointer',
-                '&:hover': { boxShadow: 4 },
-                transition: 'all 0.2s ease-in-out'
-              }}
-              onClick={() => handleNavigate('/dashboard/reports')}
-            >
-              <CheckCircleIcon sx={{ fontSize: { xs: 32, sm: 40 }, color: 'info.main', mb: 1 }} />
-              <Typography variant="h4" sx={{ fontWeight: 700, color: 'info.main', fontSize: { xs: '1.5rem', sm: '2rem' } }}>
-                {stats.successRate}%
-              </Typography>
-              <Typography variant="body2" color="textSecondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                Başarı Oranı
-              </Typography>
-            </Card>
-          </Grid>
-        </Grid>
-
-        {/* Snackbar for notifications */}
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={4000}
-          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        >
-          <Alert 
-            onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} 
-            severity={snackbar.severity}
-            sx={{ borderRadius: 2 }}
-          >
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
       </Box>
-    </Layout>
-  );
-};
+    );
+  }
 
-export default DashboardPage;
+  // Bu noktaya ulaşılmamalı, ama güvenlik için
+  return (
+    <Box 
+      display="flex" 
+      justifyContent="center" 
+      alignItems="center" 
+      minHeight="100vh"
+      sx={{ p: 3 }}
+    >
+      <CircularProgress />
+    </Box>
+  );
+}

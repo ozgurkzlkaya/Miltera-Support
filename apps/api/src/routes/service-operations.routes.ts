@@ -1,6 +1,7 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { createRoute, z } from "@hono/zod-openapi";
 import ServiceOperationsController from "../controllers/service-operations.controller";
+import { serviceOperationsService } from "../services/service-operations.service";
 import type { HonoEnv } from "../config/env";
 // import { authMiddleware } from "../middlewares/auth.middleware";
 
@@ -394,7 +395,7 @@ serviceOperationsRouter.openapi(getServiceOperationRoute, ServiceOperationsContr
 serviceOperationsRouter.openapi(updateServiceOperationRoute, ServiceOperationsController.update);
 serviceOperationsRouter.openapi(deleteServiceOperationRoute, ServiceOperationsController.delete);
 serviceOperationsRouter.openapi(getTechnicianPerformanceRoute, ServiceOperationsController.getTechnicianPerformance);
-// serviceOperationsRouter.openapi(getAllTechniciansPerformanceRoute, ServiceOperationsController.getAllTechniciansPerformance);
+serviceOperationsRouter.openapi(getAllTechniciansPerformanceRoute, ServiceOperationsController.getAllTechniciansPerformance);
 serviceOperationsRouter.openapi(getNonWarrantyOperationsRoute, ServiceOperationsController.getNonWarrantyOperations);
 
 // Simple test endpoint
@@ -402,11 +403,41 @@ serviceOperationsRouter.get('/simple-test', (c) => {
   return c.json({ message: 'Simple test working' });
 });
 
-// Simple technician performance endpoint
-serviceOperationsRouter.get('/technician-performance', async (c) => {
+// Simple technician performance endpoint (fallback)
+serviceOperationsRouter.get('/technician-performance-simple', async (c) => {
   try {
-    const performance = await ServiceOperationsController.getAllTechniciansPerformance(c);
-    return performance;
+    // Basit mock data döndür
+    const mockPerformance = [
+      {
+        technicianId: 'tech-001',
+        technicianName: 'Ahmet Yılmaz',
+        totalOperations: 45,
+        completedOperations: 42,
+        averageDuration: 120,
+        totalCost: 15000,
+        successRate: 93.3
+      },
+      {
+        technicianId: 'tech-002',
+        technicianName: 'Mehmet Demir',
+        totalOperations: 38,
+        completedOperations: 35,
+        averageDuration: 95,
+        totalCost: 12000,
+        successRate: 92.1
+      },
+      {
+        technicianId: 'tech-003',
+        technicianName: 'Ayşe Kaya',
+        totalOperations: 52,
+        completedOperations: 48,
+        averageDuration: 110,
+        totalCost: 18000,
+        successRate: 92.3
+      }
+    ];
+    
+    return c.json({ success: true, data: mockPerformance });
   } catch (error) {
     console.error('Error in simple technician performance endpoint:', error);
     return c.json({ success: false, error: 'Internal server error' }, 500);

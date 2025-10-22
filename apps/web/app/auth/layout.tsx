@@ -18,27 +18,22 @@ const AuthLayout = ({ children }: { children: React.ReactNode }) => {
         flexDirection: "column",
       }}
     >
-      {auth.isLoading ? (
-        <CircularProgress />
-      ) : (
-        <>
-          <Box sx={{ mb: 3 }}>
-            <Image
-              src="/miltera-logo.png"
-              alt="Miltera Logo"
-              width={150}
-              height={26}
-              style={{
-                width: "auto",
-                height: "auto",
-                maxWidth: "100%",
-              }}
-              priority
-            />
-          </Box>
-          {children}
-        </>
-      )}
+      {/* Auth loading kontrolünü kaldır - direkt children render et */}
+      <Box sx={{ mb: 3 }}>
+        <Image
+          src="/miltera-logo.png"
+          alt="Miltera Logo"
+          width={150}
+          height={26}
+          style={{
+            width: "auto",
+            height: "auto",
+            maxWidth: "100%",
+          }}
+          priority
+        />
+      </Box>
+      {children}
     </Container>
   );
 };

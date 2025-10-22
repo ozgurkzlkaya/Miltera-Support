@@ -1,6 +1,6 @@
 "use client";
 
-import { Box, Typography, Button, Card, CardContent, Grid, Chip, Avatar, IconButton, Tooltip, Alert, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions, TextField, FormControl, InputLabel, Select, MenuItem } from "@mui/material";
+import { Box, Typography, Button, Card, CardContent, Grid, Chip, Avatar, IconButton, Tooltip, Alert, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions, TextField, FormControl, InputLabel, Select, MenuItem, Snackbar } from "@mui/material";
 import { useState, useEffect } from "react";
 import { 
   Add as AddIcon, 
@@ -10,7 +10,9 @@ import {
   Email as EmailIcon,
   Business as BusinessIcon,
   Security as SecurityIcon,
-  Search as SearchIcon
+  Search as SearchIcon,
+  GetApp as GetAppIcon,
+  Refresh as RefreshIcon
 } from "@mui/icons-material";
 import { useAuth } from "../../../features/auth/useAuth";
 import { Layout } from "../../../components/Layout";
@@ -73,6 +75,15 @@ const UsersPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error';
+  }>({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
 
   // Helper functions for role display
   const getRoleLabel = (role: string) => {
@@ -139,6 +150,92 @@ const UsersPage = () => {
 
     loadUsers();
   }, []);
+
+  // Export users to CSV
+  const handleExportUsers = () => {
+    try {
+      const csvData = [
+        ['=== KULLANICI LİSTESİ ==='],
+        [''],
+        ['ID', 'Ad', 'Soyad', 'E-posta', 'Rol', 'Durum', 'E-posta Doğrulandı', 'Oluşturulma Tarihi'],
+        ...filteredUsers.map((user: any) => [
+          user.id,
+          user.firstName || '',
+          user.lastName || '',
+          user.email || '',
+          getRoleLabel(user.role),
+          user.isActive ? 'Aktif' : 'Pasif',
+          user.emailVerified ? 'Evet' : 'Hayır',
+          new Date(user.createdAt).toLocaleDateString('tr-TR')
+        ])
+      ];
+
+      // CSV string oluştur
+      const csvString = csvData.map(row => row.join(',')).join('\n');
+      
+      // BOM ekle (Türkçe karakterler için)
+      const BOM = '\uFEFF';
+      const csvWithBOM = BOM + csvString;
+
+      // Blob oluştur ve indir
+      const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `kullanicilar-${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      setSnackbar({
+        open: true,
+        message: 'Kullanıcı listesi başarıyla dışa aktarıldı',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      setSnackbar({
+        open: true,
+        message: 'Dışa aktarma sırasında hata oluştu',
+        severity: 'error'
+      });
+    }
+  };
+
+  // Refresh users
+  const handleRefreshUsers = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const token = localStorage.getItem('auth_token');
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` })
+      };
+
+      const response = await fetch('http://localhost:3015/api/v1/users', { headers });
+      if (response.ok) {
+        const data = await response.json();
+        setUsers(data.data || []);
+        setSnackbar({
+          open: true,
+          message: 'Kullanıcı listesi güncellendi',
+          severity: 'success'
+        });
+      } else {
+        throw new Error('Kullanıcılar yüklenemedi');
+      }
+    } catch (error) {
+      console.error('Error refreshing users:', error);
+      setError('Kullanıcılar yüklenirken hata oluştu');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Check if user is admin
   if (!auth?.user || auth.user.role !== "ADMIN") {
@@ -334,14 +431,34 @@ const UsersPage = () => {
         <Typography variant="h4" component="h1" gutterBottom>
           Kullanıcı Yönetimi
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleAddUser}
-          sx={{ borderRadius: 2 }}
-        >
-          Yeni Kullanıcı
-        </Button>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={handleRefreshUsers}
+            disabled={isLoading}
+            sx={{ borderRadius: 2 }}
+          >
+            Yenile
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<GetAppIcon />}
+            onClick={handleExportUsers}
+            disabled={isLoading}
+            sx={{ borderRadius: 2 }}
+          >
+            Dışa Aktar
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleAddUser}
+            sx={{ borderRadius: 2 }}
+          >
+            Yeni Kullanıcı
+          </Button>
+        </Box>
       </Box>
 
       {/* Search and Filter Bar */}
@@ -710,6 +827,20 @@ const UsersPage = () => {
           <Button onClick={handleSubmitEdit} variant="contained">Güncelle</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert 
+          severity={snackbar.severity}
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
 
       </Box>
     </Layout>

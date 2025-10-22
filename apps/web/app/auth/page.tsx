@@ -46,15 +46,15 @@ export default function AuthPage() {
   // useLogin hook'unu kullan
   const loginMutation = useLogin();
   
-  // Form data states
+  // Form data states - Test kullanıcıları
   const [loginData, setLoginData] = useState<LoginFormData>({
-    email: "admin@miltera.com",
-    password: "Admin123!"
+    email: "admin@miltera.com.tr",
+    password: "admin123"
   });
   
   const [signUpData, setSignUpData] = useState<SignUpFormData>({
-    email: "admin@miltera.com",
-    password: "Admin123!",
+    email: "admin@miltera.com.tr",
+    password: "admin123",
     name: "Admin User"
   });
 
@@ -336,11 +336,55 @@ export default function AuthPage() {
             </Box>
           )}
 
-          {/* Test Info */}
+          {/* Test Kullanıcıları */}
           <Box sx={{ mt: 4, p: 2, bgcolor: "grey.50", borderRadius: 1 }}>
-            <Typography variant="caption" color="text.secondary" display="block" textAlign="center">
-              Test için hazır kullanıcı: testuser6@gmail.com / OZGUR2004
+            <Typography variant="subtitle2" gutterBottom textAlign="center">
+              Test Kullanıcıları
             </Typography>
+            <Stack spacing={1}>
+              <Button
+                variant="outlined"
+                size="small"
+                fullWidth
+                onClick={() => {
+                  setLoginData({
+                    email: "admin@miltera.com.tr",
+                    password: "admin123"
+                  });
+                  setTabValue(0);
+                }}
+              >
+                👑 Admin Girişi
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                fullWidth
+                onClick={() => {
+                  setLoginData({
+                    email: "tsp@miltera.com.tr",
+                    password: "tsp123"
+                  });
+                  setTabValue(0);
+                }}
+              >
+                🔧 TSP Girişi
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                fullWidth
+                onClick={() => {
+                  setLoginData({
+                    email: "musteri@testmusteri.com",
+                    password: "musteri123"
+                  });
+                  setTabValue(0);
+                }}
+              >
+                👤 Müşteri Girişi
+              </Button>
+            </Stack>
           </Box>
         </CardContent>
       </Card>

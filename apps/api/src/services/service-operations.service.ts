@@ -477,7 +477,7 @@ export class ServiceOperationsService {
     try {
       console.log('Getting all technicians performance...');
       
-      // Basit yaklaşım - sadece mevcut service operations'ları say
+      // Basit yaklaşım - tüm service operations'ları al
       const allOperations = await db
         .select()
         .from(serviceOperations);
@@ -491,34 +491,42 @@ export class ServiceOperationsService {
       const performanceData = [];
 
       for (const technicianId of technicianIds) {
-        // Bu teknisyenin operasyonlarını filtrele
-        const techOperations = allOperations.filter(op => op.technicianId === technicianId);
-        
-        // Teknisyen bilgilerini al
-        const technician = await db
-      .select({
-            id: users.id,
-            firstName: users.firstName,
-            lastName: users.lastName
-          })
-          .from(users)
-          .where(eq(users.id, technicianId))
-          .limit(1);
+        try {
+          // Bu teknisyenin operasyonlarını filtrele
+          const techOperations = allOperations.filter(op => op.technicianId === technicianId);
+          
+          // Teknisyen bilgilerini al
+          const technician = await db
+            .select({
+              id: users.id,
+              firstName: users.firstName,
+              lastName: users.lastName
+            })
+            .from(users)
+            .where(eq(users.id, technicianId))
+            .limit(1);
 
-        const tech = technician[0];
-        const completedOps = techOperations.filter(op => op.status === 'COMPLETED');
-        const totalCost = techOperations.reduce((sum, op) => sum + (op.cost || 0), 0);
-        const totalDuration = techOperations.reduce((sum, op) => sum + (op.duration || 0), 0);
-        const avgDuration = techOperations.length > 0 ? totalDuration / techOperations.length : 0;
+          const tech = technician[0];
+          const completedOps = techOperations.filter(op => op.status === 'COMPLETED');
+          const totalCost = techOperations.reduce((sum, op) => sum + (typeof op.cost === 'string' ? parseFloat(op.cost) || 0 : op.cost || 0), 0);
+          const totalDuration = techOperations.reduce((sum, op) => sum + (op.duration || 0), 0);
+          const avgDuration = techOperations.length > 0 ? totalDuration / techOperations.length : 0;
 
-        performanceData.push({
-          technicianId: technicianId,
-          technicianName: tech ? `${tech.firstName} ${tech.lastName}` : 'Bilinmeyen Teknisyen',
-          totalOperations: techOperations.length,
-          completedOperations: completedOps.length,
-          averageDuration: Math.round(avgDuration),
-          totalCost: totalCost
-        });
+          const successRate = techOperations.length > 0 ? (completedOps.length / techOperations.length) * 100 : 0;
+
+          performanceData.push({
+            technicianId: technicianId,
+            technicianName: tech ? `${tech.firstName} ${tech.lastName}` : 'Bilinmeyen Teknisyen',
+            totalOperations: techOperations.length,
+            completedOperations: completedOps.length,
+            averageDuration: Math.round(avgDuration),
+            totalCost: totalCost,
+            successRate: Math.round(successRate * 10) / 10 // 1 decimal place
+          });
+        } catch (techError) {
+          console.error(`Error processing technician ${technicianId}:`, techError);
+          // Bu teknisyen için hata olsa bile devam et
+        }
       }
 
       console.log('Performance data calculated:', performanceData.length);

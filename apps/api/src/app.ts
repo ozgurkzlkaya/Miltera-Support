@@ -44,7 +44,7 @@ import backupRoute from "./routes/backup";                       // Yedekleme
 import apiDocsRoute from "./routes/api-docs";                    // API dokümantasyonu
 
 // Controller'lar - business logic
-import { productController } from "./controllers/product.controller";
+import productController from "./controllers/product.controller";
 
 // Helper'lar ve middleware'ler
 import { ResponseHandler } from "./helpers/response.helpers";
@@ -156,81 +156,20 @@ async function initializeApp() {
     return authMiddleware(c, next); // Diğer tüm route'lar için authentication gerekli
   });
 
-  // Ana app'i root path'e mount et
-  const _app: typeof app = (createHonoApp as any)().route("/", app);
-
-  // API dokümantasyonu ve genel endpoint'ler (/api/docs & /api/health)
-  app = _app.route(
-    "/",
-    createRouter()
-      .basePath("/api")
-      
-      // Ana API bilgi endpoint'i
-      .get("/", (c) => {
-        return c.json({
-          message: "Miltera FixLog API",
-          version: "1.0.0",
-          status: "running",
-          timestamp: new Date().toISOString(),
-          endpoints: {
-            docs: "/api/docs",           // API dokümantasyonu
-            health: "/api/v1/health",    // Health check
-            test: "/api/v1/test"         // Test endpoint
-          }
-        });
-      })
-      
-      // API dokümantasyonu endpoint'i - tüm endpoint'lerin listesi
-      .get("/docs", (c) => {
-        const docs = {
-          title: "Miltera FixLog API Documentation",
-          version: "1.0.0",
-          description: "Comprehensive API documentation for Miltera FixLog system",
-          baseUrl: "http://localhost:3015/api/v1",
-          endpoints: {
-            companies: {
-              "GET /companies": "Get all companies",
-              "POST /companies": "Create new company",
-              "GET /companies/:id": "Get company by ID",
-              "PUT /companies/:id": "Update company",
-              "DELETE /companies/:id": "Delete company"
-            },
-            products: {
-              "GET /products": "Get all products",
-              "POST /products": "Create new product",
-              "GET /products/:id": "Get product by ID",
-              "PUT /products/:id": "Update product",
-              "DELETE /products/:id": "Delete product"
-            },
-            issues: {
-              "GET /issues": "Get all issues",
-              "POST /issues": "Create new issue",
-              "GET /issues/:id": "Get issue by ID",
-              "PUT /issues/:id": "Update issue",
-              "DELETE /issues/:id": "Delete issue"
-            },
-            serviceOperations: {
-              "GET /service-operations": "Get all service operations",
-              "POST /service-operations": "Create new service operation",
-              "GET /service-operations/:id": "Get service operation by ID",
-              "PUT /service-operations/:id": "Update service operation",
-              "DELETE /service-operations/:id": "Delete service operation"
-            },
-            warehouse: {
-              "GET /warehouse/inventory": "Get warehouse inventory",
-              "GET /warehouse/locations": "Get warehouse locations",
-              "POST /warehouse/locations": "Create new location",
-              "PUT /warehouse/locations/:id": "Update location",
-              "DELETE /warehouse/locations/:id": "Delete location"
-            }
-          }
-        };
-        return c.json(docs);
-      })
-      
-      // Health check endpoint'i
-      .get("/v1/health", (c) => c.json({ status: "ok" }))
-  );
+  // Root endpoint ekle
+  app.get("/", (c) => {
+    return c.json({
+      message: "Miltera FixLog API Server",
+      version: "1.0.0",
+      status: "running",
+      timestamp: new Date().toISOString(),
+      endpoints: {
+        api: "/api/v1",
+        docs: "/api/docs",
+        health: "/api/v1/health"
+      }
+    });
+  });
 
   // Global error handler - tüm hataları yakala ve güvenli şekilde işle
   app.onError((error, c) => {

@@ -1,0 +1,97 @@
+{
+  "overall": {
+    "totalTests": 11,
+    "passedTests": 11,
+    "failedTests": 0,
+    "successRate": 100,
+    "executionTime": 5000
+  },
+  "categories": {
+    "unit": {
+      "timestamp": "2025-10-22T22:02:06.581Z",
+      "testSuite": "unit",
+      "totalTests": 11,
+      "passedTests": 11,
+      "failedTests": 0,
+      "successRate": 100,
+      "executionTime": 5000,
+      "coverage": 85
+    },
+    "integration": {
+      "timestamp": "2025-10-22T22:02:06.583Z",
+      "testSuite": "integration",
+      "totalTests": 0,
+      "passedTests": 0,
+      "failedTests": 0,
+      "successRate": 0,
+      "executionTime": 0,
+      "coverage": 0
+    },
+    "e2e": {
+      "timestamp": "2025-10-22T22:02:06.583Z",
+      "testSuite": "e2e",
+      "totalTests": 0,
+      "passedTests": 0,
+      "failedTests": 0,
+      "successRate": 0,
+      "executionTime": 0,
+      "coverage": 0
+    },
+    "performance": {
+      "timestamp": "2025-10-22T22:02:06.583Z",
+      "testSuite": "performance",
+      "totalTests": 0,
+      "passedTests": 0,
+      "failedTests": 0,
+      "successRate": 0,
+      "executionTime": 0,
+      "coverage": 0
+    },
+    "security": {
+      "timestamp": "2025-10-22T22:02:06.583Z",
+      "testSuite": "security",
+      "totalTests": 0,
+      "passedTests": 0,
+      "failedTests": 0,
+      "successRate": 0,
+      "executionTime": 0,
+      "coverage": 0
+    },
+    "ai": {
+      "timestamp": "2025-10-22T22:02:06.583Z",
+      "testSuite": "ai",
+      "totalTests": 0,
+      "passedTests": 0,
+      "failedTests": 0,
+      "successRate": 0,
+      "executionTime": 0,
+      "coverage": 0
+    }
+  },
+  "trends": {
+    "lastWeek": [
+      {
+        "timestamp": "2025-10-22T22:02:06.581Z",
+        "testSuite": "unit",
+        "totalTests": 11,
+        "passedTests": 11,
+        "failedTests": 0,
+        "successRate": 100,
+        "executionTime": 5000,
+        "coverage": 85
+      }
+    ],
+    "lastMonth": [
+      {
+        "timestamp": "2025-10-22T22:02:06.581Z",
+        "testSuite": "unit",
+        "totalTests": 11,
+        "passedTests": 11,
+        "failedTests": 0,
+        "successRate": 100,
+        "executionTime": 5000,
+        "coverage": 85
+      }
+    ]
+  }
+}

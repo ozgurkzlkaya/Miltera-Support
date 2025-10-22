@@ -1,3 +1,26 @@
+/**
+ * Miltera Fixlog Frontend - API Client
+ * 
+ * Bu dosya, frontend'den backend API'ye yapılan tüm HTTP isteklerini yönetir.
+ * Type-safe API client ile güvenli ve tutarlı API iletişimi sağlar.
+ * 
+ * Ana Özellikler:
+ * - Type-safe API requests (Zod validation)
+ * - JWT token tabanlı authentication
+ * - Error handling ve retry logic
+ * - Request/Response interceptors
+ * - API response validation
+ * - Dashboard analytics endpoints
+ * - CRUD operations için generic methods
+ * - File upload/download support
+ * 
+ * Kullanım:
+ * - Tüm API istekleri bu client üzerinden yapılır
+ * - Zod schema'lar ile type safety
+ * - Automatic token management
+ * - Centralized error handling
+ */
+
 import { z } from 'zod';
 
 // API Response schemas

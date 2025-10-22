@@ -1,3 +1,24 @@
+/**
+ * Miltera Fixlog Frontend - Authentication Provider
+ * 
+ * Bu component, tüm uygulama genelinde authentication state'ini yönetir.
+ * React Context API kullanarak kullanıcı giriş durumunu ve bilgilerini sağlar.
+ * 
+ * Ana Özellikler:
+ * - JWT token tabanlı authentication
+ * - LocalStorage ile session persistence
+ * - WebSocket bağlantı yönetimi
+ * - Authentication state management
+ * - User profile bilgileri
+ * - Role-based access control
+ * - Auto-logout ve session timeout
+ * 
+ * Kullanım:
+ * - Tüm protected component'ler bu provider'ı kullanır
+ * - useAuth hook ile authentication state'ine erişim
+ * - WebSocket bağlantısı authentication ile senkronize
+ */
+
 "use client";
 
 import { createContext, useEffect, useState, useRef } from "react";
@@ -27,6 +48,7 @@ type AuthProviderProps = {
 };
 
 const AuthProvider = ({ children }: AuthProviderProps) => {
+  // Başlangıçta loading true olsun ki yanlış yönlendirme olmasın
   const [auth, setAuth] = useState<Auth>({ isLoading: true, isAuthenticated: false, user: null });
   const isCheckingRef = useRef(false);
 

@@ -1,4 +1,15 @@
-import { nextJsConfig } from "@miltera/eslint-config/next-js";
-
 /** @type {import("eslint").Linter.Config} */
-export default nextJsConfig;
+export default {
+  extends: [
+    "next/core-web-vitals",
+    "eslint:recommended",
+    "@typescript-eslint/recommended"
+  ],
+  parser: "@typescript-eslint/parser",
+  plugins: ["@typescript-eslint"],
+  rules: {
+    "@typescript-eslint/no-unused-vars": "warn",
+    "@typescript-eslint/no-explicit-any": "warn",
+    "prefer-const": "warn"
+  }
+};

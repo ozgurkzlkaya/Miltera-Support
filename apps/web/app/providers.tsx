@@ -62,39 +62,16 @@ const defaultTheme = createTheme({
  * 5. Error handling yapar
  */
 export default function Providers({ locale, children }: ProvidersProps) {
-  // Client-side rendering kontrolü için state'ler
-  const [queryClient, setQueryClient] = useState<any>(null);
-  const [isClient, setIsClient] = useState(false);
-
-  // Component mount olduğunda client-side işlemleri yap
-  useEffect(() => {
-    setIsClient(true);
+  // QueryClient'i senkron başlat – Loading kilidini önler
+  const [queryClient] = useState<any>(() => {
     try {
-      // React Query client'ini oluştur
-      const client = getQueryClient();
-      setQueryClient(client);
+      return getQueryClient();
     } catch (error) {
-      console.error('Failed to create query client:', error);
-      // Fallback query client oluştur
+      // Fallback: dinamik import ile QueryClient oluştur
       const { QueryClient } = require('@tanstack/react-query');
-      setQueryClient(new QueryClient());
+      return new QueryClient();
     }
-  }, []);
-
-  // Client-side hydration tamamlanana kadar loading göster
-  if (!isClient || !queryClient) {
-    return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh',
-        fontSize: '18px'
-      }}>
-        Loading...
-      </div>
-    );
-  }
+  });
 
   // Tüm provider'ları sarmala - sıralama önemli!
   return (

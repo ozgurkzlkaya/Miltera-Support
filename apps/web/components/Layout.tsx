@@ -68,7 +68,7 @@ import {
 } from "@mui/icons-material";
 
 // React hooks ve Next.js navigation
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import GlobalSearch from "./GlobalSearch";
 import AdvancedNotificationBell from "./AdvancedNotificationBell";
@@ -99,6 +99,53 @@ export const Layout = ({ title, children }: LayoutProps) => {
     setMobileOpen(!mobileOpen);
   };
 
+  // Rol bazlı navigation menüsü
+  const getNavigationItems = () => {
+    const userRole = auth.user?.role;
+    
+    const baseItems = [
+      { text: "Dashboard", icon: <DashboardIcon />, path: "/dashboard" },
+    ];
+
+    switch (userRole) {
+      case 'ADMIN':
+        return [
+          ...baseItems,
+          { text: "Kullanıcı Yönetimi", icon: <PeopleIcon />, path: "/dashboard/users" },
+          { text: "Sistem Ayarları", icon: <SettingsIcon />, path: "/dashboard/settings" },
+          { text: "Raporlama", icon: <AssessmentIcon />, path: "/dashboard/reports" },
+          { text: "Güvenlik", icon: <SettingsIcon />, path: "/dashboard/security" },
+          { text: "Backup", icon: <SettingsIcon />, path: "/dashboard/backup" },
+          { text: "Monitoring", icon: <TrendingUpIcon />, path: "/dashboard/monitoring" },
+        ];
+      
+      case 'TSP':
+        return [
+          ...baseItems,
+          { text: "Ürün Ekleme", icon: <InventoryIcon />, path: "/dashboard/products" },
+          { text: "Fabrikasyon Testi", icon: <BuildIcon />, path: "/dashboard/testing" },
+          { text: "Sevkiyat", icon: <ShippingIcon />, path: "/dashboard/shipments" },
+          { text: "Arıza Çözümü", icon: <BuildCircleIcon />, path: "/dashboard/issues" },
+          { text: "Servis Operasyonları", icon: <ServiceIcon />, path: "/dashboard/service-operations" },
+          { text: "Performans", icon: <TrendingUpIcon />, path: "/dashboard/tsp/performance" },
+        ];
+      
+      case 'CUSTOMER':
+        return [
+          ...baseItems,
+          { text: "Arıza Kaydı", icon: <BuildCircleIcon />, path: "/dashboard/customer/create-issue" },
+          { text: "Durum Takibi", icon: <TrendingUpIcon />, path: "/dashboard/customer/track-issues" },
+          { text: "Ürün Geçmişi", icon: <InventoryIcon />, path: "/dashboard/customer/product-history" },
+          { text: "Destek Talepleri", icon: <ServiceIcon />, path: "/dashboard/customer/support" },
+        ];
+      
+      default:
+        return baseItems;
+    }
+  };
+
+  const navigationItems = getNavigationItems();
+
   const handleNavigation = (path: string) => {
     router.push(path);
   };
@@ -117,6 +164,16 @@ export const Layout = ({ title, children }: LayoutProps) => {
     });
     handleAvatarClose();
   };
+
+  // Eğer oturum yoksa: token yoksa login'e yönlendir, token varsa AuthProvider senkronize olana kadar kısa loading göster
+  useEffect(() => {
+    if (!auth.isAuthenticated) {
+      const token = typeof window !== 'undefined' ? (localStorage.getItem('auth_token') || localStorage.getItem('authToken')) : null;
+      if (!token) {
+        router.replace('/auth');
+      }
+    }
+  }, [auth.isAuthenticated, router]);
 
   // Auth kontrolü - dashboard'a erişimi kontrol et
   if (auth.isLoading) {
@@ -140,90 +197,33 @@ export const Layout = ({ title, children }: LayoutProps) => {
   }
 
   if (!auth.isAuthenticated) {
-    return (
-      <Container
-        maxWidth="sm"
-        sx={{
-          minHeight: "100vh",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          flexDirection: "column",
-        }}
-      >
-        <Typography variant="h6" color="error">
-          Yetkisiz erişim
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          Giriş yapmanız gerekiyor
-        </Typography>
-      </Container>
-    );
+    const token = typeof window !== 'undefined' ? (localStorage.getItem('auth_token') || localStorage.getItem('authToken')) : null;
+    // Token varsa AuthProvider state oturana kadar kısa bir bekleme ekranı göster
+    if (token) {
+      return (
+        <Container
+          maxWidth="sm"
+          sx={{
+            minHeight: "100vh",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            flexDirection: "column",
+          }}
+        >
+          <CircularProgress />
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            Oturum doğrulanıyor...
+          </Typography>
+        </Container>
+      );
+    }
+    // Token yoksa, useEffect yönlendirme yapacak
+    return null;
   }
 
-  const menuItems = [
-    {
-      icon: <DashboardIcon />,
-      text: "Overview",
-      path: "/dashboard",
-    },
-    {
-      icon: <BuildIcon />,
-      text: "Products",
-      path: "/dashboard/products",
-    },
-    {
-      icon: <InventoryIcon />,
-      text: "Warehouse",
-      path: "/dashboard/warehouse",
-    },
-    {
-      icon: <BuildCircleIcon />,
-      text: "Service Operations",
-      path: "/dashboard/service-operations",
-    },
-    {
-      icon: <AssignmentIcon />,
-      text: "Issues",
-      path: "/dashboard/issues",
-    },
-    {
-      icon: <ShippingIcon />,
-      text: "Shipments",
-      path: "/dashboard/shipments",
-    },
-    {
-      icon: <AssessmentIcon />,
-      text: "Reports",
-      path: "/dashboard/reports",
-    },
-    {
-      icon: <TrendingUpIcon />,
-      text: "Analytics",
-      path: "/dashboard/analytics",
-    },
-
-    ...(auth?.user?.role !== "CUSTOMER"
-      ? [
-          {
-            icon: <BusinessIcon />,
-            text: "Companies",
-            path: "/dashboard/companies",
-          },
-        ]
-      : []),
-    
-    // Users menu - only for ADMIN role
-    ...(auth?.user?.role === "ADMIN"
-      ? [
-          {
-            icon: <PeopleIcon />,
-            text: "Users",
-            path: "/dashboard/users",
-          },
-        ]
-      : []),
-  ];
+  // Rol bazlı navigation items kullan
+  const menuItems = navigationItems;
 
   const drawer = (
     <>
@@ -253,14 +253,17 @@ export const Layout = ({ title, children }: LayoutProps) => {
       </Toolbar>
       <List>
         {menuItems.filter(Boolean).map((item, index) => (
-          <ListItem
+          <ListItemButton
             key={index}
-            onClick={() => handleNavigation(item.path)}
-            sx={{ cursor: "pointer" }}
+            component={Link}
+            href={item.path}
+            onClick={() => {
+              if (isMobile) setMobileOpen(false);
+            }}
           >
             <ListItemIcon>{item.icon}</ListItemIcon>
             <ListItemText primary={item.text} />
-          </ListItem>
+          </ListItemButton>
         ))}
       </List>
     </>

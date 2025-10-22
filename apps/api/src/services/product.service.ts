@@ -127,16 +127,35 @@ export class ProductService {
       }
     }
 
+    // Get current product to track changes
+    const currentProduct = await this.getProductById(productId);
+    if (!currentProduct) {
+      throw new Error('Ürün bulunamadı');
+    }
+
     const result = await db.update(products)
       .set({
         ...processedData,
-        updatedBy: 'ce2a6761-82e3-48ba-af33-2f49b4b73e35', // Admin user ID
+        updatedBy: processedData.updatedBy || 'ce2a6761-82e3-48ba-af33-2f49b4b73e35', // Use provided updatedBy or default admin
         updatedAt: new Date(),
       })
       .where(eq(products.id, productId))
       .returning();
     
-    return result[0];
+    const updatedProduct = result[0];
+    
+    // Create product history entry for location changes
+    if (processedData.hasOwnProperty('locationId') && processedData.locationId !== currentProduct.locationId) {
+      await this.createProductHistoryEntry(
+        productId,
+        'LOCATION_CHANGE',
+        processedData.updatedBy || 'ce2a6761-82e3-48ba-af33-2f49b4b73e35',
+        `Konum değişikliği: ${currentProduct.location?.name || 'Bilinmeyen'} → ${processedData.locationId ?? 'Müşteride'}`,
+        processedData.locationId
+      );
+    }
+    
+    return updatedProduct;
   }
 
   /**

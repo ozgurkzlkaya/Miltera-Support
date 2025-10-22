@@ -1,3 +1,25 @@
+/**
+ * Miltera Fixlog API - Authentication Library
+ * 
+ * Bu dosya, kullanıcı authentication ve yetkilendirme işlemlerini yönetir.
+ * JWT token tabanlı güvenli authentication sistemi sağlar.
+ * 
+ * Ana Özellikler:
+ * - Kullanıcı oluşturma ve doğrulama
+ * - JWT token generation ve verification
+ * - Password hashing (bcrypt)
+ * - User session management
+ * - Role-based access control
+ * - Password change operations
+ * - Account management
+ * 
+ * Güvenlik:
+ * - Bcrypt ile password hashing
+ * - JWT secret key ile token signing
+ * - Password strength validation
+ * - Session timeout management
+ */
+
 import { db } from "../db";
 import * as schema from "../db/schema";
 import { eq } from "drizzle-orm";
