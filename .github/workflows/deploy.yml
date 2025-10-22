@@ -9,7 +9,6 @@ jobs:
   deploy:
     name: 🚀 Deploy to Production
     runs-on: ubuntu-latest
-    needs: test
     
     steps:
       - name: 📥 Checkout code
